@@ -9,6 +9,8 @@ in whole rounds; transient SERVFAIL/REFUSED and transport errors fail over. NXDO
 returned as an authoritative upstream outcome and is not retried. Responses must match
 the question. A truncated UDP response retries using TCP within the same attempt deadline.
 
+Outbound EDNS advertises the actual 1232-byte receive capacity so large upstream answers
+can signal truncation and use TCP. IPv4 and IPv6 sockets bind independently.
 Client-facing UDP replies respect advertised size with a 1232-byte ceiling; ordinary
 queries use 512 bytes. Truncation allows the client to retry TCP. TCP answers are not
 artificially truncated. The total resolution deadline is five seconds. TCP reads/writes,

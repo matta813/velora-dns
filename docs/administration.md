@@ -21,3 +21,9 @@ must not change RELEASE. Announcement and growth jobs create reviewable artifact
 Required checks mirror the reference: release-logic, backend, frontend, build,
 Review dependency changes, Scan Go dependencies, Analyze (go), Analyze (javascript-typescript).
 No extra rulesets, environments, collaborators or release secrets existed in the reference.
+
+After the foundation exists, CI no longer skips checks based on missing manifests.
+Docker build is added as a required check for Velora's deployment contract. Project-specific
+monitoring descriptions and dependency vulnerability exceptions are not inherited; DNS
+metadata and actual dependency scans apply. Web commit sign-off is enabled, matching the
+reference repository. The release publication gate remains false.
