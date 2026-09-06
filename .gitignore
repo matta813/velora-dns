@@ -8,3 +8,7 @@
 *.db-wal
 coverage.out
 .env
+release.env
+__pycache__/
+release-notes*.json
+release-notes.md

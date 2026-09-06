@@ -1,0 +1,89 @@
+version: 2
+
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: daily
+      time: "04:00"
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      go-patches:
+        patterns: ["*"]
+        update-types: [patch]
+      go-minor:
+        patterns: ["*"]
+        update-types: [minor]
+      go-major:
+        patterns: ["*"]
+        update-types: [major]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: daily
+      time: "04:00"
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 5
+    versioning-strategy: increase-if-necessary
+    labels: [dependencies, frontend]
+    groups:
+      frontend-runtime-patches:
+        dependency-type: production
+        patterns: ["*"]
+        update-types: [patch]
+      frontend-development-patches:
+        dependency-type: development
+        patterns: ["*"]
+        update-types: [patch]
+      frontend-runtime-minor:
+        dependency-type: production
+        patterns: ["*"]
+        update-types: [minor]
+      frontend-development-minor:
+        dependency-type: development
+        patterns: ["*"]
+        update-types: [minor]
+      frontend-major:
+        patterns: ["*"]
+        update-types: [major]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: daily
+      time: "04:00"
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 5
+    labels: [dependencies, docker]
+    groups:
+      docker-patches:
+        patterns: ["*"]
+        update-types: [patch]
+      docker-minor:
+        patterns: ["*"]
+        update-types: [minor]
+      docker-major:
+        patterns: ["*"]
+        update-types: [major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+      time: "04:00"
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 5
+    labels: [dependencies, ci]
+    groups:
+      github-actions-patches:
+        patterns: ["*"]
+        update-types: [patch]
+      github-actions-minor:
+        patterns: ["*"]
+        update-types: [minor]
+      github-actions-major:
+        patterns: ["*"]
+        update-types: [major]
