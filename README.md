@@ -90,6 +90,7 @@ cache:
 http:
   listen: '127.0.0.1:8080'
   web_dir: web/dist
+  allowed_hosts: ['localhost', '127.0.0.1', '::1']
 database_path: data/velora.db
 log_level: info
 ```

@@ -23,6 +23,7 @@ curl -X DELETE -H 'Content-Type: application/json' http://127.0.0.1:8080/api/v1/
 
 Bodies are limited to 1 MiB, headers to 16 KiB, concurrent HTTP requests to 32, with read,
 write and idle timeouts. Cross-site browser requests and mismatched Origin are rejected.
+HTTP Host must match the configured allowlist to reject DNS rebinding.
 Cache mutation requires `application/json`. Reverse proxies should preserve the public
 Host and Origin consistently; no permissive CORS is provided.
 

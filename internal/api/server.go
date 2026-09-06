@@ -4,8 +4,10 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/matta813/velora-dns/internal/cache"
@@ -85,6 +87,29 @@ func New(d Dependencies) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+		host := r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		allowed := false
+		for _, candidate := range d.Config.HTTP.AllowedHosts {
+			if strings.EqualFold(host, candidate) {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			failure(w, 403, "forbidden_host", "Host is not allowed")
+			return
+		}
+		if expected, ok := map[string]string{"/health": "GET", "/ready": "GET", "/metrics": "GET", "/api/v1/status": "GET", "/api/v1/version": "GET", "/api/v1/stats": "GET", "/api/v1/config": "GET", "/api/v1/cache": "GET, DELETE"}[r.URL.Path]; ok {
+			methodAllowed := r.Method == "GET" || r.Method == "HEAD" || (r.URL.Path == "/api/v1/cache" && r.Method == "DELETE")
+			if !methodAllowed {
+				w.Header().Set("Allow", expected+", HEAD")
+				failure(w, 405, "method_not_allowed", "Method not allowed")
+				return
+			}
+		}
 		if r.ContentLength > 1<<20 {
 			failure(w, 413, "payload_too_large", "Request exceeds 1 MiB")
 			return

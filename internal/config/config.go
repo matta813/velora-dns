@@ -27,8 +27,9 @@ type Cache struct {
 	MaxEntries int `yaml:"max_entries" json:"max_entries"`
 }
 type HTTP struct {
-	Listen string `yaml:"listen" json:"listen"`
-	WebDir string `yaml:"web_dir" json:"web_dir"`
+	AllowedHosts []string `yaml:"allowed_hosts" json:"allowed_hosts"`
+	Listen       string   `yaml:"listen" json:"listen"`
+	WebDir       string   `yaml:"web_dir" json:"web_dir"`
 }
 type Config struct {
 	DNS          DNS    `yaml:"dns" json:"dns"`
@@ -39,7 +40,7 @@ type Config struct {
 }
 
 func Default() Config {
-	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist"}, DatabasePath: "data/velora.db", LogLevel: "info"}
+	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, DatabasePath: "data/velora.db", LogLevel: "info"}
 }
 func Load(path string) (Config, error) {
 	var data []byte
@@ -70,7 +71,7 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 			*target = v
 		}
 	}
-	for key, target := range map[string]*[]string{"DNS_LISTEN": &c.DNS.Listen, "DNS_UPSTREAMS": &c.DNS.Upstreams, "DNS_ALLOWED_CLIENTS": &c.DNS.AllowedClients} {
+	for key, target := range map[string]*[]string{"HTTP_ALLOWED_HOSTS": &c.HTTP.AllowedHosts, "DNS_LISTEN": &c.DNS.Listen, "DNS_UPSTREAMS": &c.DNS.Upstreams, "DNS_ALLOWED_CLIENTS": &c.DNS.AllowedClients} {
 		if v, ok := lookup("VELORA_" + key); ok {
 			*target = strings.Split(v, ",")
 			for i := range *target {
@@ -121,6 +122,14 @@ func (c Config) Validate() error {
 	if err := address(c.HTTP.Listen, true); err != nil {
 		return err
 	}
+	if len(c.HTTP.AllowedHosts) == 0 {
+		return fmt.Errorf("http.allowed_hosts cannot be empty")
+	}
+	for _, host := range c.HTTP.AllowedHosts {
+		if !validHost(host) {
+			return fmt.Errorf("invalid HTTP allowed host %q", host)
+		}
+	}
 	if len(c.DNS.AllowedClients) == 0 {
 		return fmt.Errorf("allowed_clients cannot be empty")
 	}
@@ -162,4 +171,24 @@ func address(a string, listen bool) error {
 		return fmt.Errorf("invalid IP in %q", a)
 	}
 	return nil
+}
+
+func validHost(host string) bool {
+	if _, err := netip.ParseAddr(host); err == nil {
+		return true
+	}
+	if len(host) == 0 || len(host) > 253 {
+		return false
+	}
+	for _, label := range strings.Split(host, ".") {
+		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, r := range label {
+			if !strings.ContainsRune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-", r) {
+				return false
+			}
+		}
+	}
+	return true
 }
