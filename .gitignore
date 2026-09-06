@@ -1,0 +1,10 @@
+/bin/
+/data/
+/web/node_modules/
+/web/dist/
+/configs/config.yaml
+*.db
+*.db-shm
+*.db-wal
+coverage.out
+.env
