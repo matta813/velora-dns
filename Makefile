@@ -1,4 +1,4 @@
-.PHONY: dev backend frontend install test lint build check docker-build docker-up release-test
+.PHONY: dev backend frontend install go-tools test lint build check docker-build docker-up release-test
 
 install:
 	npm --prefix web ci

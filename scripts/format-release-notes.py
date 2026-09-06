@@ -120,7 +120,7 @@ def render(metadata: dict) -> tuple[str, dict]:
     kind = "preview release" if "-" in version else "stable release"
     output = [f"# 🚀 Velora DNS {version}", "",
               f"We are pleased to announce Velora DNS {version}, the latest {kind} of Velora DNS!",
-              "This release improves PostgreSQL monitoring while keeping recommendations evidence-driven and operator-controlled.",
+              "This release improves self-hosted DNS operations with explicit behavior and operator control.",
               "Before upgrading, back up the Velora DNS data volume and keep the encryption key and administrator password available.",
               "", f"## Changelog ({len(included)})"]
     for category, heading in CATEGORIES.items():
