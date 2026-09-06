@@ -12,3 +12,4 @@ release.env
 __pycache__/
 release-notes*.json
 release-notes.md
+*.tsbuildinfo

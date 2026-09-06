@@ -1,0 +1,63 @@
+export interface Status {
+  ready: boolean;
+  uptime_seconds: number;
+  dns_listen: string[];
+  version: { version: string; commit: string; built: string };
+  capabilities: string[];
+}
+export interface Stats {
+  queries_total: number;
+  blocked_queries: number;
+  queries_per_second: number;
+  cache_hit_rate: number;
+}
+export interface Cache {
+  entries: number;
+  capacity: number;
+  hits: number;
+  misses: number;
+}
+export interface Config {
+  dns: {
+    listen: string[];
+    upstreams: string[];
+    allowed_clients: string[];
+    timeout: number;
+    retries: number;
+    max_concurrent: number;
+  };
+  cache: { max_entries: number };
+  http: { listen: string; web_dir: string };
+  log_level: string;
+}
+export interface Snapshot {
+  status: Status;
+  stats: Stats;
+  cache: Cache;
+  config: Config;
+  checked: Date;
+}
+export async function request<T>(
+  path: string,
+  signal?: AbortSignal,
+  method = "GET",
+): Promise<T> {
+  const response = await fetch(path, {
+    method,
+    signal,
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!response.ok)
+    throw new Error(`Management API returned HTTP ${response.status}`);
+  const body: { data: T } = await response.json();
+  return body.data;
+}
+export async function loadSnapshot(signal: AbortSignal): Promise<Snapshot> {
+  const [status, stats, cache, config] = await Promise.all([
+    request<Status>("/api/v1/status", signal),
+    request<Stats>("/api/v1/stats", signal),
+    request<Cache>("/api/v1/cache", signal),
+    request<Config>("/api/v1/config", signal),
+  ]);
+  return { status, stats, cache, config, checked: new Date() };
+}
