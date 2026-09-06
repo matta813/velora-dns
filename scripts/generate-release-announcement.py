@@ -31,13 +31,13 @@ Release title: {title}
 
 ## Short
 
-Velora DNS v{version} is available. It turns PostgreSQL telemetry into an operations inbox: problem, severity, evidence, impact, and next investigation. {release_url}
+Velora DNS v{version} is available. It provides self-hosted DNS forwarding with a bounded cache and a modern management foundation. {release_url}
 
 ## Community
 
 {title} is now available.
 
-Velora DNS is a self-hosted PostgreSQL monitoring and health analysis tool built around an operations inbox rather than a wall of graphs. Findings explain what is wrong, why it matters, the supporting evidence, and what an operator should investigate next.
+Velora DNS is an independent self-hosted DNS project built in Go with a React management interface. Refer to the release notes for the capabilities available in this version.
 
 Highlights in this release:
 
@@ -45,7 +45,7 @@ Highlights in this release:
 
 Read the release notes and upgrade guidance here: {release_url}
 
-Feedback from PostgreSQL operators is welcome in GitHub Discussions. If you try the release, practical reports about setup, findings, and investigation usefulness are especially valuable.
+Feedback from DNS operators is welcome in GitHub Discussions. If you try the release, practical reports about setup, DNS behavior, and management usability are especially valuable.
 
 ## GitHub Discussion
 
@@ -64,7 +64,9 @@ Full release notes: {release_url}
 New local installation:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/matta813/velora-dns/main/scripts/install-compose.sh | sh
+git clone https://github.com/matta813/velora-dns.git
+cd velora-dns
+docker compose up --build -d
 ```
 
 ## Upgrade
