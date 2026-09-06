@@ -1,0 +1,12 @@
+.git
+.github
+web/node_modules
+web/dist
+web/*.tsbuildinfo
+bin
+data
+.env
+configs/config.yaml
+coverage.out
+*.db*
+docs

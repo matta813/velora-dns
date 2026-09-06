@@ -1,0 +1,5 @@
+Velora DNS is licensed under the MIT License.
+
+Release automation and administrative workflow templates are adapted from PGSentinel.
+Copyright (c) 2026 pgsentinel contributors. Used under the MIT License; see LICENSE
+for the permission and warranty terms. DNS application logic is independent.
