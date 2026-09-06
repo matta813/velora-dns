@@ -58,7 +58,11 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 		defer done()
 		result = errors.Join(result, listener.Shutdown(shutdown))
 	}()
-	socket, err := net.Listen("tcp", c.HTTP.Listen)
+	httpNetwork := "tcp6"
+	if address, parseErr := netip.ParseAddrPort(c.HTTP.Listen); parseErr == nil && address.Addr().Is4() {
+		httpNetwork = "tcp4"
+	}
+	socket, err := net.Listen(httpNetwork, c.HTTP.Listen)
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}

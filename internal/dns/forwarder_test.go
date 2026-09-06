@@ -89,3 +89,27 @@ func TestSupportedRecords(t *testing.T) {
 		t.Fatal("unsafe type allowed")
 	}
 }
+
+func TestQuestionMatching(t *testing.T) {
+	q := new(wire.Msg)
+	q.SetQuestion("Example.Test.", wire.TypeA)
+	response := q.Copy()
+	response.Question[0].Name = "example.test."
+	if !sameQuestion(q, response) {
+		t.Fatal("case-insensitive question should match")
+	}
+	response.Question[0].Name = "different.test."
+	if sameQuestion(q, response) {
+		t.Fatal("different name matched")
+	}
+	response = q.Copy()
+	response.Question[0].Qtype = wire.TypeAAAA
+	if sameQuestion(q, response) {
+		t.Fatal("different type matched")
+	}
+	response = q.Copy()
+	response.Question[0].Qclass = wire.ClassCHAOS
+	if sameQuestion(q, response) {
+		t.Fatal("different class matched")
+	}
+}
