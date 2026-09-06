@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-logic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Test release automation
+        run: |
+          SKIP_REMOTE_CHECK=true ./scripts/validate-release.sh RELEASE
+          ./scripts/test-release.sh
+          ./scripts/test-release-notes.sh
+          ./scripts/test-release-announcement.sh
+          python3 ./scripts/test-weekly-growth-report.py
+          python3 ./scripts/check-markdown-links.py
+          ./scripts/test-github-workflows.sh
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        if: hashFiles('go.mod') != ''
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Check formatting
+        if: hashFiles('go.mod') != ''
+        run: test -z "$(find internal -name '*.go' -exec gofmt -l {} +)"
+      - name: Vet
+        if: hashFiles('go.mod') != ''
+        run: go vet ./...
+      - name: golangci-lint
+        if: hashFiles('go.mod') != ''
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.12.2
+      - name: Test
+        if: hashFiles('go.mod') != ''
+        run: go test -race -coverprofile=coverage.out ./...
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: hashFiles('go.mod') != ''
+        with:
+          name: backend-coverage
+          path: coverage.out
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        if: hashFiles('web/package-lock.json') != ''
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        if: hashFiles('web/package-lock.json') != ''
+      - run: npm run lint
+        if: hashFiles('web/package-lock.json') != ''
+      - run: npm run typecheck
+        if: hashFiles('web/package-lock.json') != ''
+      - run: npm test -- --run
+        if: hashFiles('web/package-lock.json') != ''
+      - run: npm run build
+        if: hashFiles('web/package-lock.json') != ''
+
+  build:
+    needs: [backend, frontend, release-logic]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        if: hashFiles('go.mod') != ''
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - run: CGO_ENABLED=0 go build -trimpath -o bin/velora-dns ./cmd/server
+        if: hashFiles('go.mod') != ''
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: hashFiles('go.mod') != ''
+        with:
+          name: velora-dns-linux-amd64
+          path: bin/velora-dns
