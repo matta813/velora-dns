@@ -88,14 +88,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
-        if: hashFiles('go.mod') != ''
+        if: hashFiles('cmd/server/main.go') != ''
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
       - run: CGO_ENABLED=0 go build -trimpath -o bin/velora-dns ./cmd/server
-        if: hashFiles('go.mod') != ''
+        if: hashFiles('cmd/server/main.go') != ''
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: hashFiles('go.mod') != ''
+        if: hashFiles('cmd/server/main.go') != ''
         with:
           name: velora-dns-linux-amd64
           path: bin/velora-dns

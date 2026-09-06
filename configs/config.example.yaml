@@ -1,0 +1,17 @@
+# Copy to configs/config.yaml and pass -config configs/config.yaml.
+# Defaults support local development. Production DNS can use 0.0.0.0:53 and '[::]:53'.
+# Restrict allowed_clients to your actual LAN; restrict management access with a firewall.
+dns:
+  listen: ['127.0.0.1:5353']
+  upstreams: ['1.1.1.1:53', '9.9.9.9:53']
+  allowed_clients: ['127.0.0.0/8', '::1/128']
+  timeout: 2s
+  retries: 1
+  max_concurrent: 256
+cache:
+  max_entries: 10000
+http:
+  listen: '127.0.0.1:8080'
+  web_dir: web/dist
+database_path: data/velora.db
+log_level: info
