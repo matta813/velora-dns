@@ -51,11 +51,12 @@ func TestRetryAndTCPFallback(t *testing.T) {
 		n := calls.Add(1)
 		m := new(wire.Msg)
 		m.SetReply(q)
-		if n == 1 {
+		switch n {
+		case 1:
 			m.Rcode = wire.RcodeServerFailure
-		} else if n == 2 {
+		case 2:
 			m.Truncated = true
-		} else {
+		default:
 			m.Answer = []wire.RR{&wire.TXT{Hdr: wire.RR_Header{Name: q.Question[0].Name, Rrtype: wire.TypeTXT, Class: wire.ClassINET, Ttl: 10}, Txt: []string{"ok"}}}
 		}
 		_ = w.WriteMsg(m)
