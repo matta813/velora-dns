@@ -1,0 +1,49 @@
+# Operational REST API
+
+Base path: `/api/v1`. Successful JSON responses contain `data`. Errors contain
+`error: {code, message}`. This unauthenticated development API belongs on a trusted
+management interface. One middleware boundary is reserved for future authentication.
+
+| Method | Path | Behavior |
+|---|---|---|
+| GET | /health | HTTP process liveness |
+| GET | /ready | 200 when SQLite and DNS are ready; otherwise 503 |
+| GET | /api/v1/status | Listener readiness, uptime, version and implemented capabilities |
+| GET | /api/v1/version | Build version, source commit and build timestamp |
+| GET | /api/v1/stats | Lifetime queries and rolling 60-second QPS; cache hit ratio |
+| GET | /api/v1/cache | Live entries, capacity, lifetime hits and misses |
+| DELETE | /api/v1/cache | Clear cached answers; preserve lifetime counters |
+| GET | /api/v1/config | Current config, excluding database path |
+| GET | /metrics | Prometheus exposition |
+
+```bash
+curl http://127.0.0.1:8080/api/v1/status
+curl -X DELETE -H 'Content-Type: application/json' http://127.0.0.1:8080/api/v1/cache
+```
+
+Bodies are limited to 1 MiB, headers to 16 KiB, concurrent HTTP requests to 32, with read,
+write and idle timeouts. Cross-site browser requests and mismatched Origin are rejected.
+Cache mutation requires `application/json`. Reverse proxies should preserve the public
+Host and Origin consistently; no permissive CORS is provided.
+
+Zones, record CRUD, blocklists, query log APIs and authentication are not implemented.
+Unknown API paths return 404. There is no wildcard route returning fabricated data.
+Config duration values serialize as nanoseconds. QPS is query count in the last 60
+seconds divided by 60; this includes the initial partial minute.
+
+## Metrics
+
+- `dns_queries_total{type,source,rcode}`
+- `dns_queries_blocked_total` (zero until filtering is implemented)
+- `dns_cache_hits_total`
+- `dns_cache_misses_total`
+- `dns_upstream_requests_total{upstream}`
+- `dns_upstream_errors_total{upstream}`
+- `dns_query_duration_seconds` (histogram)
+- `dns_cache_entries`
+
+Labels use only known query types, fixed pipeline sources, known response codes and
+configured upstream addresses. No domain or client-IP labels. Sources currently include
+`cache`, `upstream`, `refused`, `overload`; local and blocked resolution will be added with
+those features. Counter vectors appear after their first observation. Scrapes are limited
+to five concurrent requests. Prometheus should use a private management endpoint.

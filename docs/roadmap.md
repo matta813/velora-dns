@@ -4,16 +4,18 @@ Only checked items are implemented. Milestones describe targets, not release pro
 
 ## Phase 1 — MVP
 
-- [ ] UDP/TCP DNS and upstream forwarding
-- [ ] In-memory TTL cache
+- [x] UDP/TCP DNS and upstream forwarding
+- [x] In-memory TTL cache
 - [ ] Local authoritative zones and record CRUD
 - [ ] Blocklists, allowlists, wildcard matching, remote list updates
 - [ ] Query logging, retention, filters, top domains and clients
-- [ ] Versioned REST API
-- [ ] React management dashboard
-- [ ] SQLite persistence
-- [ ] Docker deployment
-- [ ] Prometheus metrics
+- [x] Versioned operational API (status/stats/cache/config)
+- [ ] Full management CRUD API
+- [x] React overview, cache and settings
+- [ ] Zones, blocklists and query history screens
+- [x] SQLite management foundation (schema metadata; domain persistence comes with features)
+- [x] Docker deployment
+- [x] Prometheus metrics
 
 ## Phase 2
 
