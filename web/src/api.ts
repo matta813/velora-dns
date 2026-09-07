@@ -37,13 +37,14 @@ export interface Snapshot {
   config: Config;
   checked: Date;
 }
-export interface BlocklistSource {
-  id: number;
-  name: string;
-  url: string;
-  enabled: boolean;
-  last_updated_at?: string;
-  last_error: string;
+export interface QueryLogEntry {
+  occurred_at: string;
+  client_ip: string;
+  domain: string;
+  type: string;
+  rcode: string;
+  duration: number;
+  source: string;
 }
 export class APIError extends Error {
   constructor(
