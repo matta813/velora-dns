@@ -1,6 +1,6 @@
-# Foundation validation
+# Development validation
 
-Validated locally on 2026-09-06 with Go 1.27.1 and Docker Engine 29.8.0.
+Validated locally on 2026-09-07 with Go 1.27.1 and Docker Engine 29.8.0.
 The project is a tested development foundation, not a production certification.
 
 | Area | Evidence |
@@ -11,8 +11,10 @@ The project is a tested development foundation, not a production certification.
 | Cache | TTL aging, expiry sweep, exact expiration, copy isolation, LRU capacity and flush |
 | Config | Strict YAML, environment overrides, bounds, host validation; over 58,000 fuzz executions without failure |
 | HTTP | Database/listener readiness, origin/Host protection, request limits and JSON method errors |
+| Local zones | Matching, SOA/NXDOMAIN/NODATA, CNAME chains/loops, nested zones, atomic snapshots, migration/reopen and optimistic revision tests |
+| Zone API | CRUD, ETag/If-Match, stale writers, record ownership, strict JSON and chunked payload limits |
 | Frontend | TypeScript, ESLint, Vitest/Testing Library and Vite production build pass |
-| Browser | Real desktop/mobile navigation, cache flush, settings route reload and no horizontal mobile overflow |
+| Browser | Real desktop/mobile navigation, cache flush, settings/zone route reload, zone/record CRUD, conflict handling and no horizontal mobile overflow |
 | Container | Compose build/start, healthy readiness, UID/GID 10001, read-only root, persistent private SQLite files after restart |
 | Live DNS | google.com A over UDP, AAAA over TCP, repeated A query served from cache |
 | Metrics | All required metric families observed; no domain or client-IP labels |
@@ -26,6 +28,8 @@ The CI workflow repeats backend/frontend checks and builds the container without
 it. CodeQL, dependency review and Go vulnerability scanning are separate required checks.
 Repository branch protection and release-disable state were checked through the GitHub API.
 
-Local authoritative zones, blocklists and query logging are not part of the foundation;
-their behavior and tests remain tracked in roadmap issues. Do not infer implementation
+Blocklists and query logging are not implemented;
+their behavior and tests remain tracked in roadmap issues. Local zone browser checks
+also verified real UDP/TCP answers, immediate changes and persistence across a Compose
+restart. The temporary test zone was removed; screenshots show that test fixture. Do not infer implementation
 from planned package names or future API descriptions.

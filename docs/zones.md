@@ -5,6 +5,14 @@ mutation. Zone configuration and records persist in SQLite; DNS queries use an i
 memory snapshot. Missing local names never go to public upstreams. See the
 [architecture decision](architecture/0003-local-zones.md) for authoritative semantics.
 
+## Dashboard
+
+Open `/zones` from the **Local zones** navigation. Create a zone, then add A, AAAA,
+CNAME, TXT, MX, NS or PTR records. The record table supports editing and confirmed
+deletion. Zone deletion requires confirmation and removes its records. Filter the
+zone list by name. Reload fetches the current revision; close an open editor first.
+Conflicts preserve the draft without overwriting another writer’s changes.
+
 ## Create a zone
 
 ```bash

@@ -87,8 +87,18 @@ export function Dashboard({
               </div>
               <i className="dot" />
             </li>
+            {data.status.capabilities.includes("local_zones") && (
+              <li>
+                <span>02</span>
+                <div>
+                  <strong>Local zones</strong>
+                  <p>Authoritative answers before forwarding</p>
+                </div>
+                <i className="dot" />
+              </li>
+            )}
             <li>
-              <span>02</span>
+              <span>03</span>
               <div>
                 <strong>Memory cache</strong>
                 <p>
@@ -99,7 +109,7 @@ export function Dashboard({
               <i className="dot" />
             </li>
             <li>
-              <span>03</span>
+              <span>04</span>
               <div>
                 <strong>Upstream forwarding</strong>
                 <p>{data.config.dns.upstreams.length} configured resolvers</p>
@@ -152,8 +162,9 @@ export function Dashboard({
             Under your control.
           </h2>
           <p>
-            Forwarding, a bounded TTL cache, and operational visibility. Local
-            zones, filtering, and query history are the next steps.
+            Local authoritative zones, forwarding, a bounded TTL cache, and
+            operational visibility. Filtering and query history are the next
+            steps.
           </p>
           <a href="https://github.com/matta813/velora-dns/issues">
             Explore the roadmap <ArrowUpRight size={16} />
