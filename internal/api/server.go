@@ -12,7 +12,6 @@ import (
 
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
-	"github.com/matta813/velora-dns/internal/filtering"
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/querylog"
 )
@@ -33,7 +32,7 @@ type Version struct {
 type Dependencies struct {
 	Database  Database
 	Zones     ZoneStore
-	Filtering *filtering.Service
+	Filtering BlocklistStore
 	Queries   QueryStore
 	DNS       DNS
 	Cache     *cache.Cache

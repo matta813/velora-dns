@@ -12,6 +12,7 @@ cache:
   max_entries: 10000
 filtering:
   # Wildcard rules include the domain and its subdomains. Exact allowlist entries win.
+  block_mode: NXDOMAIN  # NXDOMAIN or ZERO
   blocklist: ['ads.example', 'tracker.example']
   allowlist: ['status.ads.example']
 http:

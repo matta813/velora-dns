@@ -33,6 +33,8 @@ type Metrics struct {
 	requests, errors *prometheus.CounterVec
 	mu               sync.Mutex
 	total            uint64
+	blocked          uint64
+	blockedCounter   prometheus.Counter
 	buckets          [60]uint64
 	seconds          [60]int64
 	cache            *cache.Cache
@@ -45,7 +47,8 @@ func New(c *cache.Cache) *Metrics {
 	m.duration = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "dns_query_duration_seconds", Help: "DNS request duration.", Buckets: prometheus.DefBuckets})
 	m.requests = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "dns_upstream_requests_total", Help: "Upstream attempts including failures."}, []string{"upstream"})
 	m.errors = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "dns_upstream_errors_total", Help: "Failed upstream attempts."}, []string{"upstream"})
-	r.MustRegister(m.queries, m.duration, m.requests, m.errors, prometheus.NewGaugeFunc(prometheus.GaugeOpts{Name: "dns_cache_entries", Help: "Live cache entries."}, func() float64 { return float64(c.Stats().Entries) }), prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_cache_hits_total", Help: "Cache hits."}, func() float64 { return float64(c.Stats().Hits) }), prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_cache_misses_total", Help: "Cache misses."}, func() float64 { return float64(c.Stats().Misses) }), prometheus.NewCounter(prometheus.CounterOpts{Name: "dns_queries_blocked_total", Help: "Blocked requests; zero until filtering is implemented."}))
+	m.blockedCounter = prometheus.NewCounter(prometheus.CounterOpts{Name: "dns_queries_blocked_total", Help: "Queries blocked by DNS policy."})
+	r.MustRegister(m.queries, m.duration, m.requests, m.errors, prometheus.NewGaugeFunc(prometheus.GaugeOpts{Name: "dns_cache_entries", Help: "Live cache entries."}, func() float64 { return float64(c.Stats().Entries) }), prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_cache_hits_total", Help: "Cache hits."}, func() float64 { return float64(c.Stats().Hits) }), prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_cache_misses_total", Help: "Cache misses."}, func() float64 { return float64(c.Stats().Misses) }), m.blockedCounter)
 	return m
 }
 func (m *Metrics) Query(kind, source string, rcode int, elapsed time.Duration) {
@@ -58,6 +61,10 @@ func (m *Metrics) Query(kind, source string, rcode int, elapsed time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.total++
+	if source == "blocked" {
+		m.blocked++
+		m.blockedCounter.Inc()
+	}
 	now := time.Now().Unix()
 	i := now % 60
 	if m.seconds[i] != now {
@@ -88,7 +95,7 @@ func (m *Metrics) Snapshot() Snapshot {
 	if c.Hits+c.Misses > 0 {
 		rate = float64(c.Hits) / float64(c.Hits+c.Misses)
 	}
-	return Snapshot{Queries: m.total, QPS: float64(recent) / 60, CacheHitRate: rate}
+	return Snapshot{Queries: m.total, Blocked: m.blocked, QPS: float64(recent) / 60, CacheHitRate: rate}
 }
 func (m *Metrics) Handler() http.Handler {
 	return promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{MaxRequestsInFlight: 5, Timeout: 5 * time.Second})

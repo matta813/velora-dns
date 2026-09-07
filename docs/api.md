@@ -14,6 +14,12 @@ management interface. One middleware boundary is reserved for future authenticat
 | GET | /api/v1/cache | Live entries, capacity, lifetime hits and misses |
 | DELETE | /api/v1/cache | Clear cached answers; preserve lifetime counters |
 | GET | /api/v1/config | Current config, excluding database path |
+| GET | /api/v1/blocklists | Blocklist sources with domain counts and status |
+| POST | /api/v1/blocklists | Add an HTTP(S) or local blocklist source |
+| PUT | /api/v1/blocklists/{id} | Enable or disable a source |
+| PUT | /api/v1/blocklists/{id}/content | Replace a local source's domains |
+| POST | /api/v1/blocklists/{id}/update | Refresh a remote source, preserving prior rules on failure |
+| DELETE | /api/v1/blocklists/{id} | Remove a source and its domains |
 | GET | /metrics | Prometheus exposition |
 
 ```bash
@@ -29,8 +35,10 @@ Host and Origin consistently; no permissive CORS is provided.
 
 Zone and record CRUD are available; see the [zone API contract](zones.md).
 Query history is available via [the query logging API](query-logging.md).
-External sources support list/create/manual refresh under /api/v1/blocklists.
-Authentication is not implemented.
+Blocklist sources support add, enable/disable, manual content and refresh. Remote
+sources require public HTTP(S) URLs on ports 80/443 without credentials, fragments or
+redirects; downloads are bounded to 8 MiB with SSRF protection. A failed refresh retains
+the previous domains. Authentication is not implemented.
 Unknown API paths return 404. There is no wildcard route returning fabricated data.
 Config duration values serialize as nanoseconds. QPS is query count in the last 60
 seconds divided by 60; this includes the initial partial minute.
@@ -38,7 +46,7 @@ seconds divided by 60; this includes the initial partial minute.
 ## Metrics
 
 - `dns_queries_total{type,source,rcode}`
-- `dns_queries_blocked_total` (zero until filtering is implemented)
+- `dns_queries_blocked_total` (counts queries blocked by policy)
 - `dns_cache_hits_total`
 - `dns_cache_misses_total`
 - `dns_upstream_requests_total{upstream}`
@@ -48,6 +56,6 @@ seconds divided by 60; this includes the initial partial minute.
 
 Labels use only known query types, fixed pipeline sources, known response codes and
 configured upstream addresses. No domain or client-IP labels. Sources currently include
-`cache`, `upstream`, `refused`, `overload`; local and blocked resolution will be added with
-those features. Counter vectors appear after their first observation. Scrapes are limited
+`cache`, `upstream`, `refused`, `overload` and `blocked`. Counter vectors appear after
+their first observation. Scrapes are limited
 to five concurrent requests. Prometheus should use a private management endpoint.

@@ -13,6 +13,9 @@ The server prints structured errors and exits nonzero before reporting readiness
 | dns.retries | VELORA_DNS_RETRIES | 1 |
 | dns.max_concurrent | VELORA_DNS_MAX_CONCURRENT | 256 |
 | cache.max_entries | VELORA_CACHE_MAX_ENTRIES | 10000 |
+| filtering.block_mode | VELORA_FILTERING_BLOCK_MODE | (NXDOMAIN) |
+| filtering.blocklist | VELORA_FILTERING_BLOCKLIST | (empty) |
+| filtering.allowlist | VELORA_FILTERING_ALLOWLIST | (empty) |
 | http.listen | VELORA_HTTP_LISTEN | 127.0.0.1:8080 |
 | http.allowed_hosts | VELORA_HTTP_ALLOWED_HOSTS | localhost,127.0.0.1,::1 |
 | http.web_dir | VELORA_WEB_DIR | web/dist |
@@ -38,3 +41,8 @@ The default config file is a development example; it is not automatically loaded
 HTTP Host values must match `http.allowed_hosts` (ports are ignored). Add the exact
 management hostname or IP for a reverse proxy or LAN interface. Wildcards are rejected
 to prevent DNS rebinding from bypassing the loopback management boundary.
+
+`filtering.block_mode` selects the response for blocked names: `NXDOMAIN` (default) or
+`ZERO` (an all-zero A/AAAA answer). Wildcard blocklist entries match the domain and its
+subdomains; an exact allowlist entry always wins. External blocklist sources are managed
+through the API and dashboard, not this configuration.

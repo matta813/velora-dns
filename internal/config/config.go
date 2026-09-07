@@ -32,6 +32,7 @@ type HTTP struct {
 	WebDir       string   `yaml:"web_dir" json:"web_dir"`
 }
 type Filtering struct {
+	BlockMode string   `yaml:"block_mode" json:"block_mode"`
 	Blocklist []string `yaml:"blocklist" json:"blocklist"`
 	Allowlist []string `yaml:"allowlist" json:"allowlist"`
 }
@@ -78,7 +79,7 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 			return c, fmt.Errorf("config must contain one YAML document")
 		}
 	}
-	for key, target := range map[string]*string{"HTTP_LISTEN": &c.HTTP.Listen, "WEB_DIR": &c.HTTP.WebDir, "DATABASE_PATH": &c.DatabasePath, "LOG_LEVEL": &c.LogLevel} {
+	for key, target := range map[string]*string{"HTTP_LISTEN": &c.HTTP.Listen, "WEB_DIR": &c.HTTP.WebDir, "DATABASE_PATH": &c.DatabasePath, "LOG_LEVEL": &c.LogLevel, "FILTERING_BLOCK_MODE": &c.Filtering.BlockMode} {
 		if v, ok := lookup("VELORA_" + key); ok {
 			*target = v
 		}
@@ -141,6 +142,9 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 	return c, c.Validate()
 }
 func (c Config) Validate() error {
+	if c.Filtering.BlockMode != "" && c.Filtering.BlockMode != "NXDOMAIN" && c.Filtering.BlockMode != "ZERO" {
+		return fmt.Errorf("filtering.block_mode must be NXDOMAIN or ZERO")
+	}
 	if len(c.DNS.Listen) == 0 || len(c.DNS.Listen) > 8 || len(c.DNS.Upstreams) == 0 || len(c.DNS.Upstreams) > 8 {
 		return fmt.Errorf("DNS requires 1–8 listeners and upstreams")
 	}

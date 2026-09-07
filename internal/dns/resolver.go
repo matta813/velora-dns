@@ -20,6 +20,7 @@ type Local interface {
 }
 type Filter interface{ Blocked(string) bool }
 type Resolver struct {
+	BlockMode string
 	Local     Local
 	Filter    Filter
 	Cache     *cache.Cache
@@ -38,15 +39,14 @@ func (r *Resolver) resolve(ctx context.Context, q *wire.Msg, depth int) (Result,
 	}
 	if r.Filter != nil && len(q.Question) == 1 {
 		if r.Filter.Blocked(q.Question[0].Name) {
-			m := new(wire.Msg)
-			m.SetRcode(q, wire.RcodeNameError)
-			m.Authoritative = true
-			m.RecursionAvailable = true
-			return Result{Message: m, Source: "blocked"}, nil
+			return r.blocked(q), nil
 		}
 	}
 	if r.Local != nil {
 		if m, ok := r.Local.Lookup(q); ok {
+			if r.blockedAnswer(m) {
+				return r.blocked(q), nil
+			}
 			if q.RecursionDesired && q.Question[0].Qtype != wire.TypeCNAME && m.Rcode == wire.RcodeSuccess && len(m.Ns) == 0 && len(m.Answer) > 0 {
 				if cname, ok := m.Answer[len(m.Answer)-1].(*wire.CNAME); ok {
 					target := q.Copy()
@@ -54,6 +54,9 @@ func (r *Resolver) resolve(ctx context.Context, q *wire.Msg, depth int) (Result,
 					tail, err := r.resolve(ctx, target, depth+1)
 					if err != nil {
 						return Result{Source: "local"}, err
+					}
+					if tail.Source == "blocked" {
+						return r.blocked(q), nil
 					}
 					m.Answer = append(m.Answer, tail.Message.Answer...)
 					m.Ns = tail.Message.Ns
@@ -72,11 +75,17 @@ func (r *Resolver) resolve(ctx context.Context, q *wire.Msg, depth int) (Result,
 		return Result{Message: m, Source: "refused"}, nil
 	}
 	if m, ok := r.Cache.Get(q); ok {
+		if r.blockedAnswer(m) {
+			return r.blocked(q), nil
+		}
 		return Result{Message: m, Source: "cache"}, nil
 	}
 	m, upstream, err := r.Forwarder.Resolve(ctx, q)
 	if err != nil {
 		return Result{Source: "upstream"}, err
+	}
+	if r.blockedAnswer(m) {
+		return r.blocked(q), nil
 	}
 	r.Cache.Put(q, m)
 	return Result{Message: m, Source: "upstream", Upstream: upstream}, nil

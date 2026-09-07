@@ -57,3 +57,15 @@ func TestFilteringListsFromYAMLAndEnvironment(t *testing.T) {
 		t.Fatalf("unexpected filtering config: %#v", c.Filtering)
 	}
 }
+func TestBlockModeValidation(t *testing.T) {
+	for _, mode := range []string{"", "NXDOMAIN", "ZERO"} {
+		c, err := Parse([]byte("filtering:\n  block_mode: "+mode+"\n"), func(string) (string, bool) { return "", false })
+		if err != nil {
+			t.Errorf("block_mode %q rejected: %v", mode, err)
+		}
+		_ = c
+	}
+	if _, err := Parse([]byte("filtering:\n  block_mode: BOUNCE\n"), func(string) (string, bool) { return "", false }); err == nil {
+		t.Fatal("accepted invalid block_mode")
+	}
+}
