@@ -15,7 +15,7 @@ var _ zones.Repository = (*Store)(nil)
 func zoneError(err error) error {
 	var e *sqlite.Error
 	if errors.As(err, &e) && e.Code()&255 == 19 {
-		return fmt.Errorf("%w: constraint violation", zones.ErrConflict)
+		return fmt.Errorf("%w: constraint violation", zones.ErrExists)
 	}
 	return err
 }

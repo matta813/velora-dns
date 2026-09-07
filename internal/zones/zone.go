@@ -8,7 +8,8 @@ import (
 
 var (
 	ErrNotFound = errors.New("zone or record not found")
-	ErrConflict = errors.New("zone changed or name already exists")
+	ErrConflict = errors.New("zone changed")
+	ErrExists   = errors.New("zone name already exists")
 	ErrInvalid  = errors.New("invalid zone")
 )
 
