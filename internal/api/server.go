@@ -12,11 +12,16 @@ import (
 
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
+	"github.com/matta813/velora-dns/internal/database"
 	"github.com/matta813/velora-dns/internal/filtering"
 	"github.com/matta813/velora-dns/internal/metrics"
+	"github.com/matta813/velora-dns/internal/querylog"
 )
 
 type Database interface{ Ping(context.Context) error }
+type QueryStore interface {
+	ListQueries(context.Context, database.QueryFilter) ([]querylog.Entry, error)
+}
 type DNS interface {
 	Ready() bool
 	Addresses() []string
@@ -30,6 +35,7 @@ type Dependencies struct {
 	Database  Database
 	Zones     ZoneStore
 	Filtering *filtering.Service
+	Queries   QueryStore
 	DNS       DNS
 	Cache     *cache.Cache
 	Metrics   *metrics.Metrics
@@ -64,6 +70,10 @@ func New(d Dependencies) http.Handler {
 	if d.Filtering != nil {
 		registerBlocklists(mux, d.Filtering)
 		capabilities = append(capabilities, "blocklists")
+	}
+	if d.Queries != nil {
+		registerQueries(mux, d.Queries)
+		capabilities = append(capabilities, "query_logging")
 	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
