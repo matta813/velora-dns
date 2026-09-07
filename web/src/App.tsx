@@ -1,5 +1,6 @@
 import {
   Activity,
+  Globe2,
   ArrowUpRight,
   Database,
   LayoutDashboard,
@@ -12,15 +13,18 @@ import { useSnapshot } from "./useSnapshot";
 import { Dashboard } from "./pages/Dashboard";
 import { CachePage } from "./pages/CachePage";
 import { Settings } from "./pages/Settings";
+import { Zones } from "./pages/Zones";
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
   const { pathname } = useLocation();
   const title =
-    pathname === "/cache"
-      ? "DNS cache"
-      : pathname === "/settings"
-        ? "Settings"
-        : "Network overview";
+    pathname === "/zones"
+      ? "Local zones"
+      : pathname === "/cache"
+        ? "DNS cache"
+        : pathname === "/settings"
+          ? "Settings"
+          : "Network overview";
   return (
     <div className="app">
       <a className="skip-link" href="#main">
@@ -47,6 +51,10 @@ export default function App() {
           <NavLink to="/" end>
             <LayoutDashboard size={18} />
             Overview
+          </NavLink>
+          <NavLink to="/zones">
+            <Globe2 size={18} />
+            Local zones
           </NavLink>
           <NavLink to="/cache">
             <Database size={18} />
@@ -96,10 +104,12 @@ export default function App() {
                   : "Inspect and manage your resolver foundation."}
               </p>
             </div>
-            <button className="button" onClick={refresh}>
-              <RefreshCw size={15} />
-              Refresh
-            </button>
+            {pathname !== "/zones" && (
+              <button className="button" onClick={refresh}>
+                <RefreshCw size={15} />
+                Refresh
+              </button>
+            )}
           </div>
           {error && (
             <div className="notice error" role="alert">
@@ -124,6 +134,7 @@ export default function App() {
                 path="/cache"
                 element={<CachePage data={data} refresh={refresh} />}
               />
+              <Route path="/zones" element={<Zones />} />
               <Route path="/settings" element={<Settings data={data} />} />
               <Route path="*" element={<p>Page not found.</p>} />
             </Routes>

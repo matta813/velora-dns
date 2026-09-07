@@ -17,7 +17,7 @@ export function CachePage({
     try {
       await request("/api/v1/cache", undefined, "DELETE");
       setMessage(
-        "Cache cleared. New queries will use your upstream resolvers.",
+        "Cache cleared. Local zones remain active; other queries will use upstream resolvers.",
       );
       refresh();
     } catch (e) {

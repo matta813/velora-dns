@@ -6,14 +6,15 @@ Only checked items are implemented. Milestones describe targets, not release pro
 
 - [x] UDP/TCP DNS and upstream forwarding
 - [x] In-memory TTL cache
-- [ ] Local authoritative zones and record CRUD
+- [x] Local authoritative zones and record CRUD
 - [ ] Blocklists, allowlists, wildcard matching, remote list updates
 - [ ] Query logging, retention, filters, top domains and clients
 - [x] Versioned operational API (status/stats/cache/config)
 - [ ] Full management CRUD API
 - [x] React overview, cache and settings
-- [ ] Zones, blocklists and query history screens
-- [x] SQLite management foundation (schema metadata; domain persistence comes with features)
+- [x] Zones management screen
+- [ ] Blocklists and query history screens
+- [x] SQLite management persistence (migrations, zones and records)
 - [x] Docker deployment
 - [x] Prometheus metrics
 

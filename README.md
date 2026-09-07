@@ -14,7 +14,7 @@ Velora DNS is an independent, self-hosted DNS server built in Go, with a clean R
 
 [Quick start](#quick-start) · [Documentation](docs/README.md) · [Roadmap](docs/roadmap.md) · [Discussions](https://github.com/matta813/velora-dns/discussions)
 
-> **Development foundation, not a production release.** Forwarding, cache, lifecycle, operational API, dashboard, SQLite foundation and metrics are implemented. Local authoritative zones, filtering, query history, authentication and encrypted DNS are planned. No releases or published images have been created.
+> **Development foundation, not a production release.** Forwarding, cache, lifecycle, operational API, dashboard, SQLite persistence, local authoritative zones with record management and metrics are implemented. Filtering, query history, authentication and encrypted DNS are planned. No releases or published images have been created.
 
 ## Quick start
 
@@ -46,9 +46,10 @@ The Compose file builds locally, publishes only on host loopback, runs as UID 10
 - Strict YAML configuration and explicit environment overrides
 - Client CIDR allowlisting, bounded concurrent DNS/HTTP requests and safe loopback defaults
 - Structured JSON lifecycle logs, context cancellation and graceful shutdown
-- SQLite management storage with transactional schema initialization
-- Versioned status, stats, config and cache API; liveness and dependency readiness
-- Responsive overview, cache management and read-only settings; live data and error states
+- Local authoritative A, AAAA, CNAME, TXT, MX, NS and PTR records, generated SOA and negative answers
+- SQLite management storage with transactional migrations and revision-safe record updates
+- Versioned zones, records, status, stats, config and cache API; liveness and dependency readiness
+- Responsive overview, zone/record management, cache management and read-only settings; live data and error states
 - Prometheus metrics without domain or client labels
 - Protected PR workflow, Dependabot, CodeQL, dependency review, static analysis and Docker CI
 
@@ -61,6 +62,7 @@ flowchart LR
     Client[DNS client] --> Transport[UDP / TCP]
     Transport --> ACL[Client access and limits]
     ACL --> Resolver[Resolver pipeline]
+    Resolver --> Zones[Immutable local zones]
     Resolver --> Cache[In-memory TTL cache]
     Resolver --> Forwarder[Upstream forwarding]
     Forwarder --> Upstreams[Configured DNS upstreams]
@@ -68,10 +70,17 @@ flowchart LR
     UI[React admin UI] --> API[Versioned HTTP API]
     API --> Cache
     API --> Metrics
-    API --> DB[(SQLite management store)]
+    API --> Zones
+    Zones --> DB[(SQLite management store)]
 ```
 
-Velora owns the resolution pipeline. Libraries provide DNS wire parsing and transport, SQL access and HTTP infrastructure. Cache never depends on SQL. SQLite currently holds schema metadata; domain storage will arrive with local zones and query logging. Package responsibilities and extension points are documented in [architecture decisions](docs/architecture/0001-foundation.md).
+Velora owns the resolution pipeline. Libraries provide DNS wire parsing and transport, SQL access and HTTP infrastructure. Cache never depends on SQL. SQLite stores local zones and records; immutable snapshots serve DNS requests without database reads. See [local zones](docs/zones.md) for supported records and revision-safe API examples. Package responsibilities and extension points are documented in [architecture decisions](docs/architecture/0001-foundation.md).
+
+### Local zone management
+
+Open **Local zones** to create a zone and add, edit or delete its records. Changes take effect after successful persistence. Conflicting edits preserve your draft and require a reload.
+
+![Local zone management with a temporary smoke-test zone](docs/assets/zones.png)
 
 ## Configuration
 
@@ -118,7 +127,7 @@ Tests use local upstreams and nonprivileged ephemeral ports. Public DNS access i
 
 ## Roadmap
 
-The [roadmap](docs/roadmap.md) separates implemented foundation capabilities from the full MVP. Next: authoritative local zones, blocklists/allowlists, bounded query logging and their management screens. Later phases add users/roles, PostgreSQL, DoT/DoH/DNSSEC, DHCP/DoQ and multi-node operation.
+The [roadmap](docs/roadmap.md) separates implemented foundation capabilities from the full MVP. Next: blocklists/allowlists, bounded query logging and their management screens. Later phases add users/roles, PostgreSQL, DoT/DoH/DNSSEC, DHCP/DoQ and multi-node operation.
 
 ## Security
 

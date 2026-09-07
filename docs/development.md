@@ -23,6 +23,7 @@ Package boundaries:
 - `internal/config`, `logging`, `database`: typed config, JSON logs and management persistence
 - `internal/dns`: transport, access control, resolver and upstream strategies
 - `internal/cache`: bounded positive-answer TTL cache
+- `internal/zones`: record validation, immutable authority snapshots and revision-protected mutations
 - `internal/metrics`: independent per-instance registry and dashboard counters
 - `internal/api`: operational HTTP contract and static web serving
 - `web/src`: typed API client, polling, components and pages
@@ -30,7 +31,8 @@ Package boundaries:
 
 Tests must not depend on the public internet. Use local fake upstreams, ephemeral ports,
 controlled clocks where possible, and cancellation. Validate behavior at package boundaries.
-Local-zone and filtering tests will land with those implementations, not as placeholder tests.
+Local-zone tests cover authority boundaries, record matching, CNAME resolution, transactional
+persistence and concurrent edits. Filtering tests will accompany that feature.
 
 For a manual end-to-end check, run Compose and query with `dig`. Check HTTP readiness,
 cache hit counters, cache flush and SIGTERM exit. Verify desktop/mobile UI layout and

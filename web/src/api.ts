@@ -37,18 +37,42 @@ export interface Snapshot {
   config: Config;
   checked: Date;
 }
+export class APIError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "APIError";
+  }
+}
 export async function request<T>(
   path: string,
   signal?: AbortSignal,
   method = "GET",
+  options: { body?: unknown; revision?: number } = {},
 ): Promise<T> {
   const response = await fetch(path, {
     method,
     signal,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.revision === undefined
+        ? {}
+        : { "If-Match": `"${options.revision}"` }),
+    },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
-  if (!response.ok)
-    throw new Error(`Management API returned HTTP ${response.status}`);
+  if (!response.ok) {
+    let message = `Management API returned HTTP ${response.status}`;
+    try {
+      const body: { error?: { message?: string } } = await response.json();
+      if (typeof body.error?.message === "string") message = body.error.message;
+    } catch {
+      /* Proxies may return non-JSON error pages. */
+    }
+    throw new APIError(response.status, message);
+  }
   const body: { data: T } = await response.json();
   return body.data;
 }

@@ -4,6 +4,9 @@ All notable changes are documented here. This project uses Semantic Versioning.
 
 ## Unreleased
 
+- Authoritative local zones with transactional SQLite persistence, SOA/NS and CNAME resolution.
+- Revision-protected zone and record REST endpoints and responsive dashboard management.
+
 - Repository foundation, contribution guidelines, and phased roadmap.
 
 - Independent UDP/TCP DNS forwarding with retry, failover, TCP fallback and client ACLs.
