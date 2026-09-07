@@ -163,8 +163,8 @@ export function Dashboard({
           </h2>
           <p>
             Local authoritative zones, forwarding, a bounded TTL cache, and
-            operational visibility. Filtering and query history are the next
-            steps.
+            opt-in query history and operational visibility. Follow the roadmap
+            for remaining management and protocol features.
           </p>
           <a href="https://github.com/matta813/velora-dns/issues">
             Explore the roadmap <ArrowUpRight size={16} />

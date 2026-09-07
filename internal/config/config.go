@@ -35,17 +35,24 @@ type Filtering struct {
 	Blocklist []string `yaml:"blocklist" json:"blocklist"`
 	Allowlist []string `yaml:"allowlist" json:"allowlist"`
 }
+type QueryLog struct {
+	MaxRows   int           `yaml:"max_rows" json:"max_rows"`
+	Enabled   bool          `yaml:"enabled" json:"enabled"`
+	QueueSize int           `yaml:"queue_size" json:"queue_size"`
+	Retention time.Duration `yaml:"retention" json:"retention"`
+}
 type Config struct {
 	DNS          DNS       `yaml:"dns" json:"dns"`
 	Cache        Cache     `yaml:"cache" json:"cache"`
 	HTTP         HTTP      `yaml:"http" json:"http"`
 	Filtering    Filtering `yaml:"filtering" json:"filtering"`
+	QueryLog     QueryLog  `yaml:"query_log" json:"query_log"`
 	DatabasePath string    `yaml:"database_path" json:"-"`
 	LogLevel     string    `yaml:"log_level" json:"log_level"`
 }
 
 func Default() Config {
-	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, DatabasePath: "data/velora.db", LogLevel: "info"}
+	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, DatabasePath: "data/velora.db", LogLevel: "info"}
 }
 func Load(path string) (Config, error) {
 	var data []byte
@@ -108,6 +115,29 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 		}
 		c.DNS.Timeout = n
 	}
+	if v, ok := lookup("VELORA_QUERY_LOG_ENABLED"); ok {
+		enabled, err := strconv.ParseBool(v)
+		if err != nil {
+			return c, fmt.Errorf("invalid VELORA_QUERY_LOG_ENABLED")
+		}
+		c.QueryLog.Enabled = enabled
+	}
+	for key, target := range map[string]*int{"QUERY_LOG_QUEUE_SIZE": &c.QueryLog.QueueSize, "QUERY_LOG_MAX_ROWS": &c.QueryLog.MaxRows} {
+		if v, ok := lookup("VELORA_" + key); ok {
+			n, err := strconv.Atoi(v)
+			if err != nil {
+				return c, fmt.Errorf("invalid VELORA_%s", key)
+			}
+			*target = n
+		}
+	}
+	if v, ok := lookup("VELORA_QUERY_LOG_RETENTION"); ok {
+		duration, err := time.ParseDuration(v)
+		if err != nil {
+			return c, fmt.Errorf("invalid VELORA_QUERY_LOG_RETENTION")
+		}
+		c.QueryLog.Retention = duration
+	}
 	return c, c.Validate()
 }
 func (c Config) Validate() error {
@@ -156,6 +186,9 @@ func (c Config) Validate() error {
 	}
 	if c.Cache.MaxEntries < 0 || c.Cache.MaxEntries > 1000000 || c.DNS.MaxConcurrent < 1 || c.DNS.MaxConcurrent > 10000 {
 		return fmt.Errorf("invalid cache or concurrency limit")
+	}
+	if c.QueryLog.QueueSize < 1 || c.QueryLog.QueueSize > 100000 || c.QueryLog.Retention < time.Minute || c.QueryLog.Retention > 365*24*time.Hour || c.QueryLog.MaxRows < 1 || c.QueryLog.MaxRows > 1000000 {
+		return fmt.Errorf("invalid query_log settings")
 	}
 	if c.DatabasePath == "" || c.HTTP.WebDir == "" {
 		return fmt.Errorf("database_path and web_dir cannot be empty")

@@ -8,12 +8,14 @@ Only checked items are implemented. Milestones describe targets, not release pro
 - [x] In-memory TTL cache
 - [x] Local authoritative zones and record CRUD
 - [ ] Blocklists, allowlists, wildcard matching, remote list updates
-- [ ] Query logging, retention, filters, top domains and clients
+- [x] Query logging, bounded retention and filters
+- [ ] Top domains and clients
 - [x] Versioned operational API (status/stats/cache/config)
 - [ ] Full management CRUD API
 - [x] React overview, cache and settings
 - [x] Zones management screen
-- [ ] Blocklists and query history screens
+- [x] Query history screen
+- [ ] Complete blocklist management controls
 - [x] SQLite management persistence (migrations, zones and records)
 - [x] Docker deployment
 - [x] Prometheus metrics

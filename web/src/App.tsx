@@ -8,6 +8,7 @@ import {
   Settings2,
   ShieldCheck,
   ShieldBan,
+  ScrollText,
 } from "lucide-react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useSnapshot } from "./useSnapshot";
@@ -15,6 +16,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { CachePage } from "./pages/CachePage";
 import { Settings } from "./pages/Settings";
 import { Zones } from "./pages/Zones";
+import { QueryLog } from "./pages/QueryLog";
 import { Blocklists } from "./pages/Blocklists";
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
@@ -22,13 +24,15 @@ export default function App() {
   const title =
     pathname === "/zones"
       ? "Local zones"
-      : pathname === "/blocklists"
-        ? "Blocklists"
-        : pathname === "/cache"
-          ? "DNS cache"
-          : pathname === "/settings"
-            ? "Settings"
-            : "Network overview";
+      : pathname === "/queries"
+        ? "Query log"
+        : pathname === "/blocklists"
+          ? "Blocklists"
+          : pathname === "/cache"
+            ? "DNS cache"
+            : pathname === "/settings"
+              ? "Settings"
+              : "Network overview";
   return (
     <div className="app">
       <a className="skip-link" href="#main">
@@ -60,6 +64,10 @@ export default function App() {
             <Globe2 size={18} />
             Local zones
           </NavLink>
+          <NavLink to="/queries">
+            <ScrollText size={18} />
+            Query log
+          </NavLink>
           <NavLink to="/blocklists">
             <ShieldBan size={18} />
             Blocklists
@@ -78,7 +86,11 @@ export default function App() {
             <ShieldCheck size={18} />
             <div>
               <strong>Private by default</strong>
-              <p>Query history is not collected.</p>
+              <p>
+                {data?.config.query_log?.enabled
+                  ? "Query history has bounded retention."
+                  : "Query history is not collected."}
+              </p>
             </div>
           </div>
           <a href="https://github.com/matta813/velora-dns">
@@ -112,7 +124,7 @@ export default function App() {
                   : "Inspect and manage your resolver foundation."}
               </p>
             </div>
-            {pathname !== "/zones" && (
+            {!["/zones", "/queries", "/blocklists"].includes(pathname) && (
               <button className="button" onClick={refresh}>
                 <RefreshCw size={15} />
                 Refresh
@@ -143,6 +155,12 @@ export default function App() {
                 element={<CachePage data={data} refresh={refresh} />}
               />
               <Route path="/zones" element={<Zones />} />
+              <Route
+                path="/queries"
+                element={
+                  <QueryLog enabled={data.config.query_log?.enabled ?? false} />
+                }
+              />
               <Route path="/blocklists" element={<Blocklists />} />
               <Route path="/settings" element={<Settings data={data} />} />
               <Route path="*" element={<p>Page not found.</p>} />

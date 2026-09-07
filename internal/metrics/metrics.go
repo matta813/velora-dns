@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/matta813/velora-dns/internal/cache"
+	"github.com/matta813/velora-dns/internal/querylog"
 	wire "github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -17,6 +18,14 @@ type Snapshot struct {
 	QPS          float64 `json:"queries_per_second"`
 	CacheHitRate float64 `json:"cache_hit_rate"`
 }
+
+func (m *Metrics) ObserveQueryLog(log *querylog.Logger) {
+	m.registry.MustRegister(
+		prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_query_log_dropped_total", Help: "Query log records dropped on queue overflow or storage failure."}, func() float64 { return float64(log.Snapshot().Dropped) }),
+		prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_query_log_errors_total", Help: "Failed history writes and retention operations."}, func() float64 { return float64(log.Snapshot().Errors) }),
+	)
+}
+
 type Metrics struct {
 	registry         *prometheus.Registry
 	queries          *prometheus.CounterVec

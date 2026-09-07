@@ -18,6 +18,12 @@ export interface Cache {
   misses: number;
 }
 export interface Config {
+  query_log: {
+    enabled: boolean;
+    retention: number;
+    max_rows: number;
+    queue_size: number;
+  };
   dns: {
     listen: string[];
     upstreams: string[];
@@ -36,6 +42,18 @@ export interface Snapshot {
   cache: Cache;
   config: Config;
   checked: Date;
+}
+export interface QueryLogEntry {
+  id: number;
+  upstream: string;
+  cache_hit: boolean;
+  occurred_at: string;
+  client_ip: string;
+  domain: string;
+  type: string;
+  rcode: string;
+  duration: number;
+  source: string;
 }
 export interface BlocklistSource {
   id: number;

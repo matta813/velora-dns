@@ -28,8 +28,11 @@ The CI workflow repeats backend/frontend checks and builds the container without
 it. CodeQL, dependency review and Go vulnerability scanning are separate required checks.
 Repository branch protection and release-disable state were checked through the GitHub API.
 
-Blocklists and query logging are not implemented;
-their behavior and tests remain tracked in roadmap issues. Local zone browser checks
+Query history now has real SQLite round-trip, row/age retention, JSON contract,
+queue-overflow, shutdown-drain and DNS-source integration tests. Browser checks use
+an isolated database with logging enabled and exercise actual DNS responses, filters,
+direct navigation and mobile layout. Remaining blocklist work is tracked in roadmap issues.
+Local zone browser checks
 also verified real UDP/TCP answers, immediate changes and persistence across a Compose
 restart. The temporary test zone was removed; screenshots show that test fixture. Do not infer implementation
 from planned package names or future API descriptions.
