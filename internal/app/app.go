@@ -47,7 +47,7 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	for _, domain := range c.Filtering.Allowlist {
 		rules = append(rules, filtering.Rule{Domain: domain, Action: filtering.Allow})
 	}
-	matcher, err := filtering.New(rules)
+	matcher, err := filtering.NewService(initCtx, db, rules)
 	if err != nil {
 		return fmt.Errorf("load filtering rules: %w", err)
 	}
