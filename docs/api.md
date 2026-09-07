@@ -27,7 +27,8 @@ HTTP Host must match the configured allowlist to reject DNS rebinding.
 Cache mutation requires `application/json`. Reverse proxies should preserve the public
 Host and Origin consistently; no permissive CORS is provided.
 
-Zones, record CRUD, blocklists, query log APIs and authentication are not implemented.
+Zone and record CRUD are available; see the [zone API contract](zones.md).
+Blocklists, query log APIs and authentication are not implemented.
 Unknown API paths return 404. There is no wildcard route returning fabricated data.
 Config duration values serialize as nanoseconds. QPS is query count in the last 60
 seconds divided by 60; this includes the initial partial minute.

@@ -43,7 +43,7 @@ func compile(all []Zone) (*snapshot, error) {
 			return nil, err
 		}
 		if _, ok := s.byName[z.Name]; ok {
-			return nil, ErrConflict
+			return nil, ErrExists
 		}
 		total += len(z.Records)
 		if total > MaxTotalRecords {

@@ -27,6 +27,7 @@ type Version struct {
 }
 type Dependencies struct {
 	Database Database
+	Zones    ZoneStore
 	DNS      DNS
 	Cache    *cache.Cache
 	Metrics  *metrics.Metrics
@@ -53,6 +54,11 @@ func failure(w http.ResponseWriter, status int, code, message string) {
 }
 func New(d Dependencies) http.Handler {
 	mux := http.NewServeMux()
+	capabilities := []string{"forwarding", "cache", "metrics"}
+	if d.Zones != nil {
+		registerZones(mux, d.Zones)
+		capabilities = append(capabilities, "local_zones")
+	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
@@ -64,7 +70,7 @@ func New(d Dependencies) http.Handler {
 		respond(w, 200, map[string]string{"status": "ready"})
 	})
 	mux.HandleFunc("GET /api/v1/status", func(w http.ResponseWriter, r *http.Request) {
-		respond(w, 200, map[string]any{"ready": d.DNS.Ready(), "uptime_seconds": time.Since(d.Started).Seconds(), "dns_listen": d.DNS.Addresses(), "version": d.Version, "capabilities": []string{"forwarding", "cache", "metrics"}})
+		respond(w, 200, map[string]any{"ready": d.DNS.Ready(), "uptime_seconds": time.Since(d.Started).Seconds(), "dns_listen": d.DNS.Addresses(), "version": d.Version, "capabilities": capabilities})
 	})
 	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Version) })
 	mux.HandleFunc("GET /api/v1/stats", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Metrics.Snapshot()) })

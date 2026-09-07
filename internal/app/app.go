@@ -71,7 +71,7 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, Version: version, Started: started}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Zones: local, DNS: listener, Cache: memory, Metrics: observer, Config: c, Version: version, Started: started}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)
