@@ -76,3 +76,61 @@ func TestDNSClientDenied(t *testing.T) {
 		t.Fatalf("ACL not enforced: %v %v", m, err)
 	}
 }
+
+func TestForwardedRecordTypes(t *testing.T) {
+	records := map[uint16]string{
+		wire.TypeA: "192.0.2.20", wire.TypeAAAA: "2001:db8::20", wire.TypeCNAME: "target.example.test.",
+		wire.TypeTXT: "\"test text\"", wire.TypeMX: "10 mail.example.test.", wire.TypeNS: "ns.example.test.", wire.TypePTR: "host.example.test.",
+	}
+	up, err := server.Start([]string{"127.0.0.1:0"}, wire.HandlerFunc(func(w wire.ResponseWriter, q *wire.Msg) {
+		m := new(wire.Msg)
+		m.SetReply(q)
+		rr, e := wire.NewRR(q.Question[0].Name + " 60 IN " + wire.TypeToString[q.Question[0].Qtype] + " " + records[q.Question[0].Qtype])
+		if e != nil {
+			t.Error(e)
+			return
+		}
+		m.Answer = []wire.RR{rr}
+		_ = w.WriteMsg(m)
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = up.Shutdown(context.Background()) }()
+	h := &server.Handler{Context: context.Background(), Resolver: &server.Resolver{Cache: cache.New(10), Forwarder: &server.Forwarder{Upstreams: up.Addresses(), Timeout: time.Second}}, Allowed: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}, Slots: make(chan struct{}, 5)}
+	s, err := server.Start([]string{"127.0.0.1:0"}, h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = s.Shutdown(context.Background()) }()
+	for kind := range records {
+		for _, network := range []string{"udp", "tcp"} {
+			t.Run(wire.TypeToString[kind]+"/"+network, func(t *testing.T) {
+				q := new(wire.Msg)
+				q.SetQuestion("example.test.", kind)
+				m, _, e := (&wire.Client{Net: network, Timeout: time.Second}).Exchange(q, s.Addresses()[0])
+				if e != nil {
+					t.Fatal(e)
+				}
+				if len(m.Answer) != 1 || m.Answer[0].Header().Rrtype != kind {
+					t.Fatalf("incorrect type response: %v", m)
+				}
+			})
+		}
+	}
+}
+
+func TestSeparateIPv4AndIPv6Listeners(t *testing.T) {
+	s, err := server.Start([]string{"127.0.0.1:0", "[::1]:0"}, wire.HandlerFunc(func(w wire.ResponseWriter, q *wire.Msg) { m := new(wire.Msg); m.SetReply(q); _ = w.WriteMsg(m) }))
+	if err != nil {
+		t.Skipf("IPv6 loopback unavailable: %v", err)
+	}
+	defer func() { _ = s.Shutdown(context.Background()) }()
+	for _, address := range s.Addresses() {
+		q := new(wire.Msg)
+		q.SetQuestion("test.", wire.TypeA)
+		if _, _, err := (&wire.Client{Timeout: time.Second}).Exchange(q, address); err != nil {
+			t.Fatal(err)
+		}
+	}
+}

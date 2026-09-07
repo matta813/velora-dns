@@ -36,12 +36,21 @@ func Start(addresses []string, handler wire.Handler) (*Server, error) {
 		}
 	}
 	for _, address := range addresses {
-		tcp, err := net.Listen("tcp", address)
+		host, _, err := net.SplitHostPort(address)
+		if err != nil {
+			cleanup()
+			return nil, fmt.Errorf("invalid listener: %w", err)
+		}
+		tcpNetwork, udpNetwork := "tcp6", "udp6"
+		if ip := net.ParseIP(host); ip != nil && ip.To4() != nil {
+			tcpNetwork, udpNetwork = "tcp4", "udp4"
+		}
+		tcp, err := net.Listen(tcpNetwork, address)
 		if err != nil {
 			cleanup()
 			return nil, fmt.Errorf("bind TCP: %w", err)
 		}
-		udp, err := net.ListenPacket("udp", tcp.Addr().String())
+		udp, err := net.ListenPacket(udpNetwork, tcp.Addr().String())
 		if err != nil {
 			_ = tcp.Close()
 			cleanup()

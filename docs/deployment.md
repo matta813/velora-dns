@@ -41,6 +41,7 @@ Replace both addresses with your actual LAN and Docker gateway. Inspect the Comp
 network to determine gateway addressing. Docker NAT can replace host-local client source
 addresses; the sample's private-range defaults support that development case. Other
 containers on the bridge may also reach the container, so narrow CIDRs for a real deployment.
+Add the exact management hostname to `VELORA_HTTP_ALLOWED_HOSTS` when using a reverse proxy.
 Do not publish management ports to untrusted networks. Restrict forwarding in the host
 firewall; Docker forwarding can behave differently from host INPUT firewall rules.
 

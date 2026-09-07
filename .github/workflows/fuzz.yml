@@ -1,0 +1,22 @@
+name: Go Fuzzing
+on:
+  pull_request:
+    paths: ['internal/config/**', '.github/workflows/fuzz.yml']
+  schedule:
+    - cron: '11 2 * * 0'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: fuzz-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  config:
+    name: Fuzz configuration parser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - run: go test ./internal/config -run=^$ -fuzz=^FuzzParse$ -fuzztime=30s

@@ -2,7 +2,8 @@
 
 - [Configuration reference](configuration.md)
 - [Deployment, LAN setup and backups](deployment.md)
-- [Development and validation](development.md)
+- [Development](development.md)
+- [Validation evidence](validation.md)
 - [REST API and metrics](api.md)
 - [Architecture decisions](architecture/0001-foundation.md)
 - [DNS behavior and cache semantics](architecture/0002-dns-semantics.md)

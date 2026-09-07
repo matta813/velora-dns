@@ -14,6 +14,7 @@ The server prints structured errors and exits nonzero before reporting readiness
 | dns.max_concurrent | VELORA_DNS_MAX_CONCURRENT | 256 |
 | cache.max_entries | VELORA_CACHE_MAX_ENTRIES | 10000 |
 | http.listen | VELORA_HTTP_LISTEN | 127.0.0.1:8080 |
+| http.allowed_hosts | VELORA_HTTP_ALLOWED_HOSTS | localhost,127.0.0.1,::1 |
 | http.web_dir | VELORA_WEB_DIR | web/dist |
 | database_path | VELORA_DATABASE_PATH | data/velora.db |
 | log_level | VELORA_LOG_LEVEL | info |
@@ -33,3 +34,7 @@ expired entries are also rejected immediately on lookup.
 `VELORA_DNS_PORT` and `VELORA_HTTP_PORT` are Compose host-port substitutions, not Go
 server settings. Compose deliberately overrides listener and data paths for the container.
 The default config file is a development example; it is not automatically loaded.
+
+HTTP Host values must match `http.allowed_hosts` (ports are ignored). Add the exact
+management hostname or IP for a reverse proxy or LAN interface. Wildcards are rejected
+to prevent DNS rebinding from bypassing the loopback management boundary.

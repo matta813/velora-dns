@@ -1,4 +1,4 @@
-.PHONY: dev backend frontend install test lint build check docker-build docker-up release-test
+.PHONY: dev backend frontend install go-tools test lint build check docker-build docker-up release-test
 
 install:
 	npm --prefix web ci
@@ -15,13 +15,13 @@ frontend:
 dev: docker-up
 
 test:
-	go test -race ./...
+	go test -race ./cmd/... ./internal/... ./tests/...
 	npm --prefix web test -- --run
 
 lint:
 	test -z "$$(gofmt -l cmd internal tests)"
-	go vet ./...
-	golangci-lint run
+	go vet ./cmd/... ./internal/... ./tests/...
+	golangci-lint run ./cmd/... ./internal/... ./tests/...
 	npm --prefix web run lint
 	npm --prefix web run typecheck
 

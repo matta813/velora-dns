@@ -2,6 +2,8 @@ package dns
 
 import (
 	"context"
+	"net"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -87,5 +89,58 @@ func TestSupportedRecords(t *testing.T) {
 	}
 	if supported(wire.TypeANY) || supported(wire.TypeAXFR) {
 		t.Fatal("unsafe type allowed")
+	}
+}
+
+func TestQuestionMatching(t *testing.T) {
+	q := new(wire.Msg)
+	q.SetQuestion("Example.Test.", wire.TypeA)
+	response := q.Copy()
+	response.Question[0].Name = "example.test."
+	if !sameQuestion(q, response) {
+		t.Fatal("case-insensitive question should match")
+	}
+	response.Question[0].Name = "different.test."
+	if sameQuestion(q, response) {
+		t.Fatal("different name matched")
+	}
+	response = q.Copy()
+	response.Question[0].Qtype = wire.TypeAAAA
+	if sameQuestion(q, response) {
+		t.Fatal("different type matched")
+	}
+	response = q.Copy()
+	response.Question[0].Qclass = wire.ClassCHAOS
+	if sameQuestion(q, response) {
+		t.Fatal("different class matched")
+	}
+}
+
+func TestLargeEDNSAnswerUsesTCP(t *testing.T) {
+	var tcpCalls atomic.Int32
+	s := upstream(t, func(w wire.ResponseWriter, q *wire.Msg) {
+		m := new(wire.Msg)
+		m.SetReply(q)
+		m.Answer = []wire.RR{&wire.TXT{Hdr: wire.RR_Header{Name: q.Question[0].Name, Rrtype: wire.TypeTXT, Class: wire.ClassINET, Ttl: 60}, Txt: []string{strings.Repeat("a", 250), strings.Repeat("b", 250), strings.Repeat("c", 250), strings.Repeat("d", 250), strings.Repeat("e", 250), strings.Repeat("f", 250)}}}
+		if _, ok := w.RemoteAddr().(*net.UDPAddr); ok {
+			m.Truncate(int(q.IsEdns0().UDPSize()))
+		} else {
+			tcpCalls.Add(1)
+		}
+		_ = w.WriteMsg(m)
+	})
+	q := new(wire.Msg)
+	q.SetQuestion("large.test.", wire.TypeTXT)
+	q.SetEdns0(4096, false)
+	f := Forwarder{Upstreams: s.Addresses(), Timeout: time.Second}
+	m, _, err := f.Resolve(context.Background(), q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Truncated || len(m.Answer) != 1 || tcpCalls.Load() != 1 {
+		t.Fatalf("large answer failed TCP fallback: %v", m)
+	}
+	if q.IsEdns0().UDPSize() != 4096 {
+		t.Fatal("forwarder mutated client message")
 	}
 }

@@ -30,6 +30,9 @@ func (f *Forwarder) Resolve(ctx context.Context, q *wire.Msg) (*wire.Msg, string
 			request := q.Copy()
 			request.Id = wire.Id()
 			request.AuthenticatedData = false
+			if opt := request.IsEdns0(); opt != nil {
+				opt.SetUDPSize(1232)
+			}
 			client := &wire.Client{Net: "udp", Timeout: f.Timeout, UDPSize: 1232}
 			m, _, err := client.ExchangeContext(attempt, request, upstream)
 			if err == nil && m.Truncated {
