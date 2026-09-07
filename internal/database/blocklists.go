@@ -93,3 +93,15 @@ func (s *Store) LoadBlocklistDomains(ctx context.Context) ([]string, error) {
 	}
 	return out, rows.Err()
 }
+func (s *Store) GetBlocklistSource(ctx context.Context, id int64) (BlocklistSource, error) {
+	var source BlocklistSource
+	var updated sql.NullTime
+	err := s.db.QueryRowContext(ctx, "SELECT id,name,url,enabled,last_updated_at,last_error FROM blocklist_sources WHERE id=?", id).Scan(&source.ID, &source.Name, &source.URL, &source.Enabled, &updated, &source.LastError)
+	if err != nil {
+		return source, err
+	}
+	if updated.Valid {
+		source.LastUpdatedAt = &updated.Time
+	}
+	return source, nil
+}
