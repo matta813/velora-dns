@@ -18,6 +18,7 @@ import (
 	"github.com/matta813/velora-dns/internal/dns"
 	"github.com/matta813/velora-dns/internal/filtering"
 	"github.com/matta813/velora-dns/internal/metrics"
+	"github.com/matta813/velora-dns/internal/querylog"
 	"github.com/matta813/velora-dns/internal/zones"
 )
 
@@ -52,8 +53,10 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 		return fmt.Errorf("load filtering rules: %w", err)
 	}
 	observer := metrics.New(memory)
+	audit := querylog.New(db, c.QueryLog.Enabled, c.QueryLog.QueueSize, c.QueryLog.Retention)
 	var wg sync.WaitGroup
 	wg.Go(func() { memory.Run(runCtx) })
+	wg.Go(func() { audit.Run(runCtx) })
 	defer func() { cancel(); wg.Wait() }()
 	var allowed []netip.Prefix
 	for _, cidr := range c.DNS.AllowedClients {
@@ -65,7 +68,7 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	}
 	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer}
 	resolver := &dns.Resolver{Cache: memory, Forwarder: forwarder, Local: local, Filter: matcher}
-	listener, err := dns.Start(c.DNS.Listen, &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), Observer: observer})
+	listener, err := dns.Start(c.DNS.Listen, &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), Observer: observer, Audit: audit})
 	if err != nil {
 		return err
 	}

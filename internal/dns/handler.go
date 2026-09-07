@@ -6,23 +6,28 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/matta813/velora-dns/internal/querylog"
 	wire "github.com/miekg/dns"
 )
 
 type QueryObserver interface {
 	Query(kind, source string, rcode int, elapsed time.Duration)
 }
+type AuditLogger interface{ Record(querylog.Entry) }
 type Handler struct {
 	Context  context.Context
 	Resolver *Resolver
 	Allowed  []netip.Prefix
 	Slots    chan struct{}
 	Observer QueryObserver
+	Audit    AuditLogger
 }
 
 func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 	started := time.Now()
 	source := "refused"
+	upstream := ""
+	clientIP := ""
 	m := new(wire.Msg)
 	m.SetReply(q)
 	m.RecursionAvailable = true
@@ -50,9 +55,13 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 			}
 			h.Observer.Query(kind, source, m.Rcode, time.Since(started))
 		}
+		if h.Audit != nil && len(q.Question) == 1 {
+			h.Audit.Record(querylog.Entry{OccurredAt: started, ClientIP: clientIP, Domain: q.Question[0].Name, Type: wire.TypeToString[q.Question[0].Qtype], Rcode: wire.RcodeToString[m.Rcode], Duration: time.Since(started), Source: source, Upstream: upstream, CacheHit: source == "cache"})
+		}
 	}()
 	host, _, err := net.SplitHostPort(w.RemoteAddr().String())
 	ip, e := netip.ParseAddr(host)
+	clientIP = host
 	allowed := false
 	if err == nil && e == nil {
 		for _, prefix := range h.Allowed {
@@ -92,6 +101,7 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 	defer cancel()
 	result, err := h.Resolver.Resolve(ctx, q)
 	source = result.Source
+	upstream = result.Upstream
 	if err != nil {
 		m.Rcode = wire.RcodeServerFailure
 		return

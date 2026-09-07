@@ -35,17 +35,23 @@ type Filtering struct {
 	Blocklist []string `yaml:"blocklist" json:"blocklist"`
 	Allowlist []string `yaml:"allowlist" json:"allowlist"`
 }
+type QueryLog struct {
+	Enabled   bool          `yaml:"enabled" json:"enabled"`
+	QueueSize int           `yaml:"queue_size" json:"queue_size"`
+	Retention time.Duration `yaml:"retention" json:"retention"`
+}
 type Config struct {
 	DNS          DNS       `yaml:"dns" json:"dns"`
 	Cache        Cache     `yaml:"cache" json:"cache"`
 	HTTP         HTTP      `yaml:"http" json:"http"`
 	Filtering    Filtering `yaml:"filtering" json:"filtering"`
+	QueryLog     QueryLog  `yaml:"query_log" json:"query_log"`
 	DatabasePath string    `yaml:"database_path" json:"-"`
 	LogLevel     string    `yaml:"log_level" json:"log_level"`
 }
 
 func Default() Config {
-	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, DatabasePath: "data/velora.db", LogLevel: "info"}
+	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{QueueSize: 1024, Retention: 7 * 24 * time.Hour}, DatabasePath: "data/velora.db", LogLevel: "info"}
 }
 func Load(path string) (Config, error) {
 	var data []byte
@@ -156,6 +162,9 @@ func (c Config) Validate() error {
 	}
 	if c.Cache.MaxEntries < 0 || c.Cache.MaxEntries > 1000000 || c.DNS.MaxConcurrent < 1 || c.DNS.MaxConcurrent > 10000 {
 		return fmt.Errorf("invalid cache or concurrency limit")
+	}
+	if c.QueryLog.QueueSize < 1 || c.QueryLog.QueueSize > 100000 || c.QueryLog.Retention < 0 || c.QueryLog.Retention > 365*24*time.Hour {
+		return fmt.Errorf("invalid query_log settings")
 	}
 	if c.DatabasePath == "" || c.HTTP.WebDir == "" {
 		return fmt.Errorf("database_path and web_dir cannot be empty")
