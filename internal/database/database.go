@@ -41,19 +41,7 @@ func Open(ctx context.Context, path string) (*Store, error) {
 			return fail(err)
 		}
 	}
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return fail(err)
-	}
-	defer func() { _ = tx.Rollback() }()
-	migration, err := migrations.ReadFile("migrations/001_foundation.sql")
-	if err != nil {
-		return fail(err)
-	}
-	if _, err = tx.ExecContext(ctx, string(migration)); err != nil {
-		return fail(fmt.Errorf("migrate: %w", err))
-	}
-	if err = tx.Commit(); err != nil {
+	if err = migrate(ctx, db); err != nil {
 		return fail(err)
 	}
 	return &Store{db: db}, nil

@@ -71,7 +71,7 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 		return
 	}
 	question := q.Question[0]
-	if !supported(question.Qtype) || question.Qclass != wire.ClassINET || !q.RecursionDesired {
+	if !supported(question.Qtype) || question.Qclass != wire.ClassINET {
 		m.Rcode = wire.RcodeRefused
 		return
 	}
@@ -100,7 +100,7 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 }
 func supported(t uint16) bool {
 	switch t {
-	case wire.TypeA, wire.TypeAAAA, wire.TypeCNAME, wire.TypeTXT, wire.TypeMX, wire.TypeNS, wire.TypePTR:
+	case wire.TypeA, wire.TypeAAAA, wire.TypeCNAME, wire.TypeTXT, wire.TypeMX, wire.TypeNS, wire.TypePTR, wire.TypeSOA:
 		return true
 	}
 	return false
