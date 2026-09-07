@@ -77,3 +77,19 @@ func (s *Store) RecordBlocklistError(ctx context.Context, id int64, message stri
 	_, err := s.db.ExecContext(ctx, "UPDATE blocklist_sources SET last_error=? WHERE id=?", message, id)
 	return err
 }
+func (s *Store) LoadBlocklistDomains(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT d.domain FROM blocklist_domains d JOIN blocklist_sources s ON s.id=d.source_id WHERE s.enabled=1 ORDER BY d.domain")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var domain string
+		if err = rows.Scan(&domain); err != nil {
+			return nil, err
+		}
+		out = append(out, domain)
+	}
+	return out, rows.Err()
+}
