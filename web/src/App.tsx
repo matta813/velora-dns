@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Settings2,
   ShieldCheck,
+  ShieldBan,
   ScrollText,
 } from "lucide-react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
@@ -16,6 +17,7 @@ import { CachePage } from "./pages/CachePage";
 import { Settings } from "./pages/Settings";
 import { Zones } from "./pages/Zones";
 import { QueryLog } from "./pages/QueryLog";
+import { Blocklists } from "./pages/Blocklists";
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
   const { pathname } = useLocation();
@@ -24,11 +26,13 @@ export default function App() {
       ? "Local zones"
       : pathname === "/queries"
         ? "Query log"
-        : pathname === "/cache"
-          ? "DNS cache"
-          : pathname === "/settings"
-            ? "Settings"
-            : "Network overview";
+        : pathname === "/blocklists"
+          ? "Blocklists"
+          : pathname === "/cache"
+            ? "DNS cache"
+            : pathname === "/settings"
+              ? "Settings"
+              : "Network overview";
   return (
     <div className="app">
       <a className="skip-link" href="#main">
@@ -63,6 +67,10 @@ export default function App() {
           <NavLink to="/queries">
             <ScrollText size={18} />
             Query log
+          </NavLink>
+          <NavLink to="/blocklists">
+            <ShieldBan size={18} />
+            Blocklists
           </NavLink>
           <NavLink to="/cache">
             <Database size={18} />
@@ -144,6 +152,7 @@ export default function App() {
               />
               <Route path="/zones" element={<Zones />} />
               <Route path="/queries" element={<QueryLog />} />
+              <Route path="/blocklists" element={<Blocklists />} />
               <Route path="/settings" element={<Settings data={data} />} />
               <Route path="*" element={<p>Page not found.</p>} />
             </Routes>
