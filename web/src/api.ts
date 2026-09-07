@@ -37,6 +37,14 @@ export interface Snapshot {
   config: Config;
   checked: Date;
 }
+export interface BlocklistSource {
+  id: number;
+  name: string;
+  url: string;
+  enabled: boolean;
+  last_updated_at?: string;
+  last_error: string;
+}
 export class APIError extends Error {
   constructor(
     public status: number,
