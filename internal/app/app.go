@@ -17,6 +17,7 @@ import (
 	"github.com/matta813/velora-dns/internal/database"
 	"github.com/matta813/velora-dns/internal/dns"
 	"github.com/matta813/velora-dns/internal/metrics"
+	"github.com/matta813/velora-dns/internal/zones"
 )
 
 func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.Version) (result error) {
@@ -34,6 +35,10 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	memory := cache.New(c.Cache.MaxEntries)
+	local, err := zones.New(initCtx, db, memory.Flush)
+	if err != nil {
+		return fmt.Errorf("load local zones: %w", err)
+	}
 	observer := metrics.New(memory)
 	var wg sync.WaitGroup
 	wg.Go(func() { memory.Run(runCtx) })
@@ -47,7 +52,7 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 		allowed = append(allowed, p)
 	}
 	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer}
-	resolver := &dns.Resolver{Cache: memory, Forwarder: forwarder}
+	resolver := &dns.Resolver{Cache: memory, Forwarder: forwarder, Local: local}
 	listener, err := dns.Start(c.DNS.Listen, &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), Observer: observer})
 	if err != nil {
 		return err
