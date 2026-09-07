@@ -24,13 +24,16 @@ type Matcher struct{ rules map[string]Rule }
 func New(rules []Rule) (*Matcher, error) {
 	m := &Matcher{rules: make(map[string]Rule, len(rules))}
 	for _, r := range rules {
+		if strings.HasPrefix(strings.TrimSpace(r.Domain), "*.") {
+			r.Wildcard = true
+		}
 		n, err := name(r.Domain)
 		if err != nil {
 			return nil, err
 		}
 		r.Domain = n
-		if old, ok := m.rules[key(r)]; ok && old.Action != r.Action {
-			return nil, fmt.Errorf("conflicting rule for %s", r.Domain)
+		if old, ok := m.rules[key(r)]; ok && old.Action == Allow {
+			continue
 		}
 		m.rules[key(r)] = r
 	}
@@ -42,18 +45,28 @@ func (m *Matcher) Match(domain string) (Action, bool) {
 		return Allow, false
 	}
 	// An exact allowlist entry always wins; wildcard matching is boundary-aware.
+	blocked := false
 	if r, ok := m.rules["="+n]; ok {
-		return r.Action, true
+		if r.Action == Allow {
+			return Allow, true
+		}
+		blocked = true
 	}
 	for current := n; ; {
 		if r, ok := m.rules["*"+current]; ok {
-			return r.Action, true
+			if r.Action == Allow {
+				return Allow, true
+			}
+			blocked = true
 		}
 		i := strings.IndexByte(current, '.')
 		if i < 0 {
 			break
 		}
 		current = current[i+1:]
+	}
+	if blocked {
+		return Block, true
 	}
 	return Allow, false
 }
@@ -68,13 +81,13 @@ func key(r Rule) string {
 	return "=" + r.Domain
 }
 func name(v string) (string, error) {
-	v = strings.TrimPrefix(v, "*.")
 	v = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(v)), ".")
+	v = strings.TrimPrefix(v, "*.")
 	if v == "" || len(v) > 253 {
 		return "", fmt.Errorf("invalid domain")
 	}
 	for _, label := range strings.Split(v, ".") {
-		if len(label) == 0 || len(label) > 63 {
+		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
 			return "", fmt.Errorf("invalid domain")
 		}
 		for _, c := range label {

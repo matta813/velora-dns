@@ -1,8 +1,6 @@
 package filtering
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -16,77 +14,103 @@ import (
 
 const maxListBytes = 8 << 20
 
-// FetchHosts downloads a public hostname list. Private, loopback and link-local
-// targets are rejected before the request to keep management endpoints out of SSRF paths.
-func FetchHosts(ctx context.Context, rawURL string, client *http.Client, resolve func(context.Context, string) ([]net.IPAddr, error)) ([]string, error) {
-	u, err := url.Parse(rawURL)
-	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.Hostname() == "" {
-		return nil, fmt.Errorf("invalid source URL")
+type resolveHost func(context.Context, string) ([]net.IPAddr, error)
+type dialHost func(context.Context, string, string) (net.Conn, error)
+
+func ValidateSourceURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || len(raw) > 2048 || u.User != nil || u.Hostname() == "" || u.Opaque != "" || u.Fragment != "" || (u.Scheme != "https" && u.Scheme != "http") {
+		return fmt.Errorf("%w: use an HTTP(S) URL without credentials or fragments", ErrInvalid)
 	}
 	if u.Port() != "" && u.Port() != "80" && u.Port() != "443" {
-		return nil, fmt.Errorf("source URL uses disallowed port")
+		return fmt.Errorf("%w: only ports 80 and 443 are allowed", ErrInvalid)
 	}
-	ips, err := resolve(ctx, u.Hostname())
-	if err != nil {
-		return nil, fmt.Errorf("resolve source host: %w", err)
-	}
-	if len(ips) == 0 {
-		return nil, fmt.Errorf("source host has no addresses")
-	}
-	for _, ip := range ips {
-		if blockedAddress(ip.IP) {
-			return nil, fmt.Errorf("source host resolves to a private address")
+	if ip, err := netip.ParseAddr(u.Hostname()); err == nil {
+		if !publicAddress(ip) {
+			return fmt.Errorf("%w: source address must be public", ErrInvalid)
 		}
+	} else if _, err := name(u.Hostname()); err != nil {
+		return fmt.Errorf("%w: invalid source hostname", ErrInvalid)
 	}
-	if client == nil {
-		client = &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	return nil
+}
+func FetchHosts(ctx context.Context, raw string) ([]string, error) {
+	return fetchHosts(ctx, raw, net.DefaultResolver.LookupIPAddr, (&net.Dialer{Timeout: 3 * time.Second}).DialContext)
+}
+
+// The transport resolves and validates inside DialContext, then connects to that
+// exact IP. No environment proxy or second hostname lookup can bypass validation.
+func fetchHosts(parent context.Context, raw string, resolve resolveHost, dial dialHost) ([]string, error) {
+	if err := ValidateSourceURL(raw); err != nil {
+		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
+	defer cancel()
+	transport := &http.Transport{Proxy: nil, DisableKeepAlives: true, DisableCompression: true, MaxResponseHeaderBytes: 16 << 10, TLSHandshakeTimeout: 2 * time.Second, ResponseHeaderTimeout: 3 * time.Second}
+	defer transport.CloseIdleConnections()
+	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(address)
+		if err != nil {
+			return nil, err
+		}
+		ips, err := resolve(ctx, host)
+		if err != nil {
+			return nil, fmt.Errorf("source resolution failed")
+		}
+		if len(ips) == 0 || len(ips) > 16 {
+			return nil, fmt.Errorf("invalid source address count")
+		}
+		for _, ip := range ips {
+			addr, ok := netip.AddrFromSlice(ip.IP)
+			if !ok || !publicAddress(addr) {
+				return nil, fmt.Errorf("source resolves to a non-public address")
+			}
+		}
+		var last error
+		for _, ip := range ips {
+			conn, err := dial(ctx, network, net.JoinHostPort(ip.IP.String(), port))
+			if err == nil {
+				return conn, nil
+			}
+			last = err
+		}
+		return nil, last
+	}
+	client := &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	req, err := http.NewRequestWithContext(ctx, "GET", raw, nil)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := client.Do(req)
+	response, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("download source: %w", err)
+		return nil, fmt.Errorf("source download failed")
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("source returned HTTP %d", resp.StatusCode)
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode != 200 {
+		return nil, fmt.Errorf("source returned HTTP %d", response.StatusCode)
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxListBytes+1))
+	if response.ContentLength > maxListBytes {
+		return nil, fmt.Errorf("source exceeds 8 MiB")
+	}
+	data, err := io.ReadAll(io.LimitReader(response.Body, maxListBytes+1))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("source read failed")
 	}
 	if len(data) > maxListBytes {
 		return nil, fmt.Errorf("source exceeds 8 MiB")
 	}
-	return ParseHosts(data), nil
+	return ParseHosts(data)
 }
-func ParseHosts(data []byte) []string {
-	seen := map[string]struct{}{}
-	out := []string{}
-	s := bufio.NewScanner(bytes.NewReader(data))
-	s.Buffer(make([]byte, 1024), 64<<10)
-	for s.Scan() {
-		line := strings.TrimSpace(strings.SplitN(s.Text(), "#", 2)[0])
-		fields := strings.Fields(line)
-		if len(fields) == 0 {
-			continue
-		}
-		candidate := fields[0]
-		if net.ParseIP(candidate) != nil && len(fields) > 1 {
-			candidate = fields[1]
-		}
-		if domain, err := name(candidate); err == nil {
-			if _, ok := seen[domain]; !ok {
-				seen[domain] = struct{}{}
-				out = append(out, domain)
-			}
+func publicAddress(addr netip.Addr) bool {
+	addr = addr.Unmap()
+	if !addr.IsGlobalUnicast() || addr.IsPrivate() {
+		return false
+	}
+	// Special-use ranges may still satisfy IsGlobalUnicast.
+	for _, prefix := range []string{"0.0.0.0/8", "100.64.0.0/10", "192.0.0.0/24", "192.0.2.0/24", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "2001::/23", "2001:db8::/32", "2002::/16", "64:ff9b::/96", "64:ff9b:1::/48"} {
+		if netip.MustParsePrefix(prefix).Contains(addr) {
+			return false
 		}
 	}
-	return out
-}
-func blockedAddress(ip net.IP) bool {
-	a, ok := netip.AddrFromSlice(ip)
-	return !ok || !a.IsGlobalUnicast() || a.IsPrivate()
+	return addr.Is4() || strings.HasPrefix(addr.String(), "2") || strings.HasPrefix(addr.String(), "3")
 }

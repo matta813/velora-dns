@@ -3,105 +3,156 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"github.com/matta813/velora-dns/internal/filtering"
+	"modernc.org/sqlite"
 	"time"
 )
 
-type BlocklistSource struct {
-	ID            int64
-	Name, URL     string
-	Enabled       bool
-	LastUpdatedAt *time.Time
-	LastError     string
-}
+var _ filtering.SourceStore = (*Store)(nil)
 
-func (s *Store) ListBlocklistSources(ctx context.Context) ([]BlocklistSource, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT id,name,url,enabled,last_updated_at,last_error FROM blocklist_sources ORDER BY name")
+func sourceError(err error) error {
+	var e *sqlite.Error
+	if errors.As(err, &e) && e.Code()&255 == 19 {
+		return filtering.ErrExists
+	}
+	return err
+}
+func (s *Store) LoadSources(ctx context.Context) ([]filtering.Source, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var out []BlocklistSource
+	defer func() { _ = tx.Rollback() }()
+	rows, err := tx.QueryContext(ctx, "SELECT id,name,url,enabled,last_updated_at,last_error FROM blocklist_sources ORDER BY id LIMIT ?", filtering.MaxSources+1)
+	if err != nil {
+		return nil, err
+	}
+	out := []filtering.Source{}
+	index := map[int64]int{}
 	for rows.Next() {
-		var x BlocklistSource
-		var updated sql.NullTime
-		if err := rows.Scan(&x.ID, &x.Name, &x.URL, &x.Enabled, &updated, &x.LastError); err != nil {
+		var source filtering.Source
+		var updated sql.NullString
+		if err = rows.Scan(&source.ID, &source.Name, &source.URL, &source.Enabled, &updated, &source.LastError); err != nil {
+			_ = rows.Close()
 			return nil, err
 		}
 		if updated.Valid {
-			x.LastUpdatedAt = &updated.Time
+			var timestamp time.Time
+			// Accept timestamps written by the initial source implementation as well.
+			for _, layout := range []string{time.RFC3339Nano, "2006-01-02 15:04:05.999999999 -0700 MST"} {
+				timestamp, err = time.Parse(layout, updated.String)
+				if err == nil {
+					break
+				}
+			}
+			if err != nil {
+				_ = rows.Close()
+				return nil, fmt.Errorf("invalid source timestamp: %w", err)
+			}
+			source.LastUpdatedAt = &timestamp
 		}
-		out = append(out, x)
+		index[source.ID] = len(out)
+		out = append(out, source)
 	}
-	return out, rows.Err()
-}
-func (s *Store) CreateBlocklistSource(ctx context.Context, name, rawURL string, enabled bool) (BlocklistSource, error) {
-	r, err := s.db.ExecContext(ctx, "INSERT INTO blocklist_sources(name,url,enabled) VALUES(?,?,?)", name, rawURL, enabled)
+	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+		return nil, err
+	}
+	if len(out) > filtering.MaxSources {
+		return nil, fmt.Errorf("stored source limit exceeded")
+	}
+	rows, err = tx.QueryContext(ctx, "SELECT source_id,domain FROM blocklist_domains ORDER BY source_id,domain LIMIT ?", filtering.MaxTotalDomains+1)
 	if err != nil {
-		return BlocklistSource{}, err
+		return nil, err
 	}
-	id, err := r.LastInsertId()
-	return BlocklistSource{ID: id, Name: name, URL: rawURL, Enabled: enabled}, err
+	defer func() { _ = rows.Close() }()
+	count := 0
+	for rows.Next() {
+		var id int64
+		var domain string
+		if err = rows.Scan(&id, &domain); err != nil {
+			return nil, err
+		}
+		i, ok := index[id]
+		if !ok {
+			return nil, fmt.Errorf("missing source")
+		}
+		out[i].Domains = append(out[i].Domains, domain)
+		count++
+	}
+	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+		return nil, err
+	}
+	if count > filtering.MaxTotalDomains {
+		return nil, fmt.Errorf("stored domain limit exceeded")
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
-
-// ReplaceBlocklistDomains atomically publishes a successful source refresh. A failed
-// refresh must call RecordBlocklistError instead, preserving prior domains.
-func (s *Store) ReplaceBlocklistDomains(ctx context.Context, id int64, domains []string, now time.Time) error {
+func (s *Store) SaveSource(ctx context.Context, source filtering.Source) (filtering.Source, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return source, err
 	}
-	defer tx.Rollback()
-	if _, err = tx.ExecContext(ctx, "DELETE FROM blocklist_domains WHERE source_id=?", id); err != nil {
-		return err
+	defer func() { _ = tx.Rollback() }()
+	var timestamp any
+	if source.LastUpdatedAt != nil {
+		timestamp = source.LastUpdatedAt.UTC().Format(time.RFC3339Nano)
 	}
-	for _, domain := range domains {
-		if _, err = tx.ExecContext(ctx, "INSERT INTO blocklist_domains(source_id,domain) VALUES(?,?)", id, domain); err != nil {
-			return err
+	if source.ID == 0 {
+		result, e := tx.ExecContext(ctx, "INSERT INTO blocklist_sources(name,url,enabled,last_updated_at,last_error) VALUES(?,?,?,?,?)", source.Name, source.URL, source.Enabled, timestamp, source.LastError)
+		if e != nil {
+			return source, sourceError(e)
+		}
+		source.ID, err = result.LastInsertId()
+		if err != nil {
+			return source, err
+		}
+	} else {
+		result, e := tx.ExecContext(ctx, "UPDATE blocklist_sources SET name=?,url=?,enabled=?,last_updated_at=?,last_error=? WHERE id=?", source.Name, source.URL, source.Enabled, timestamp, source.LastError, source.ID)
+		if e != nil {
+			return source, sourceError(e)
+		}
+		n, e := result.RowsAffected()
+		if e != nil {
+			return source, e
+		}
+		if n != 1 {
+			return source, filtering.ErrNotFound
 		}
 	}
-	r, err := tx.ExecContext(ctx, "UPDATE blocklist_sources SET last_updated_at=?,last_error='' WHERE id=?", now.UTC(), id)
+	if _, err = tx.ExecContext(ctx, "DELETE FROM blocklist_domains WHERE source_id=?", source.ID); err != nil {
+		return source, err
+	}
+	stmt, err := tx.PrepareContext(ctx, "INSERT INTO blocklist_domains(source_id,domain) VALUES(?,?)")
+	if err != nil {
+		return source, err
+	}
+	defer func() { _ = stmt.Close() }()
+	for _, domain := range source.Domains {
+		if _, err = stmt.ExecContext(ctx, source.ID, domain); err != nil {
+			return source, err
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		return source, err
+	}
+	return source, nil
+}
+func (s *Store) DeleteSource(ctx context.Context, id int64) error {
+	result, err := s.db.ExecContext(ctx, "DELETE FROM blocklist_sources WHERE id=?", id)
 	if err != nil {
 		return err
 	}
-	n, err := r.RowsAffected()
+	n, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
 	if n != 1 {
-		return fmt.Errorf("blocklist source not found")
+		return filtering.ErrNotFound
 	}
-	return tx.Commit()
-}
-func (s *Store) RecordBlocklistError(ctx context.Context, id int64, message string) error {
-	_, err := s.db.ExecContext(ctx, "UPDATE blocklist_sources SET last_error=? WHERE id=?", message, id)
-	return err
-}
-func (s *Store) LoadBlocklistDomains(ctx context.Context) ([]string, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT d.domain FROM blocklist_domains d JOIN blocklist_sources s ON s.id=d.source_id WHERE s.enabled=1 ORDER BY d.domain")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []string
-	for rows.Next() {
-		var domain string
-		if err = rows.Scan(&domain); err != nil {
-			return nil, err
-		}
-		out = append(out, domain)
-	}
-	return out, rows.Err()
-}
-func (s *Store) GetBlocklistSource(ctx context.Context, id int64) (BlocklistSource, error) {
-	var source BlocklistSource
-	var updated sql.NullTime
-	err := s.db.QueryRowContext(ctx, "SELECT id,name,url,enabled,last_updated_at,last_error FROM blocklist_sources WHERE id=?", id).Scan(&source.ID, &source.Name, &source.URL, &source.Enabled, &updated, &source.LastError)
-	if err != nil {
-		return source, err
-	}
-	if updated.Valid {
-		source.LastUpdatedAt = &updated.Time
-	}
-	return source, nil
+	return nil
 }

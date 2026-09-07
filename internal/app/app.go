@@ -71,7 +71,7 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 		allowed = append(allowed, p)
 	}
 	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer}
-	resolver := &dns.Resolver{Cache: memory, Forwarder: forwarder, Local: local, Filter: matcher}
+	resolver := &dns.Resolver{Cache: memory, Forwarder: forwarder, Local: local, Filter: matcher, BlockMode: c.Filtering.BlockMode}
 	listener, err := dns.Start(c.DNS.Listen, &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), Observer: observer, Audit: audit})
 	if err != nil {
 		return err
