@@ -14,7 +14,7 @@ Only checked items are implemented. Milestones describe targets, not release pro
 - [x] React overview, cache and settings
 - [x] Zones management screen
 - [ ] Blocklists and query history screens
-- [x] SQLite management foundation (schema metadata; domain persistence comes with features)
+- [x] SQLite management persistence (migrations, zones and records)
 - [x] Docker deployment
 - [x] Prometheus metrics
 
