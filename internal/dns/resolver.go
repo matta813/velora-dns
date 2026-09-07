@@ -18,8 +18,10 @@ type Result struct {
 type Local interface {
 	Lookup(*wire.Msg) (*wire.Msg, bool)
 }
+type Filter interface{ Blocked(string) bool }
 type Resolver struct {
 	Local     Local
+	Filter    Filter
 	Cache     *cache.Cache
 	Forwarder Upstream
 }
@@ -33,6 +35,15 @@ func (r *Resolver) resolve(ctx context.Context, q *wire.Msg, depth int) (Result,
 	}
 	if err := ctx.Err(); err != nil {
 		return Result{Source: "local"}, err
+	}
+	if r.Filter != nil && len(q.Question) == 1 {
+		if r.Filter.Blocked(q.Question[0].Name) {
+			m := new(wire.Msg)
+			m.SetRcode(q, wire.RcodeNameError)
+			m.Authoritative = true
+			m.RecursionAvailable = true
+			return Result{Message: m, Source: "blocked"}, nil
+		}
 	}
 	if r.Local != nil {
 		if m, ok := r.Local.Lookup(q); ok {

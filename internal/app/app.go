@@ -16,6 +16,7 @@ import (
 	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/database"
 	"github.com/matta813/velora-dns/internal/dns"
+	"github.com/matta813/velora-dns/internal/filtering"
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/zones"
 )
@@ -39,6 +40,17 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	if err != nil {
 		return fmt.Errorf("load local zones: %w", err)
 	}
+	rules := make([]filtering.Rule, 0, len(c.Filtering.Blocklist)+len(c.Filtering.Allowlist))
+	for _, domain := range c.Filtering.Blocklist {
+		rules = append(rules, filtering.Rule{Domain: domain, Wildcard: true, Action: filtering.Block})
+	}
+	for _, domain := range c.Filtering.Allowlist {
+		rules = append(rules, filtering.Rule{Domain: domain, Action: filtering.Allow})
+	}
+	matcher, err := filtering.New(rules)
+	if err != nil {
+		return fmt.Errorf("load filtering rules: %w", err)
+	}
 	observer := metrics.New(memory)
 	var wg sync.WaitGroup
 	wg.Go(func() { memory.Run(runCtx) })
@@ -52,7 +64,7 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 		allowed = append(allowed, p)
 	}
 	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer}
-	resolver := &dns.Resolver{Cache: memory, Forwarder: forwarder, Local: local}
+	resolver := &dns.Resolver{Cache: memory, Forwarder: forwarder, Local: local, Filter: matcher}
 	listener, err := dns.Start(c.DNS.Listen, &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), Observer: observer})
 	if err != nil {
 		return err

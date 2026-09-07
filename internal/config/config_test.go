@@ -31,3 +31,15 @@ func TestRejectInvalid(t *testing.T) {
 		t.Fatal("accepted invalid environment")
 	}
 }
+func TestFilteringListsFromYAMLAndEnvironment(t *testing.T) {
+	lookup := func(k string) (string, bool) {
+		return "ads.example, telemetry.example", k == "VELORA_FILTERING_BLOCKLIST"
+	}
+	c, err := Parse([]byte("filtering:\n  allowlist: [safe.ads.example]\n"), lookup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.Filtering.Blocklist) != 2 || c.Filtering.Allowlist[0] != "safe.ads.example" {
+		t.Fatalf("unexpected filtering config: %#v", c.Filtering)
+	}
+}

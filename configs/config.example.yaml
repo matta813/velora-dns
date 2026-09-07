@@ -10,6 +10,10 @@ dns:
   max_concurrent: 256
 cache:
   max_entries: 10000
+filtering:
+  # Wildcard rules include the domain and its subdomains. Exact allowlist entries win.
+  blocklist: ['ads.example', 'tracker.example']
+  allowlist: ['status.ads.example']
 http:
   listen: '127.0.0.1:8080'
   web_dir: web/dist
