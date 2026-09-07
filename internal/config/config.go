@@ -31,12 +31,17 @@ type HTTP struct {
 	Listen       string   `yaml:"listen" json:"listen"`
 	WebDir       string   `yaml:"web_dir" json:"web_dir"`
 }
+type Filtering struct {
+	Blocklist []string `yaml:"blocklist" json:"blocklist"`
+	Allowlist []string `yaml:"allowlist" json:"allowlist"`
+}
 type Config struct {
-	DNS          DNS    `yaml:"dns" json:"dns"`
-	Cache        Cache  `yaml:"cache" json:"cache"`
-	HTTP         HTTP   `yaml:"http" json:"http"`
-	DatabasePath string `yaml:"database_path" json:"-"`
-	LogLevel     string `yaml:"log_level" json:"log_level"`
+	DNS          DNS       `yaml:"dns" json:"dns"`
+	Cache        Cache     `yaml:"cache" json:"cache"`
+	HTTP         HTTP      `yaml:"http" json:"http"`
+	Filtering    Filtering `yaml:"filtering" json:"filtering"`
+	DatabasePath string    `yaml:"database_path" json:"-"`
+	LogLevel     string    `yaml:"log_level" json:"log_level"`
 }
 
 func Default() Config {
@@ -74,6 +79,14 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 	for key, target := range map[string]*[]string{"HTTP_ALLOWED_HOSTS": &c.HTTP.AllowedHosts, "DNS_LISTEN": &c.DNS.Listen, "DNS_UPSTREAMS": &c.DNS.Upstreams, "DNS_ALLOWED_CLIENTS": &c.DNS.AllowedClients} {
 		if v, ok := lookup("VELORA_" + key); ok {
 			*target = strings.Split(v, ",")
+			for i := range *target {
+				(*target)[i] = strings.TrimSpace((*target)[i])
+			}
+		}
+	}
+	for key, target := range map[string]*[]string{"FILTERING_BLOCKLIST": &c.Filtering.Blocklist, "FILTERING_ALLOWLIST": &c.Filtering.Allowlist} {
+		if v, ok := lookup("VELORA_" + key); ok {
+			*target = strings.FieldsFunc(v, func(r rune) bool { return r == ',' || r == '\n' })
 			for i := range *target {
 				(*target)[i] = strings.TrimSpace((*target)[i])
 			}
