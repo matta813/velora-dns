@@ -12,6 +12,7 @@ import (
 
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
+	"github.com/matta813/velora-dns/internal/filtering"
 	"github.com/matta813/velora-dns/internal/metrics"
 )
 
@@ -26,14 +27,15 @@ type Version struct {
 	Built   string `json:"built"`
 }
 type Dependencies struct {
-	Database Database
-	Zones    ZoneStore
-	DNS      DNS
-	Cache    *cache.Cache
-	Metrics  *metrics.Metrics
-	Config   config.Config
-	Version  Version
-	Started  time.Time
+	Database  Database
+	Zones     ZoneStore
+	Filtering *filtering.Service
+	DNS       DNS
+	Cache     *cache.Cache
+	Metrics   *metrics.Metrics
+	Config    config.Config
+	Version   Version
+	Started   time.Time
 }
 type Error struct {
 	Code    string `json:"code"`
@@ -58,6 +60,10 @@ func New(d Dependencies) http.Handler {
 	if d.Zones != nil {
 		registerZones(mux, d.Zones)
 		capabilities = append(capabilities, "local_zones")
+	}
+	if d.Filtering != nil {
+		registerBlocklists(mux, d.Filtering)
+		capabilities = append(capabilities, "blocklists")
 	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
