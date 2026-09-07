@@ -4,6 +4,8 @@ All notable changes are documented here. This project uses Semantic Versioning.
 
 ## Unreleased
 
+- Opt-in bounded query history, filtered API and dashboard, loss metrics and graceful drain.
+
 - Authoritative local zones with transactional SQLite persistence, SOA/NS and CNAME resolution.
 - Revision-protected zone and record REST endpoints and responsive dashboard management.
 

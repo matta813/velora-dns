@@ -5,6 +5,20 @@ import (
 	"time"
 )
 
+func TestQueryLogEnvironmentAndBounds(t *testing.T) {
+	env := map[string]string{"VELORA_QUERY_LOG_ENABLED": "true", "VELORA_QUERY_LOG_RETENTION": "24h", "VELORA_QUERY_LOG_QUEUE_SIZE": "32", "VELORA_QUERY_LOG_MAX_ROWS": "250"}
+	c, err := Parse(nil, func(k string) (string, bool) { v, ok := env[k]; return v, ok })
+	if err != nil || !c.QueryLog.Enabled || c.QueryLog.Retention != 24*time.Hour || c.QueryLog.MaxRows != 250 || c.QueryLog.QueueSize != 32 {
+		t.Fatalf("%+v %v", c.QueryLog, err)
+	}
+	for _, v := range []string{"0s", "-1h", "oops"} {
+		env["VELORA_QUERY_LOG_RETENTION"] = v
+		if _, err = Parse(nil, func(k string) (string, bool) { v, ok := env[k]; return v, ok }); err == nil {
+			t.Fatal("invalid retention accepted")
+		}
+	}
+}
+
 func TestParsing(t *testing.T) {
 	lookup := func(k string) (string, bool) {
 		v, ok := map[string]string{"VELORA_DNS_LISTEN": "127.0.0.1:5454", "VELORA_CACHE_MAX_ENTRIES": "5"}[k]

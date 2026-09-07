@@ -86,7 +86,11 @@ export default function App() {
             <ShieldCheck size={18} />
             <div>
               <strong>Private by default</strong>
-              <p>Query history is not collected.</p>
+              <p>
+                {data?.config.query_log?.enabled
+                  ? "Query history has bounded retention."
+                  : "Query history is not collected."}
+              </p>
             </div>
           </div>
           <a href="https://github.com/matta813/velora-dns">
@@ -120,7 +124,7 @@ export default function App() {
                   : "Inspect and manage your resolver foundation."}
               </p>
             </div>
-            {pathname !== "/zones" && (
+            {!["/zones", "/queries", "/blocklists"].includes(pathname) && (
               <button className="button" onClick={refresh}>
                 <RefreshCw size={15} />
                 Refresh
@@ -151,7 +155,12 @@ export default function App() {
                 element={<CachePage data={data} refresh={refresh} />}
               />
               <Route path="/zones" element={<Zones />} />
-              <Route path="/queries" element={<QueryLog />} />
+              <Route
+                path="/queries"
+                element={
+                  <QueryLog enabled={data.config.query_log?.enabled ?? false} />
+                }
+              />
               <Route path="/blocklists" element={<Blocklists />} />
               <Route path="/settings" element={<Settings data={data} />} />
               <Route path="*" element={<p>Page not found.</p>} />

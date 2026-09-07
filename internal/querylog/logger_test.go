@@ -2,51 +2,58 @@ package querylog
 
 import (
 	"context"
-	"sync"
+	"errors"
 	"testing"
 	"time"
 )
 
 type testStore struct {
-	mu      sync.Mutex
 	entries []Entry
+	fail    bool
 }
 
-func (s *testStore) InsertQuery(_ context.Context, entry Entry) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.entries = append(s.entries, entry)
+func (s *testStore) WriteQueries(_ context.Context, entries []Entry, _ time.Time, _ int) error {
+	if s.fail {
+		return errors.New("storage offline")
+	}
+	s.entries = append(s.entries, entries...)
 	return nil
 }
-func (*testStore) PurgeQueries(context.Context, time.Time) error { return nil }
-func TestDisabledLoggerDoesNotWrite(t *testing.T) {
+func TestQueueBoundedAndShutdownDrains(t *testing.T) {
 	store := &testStore{}
-	logger := New(store, false, 1, time.Hour)
+	log := New(store, true, 2, time.Hour, 100)
+	for range 3 {
+		log.Record(Entry{Domain: "example.test"})
+	}
+	if log.Snapshot().Dropped != 1 {
+		t.Fatal("queue overflow not counted")
+	}
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	logger.Run(ctx)
-	logger.Record(Entry{Domain: "example.test"})
-	time.Sleep(10 * time.Millisecond)
-	if len(store.entries) != 0 {
-		t.Fatal("disabled logger wrote entry")
+	cancel()
+	log.Run(ctx)
+	if len(store.entries) != 2 || log.Snapshot().Written != 2 {
+		t.Fatalf("accepted entries not drained: %+v", log.Snapshot())
+	}
+	log.Record(Entry{})
+	if log.Snapshot().Dropped != 2 {
+		t.Fatal("accepted after shutdown")
 	}
 }
-func TestLoggerWritesAsynchronously(t *testing.T) {
-	store := &testStore{}
-	logger := New(store, true, 1, time.Hour)
+func TestDisabledAndStorageFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	logger.Run(ctx)
-	logger.Record(Entry{Domain: "example.test"})
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		store.mu.Lock()
-		n := len(store.entries)
-		store.mu.Unlock()
-		if n == 1 {
-			return
-		}
-		time.Sleep(time.Millisecond)
+	cancel()
+	store := &testStore{}
+	log := New(store, false, 1, time.Hour, 100)
+	log.Record(Entry{})
+	log.Run(ctx)
+	if len(store.entries) != 0 {
+		t.Fatal("disabled logging retained query")
 	}
-	t.Fatal("entry was not written")
+	store.fail = true
+	log = New(store, true, 1, time.Hour, 100)
+	log.Record(Entry{})
+	log.Run(ctx)
+	if log.Snapshot().Dropped != 1 || log.Snapshot().Errors == 0 {
+		t.Fatal("storage loss invisible")
+	}
 }

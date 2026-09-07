@@ -12,7 +12,6 @@ import (
 
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
-	"github.com/matta813/velora-dns/internal/database"
 	"github.com/matta813/velora-dns/internal/filtering"
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/querylog"
@@ -20,7 +19,7 @@ import (
 
 type Database interface{ Ping(context.Context) error }
 type QueryStore interface {
-	ListQueries(context.Context, database.QueryFilter) ([]querylog.Entry, error)
+	ListQueries(context.Context, querylog.Filter) ([]querylog.Entry, error)
 }
 type DNS interface {
 	Ready() bool

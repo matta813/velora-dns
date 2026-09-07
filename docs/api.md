@@ -28,7 +28,9 @@ Cache mutation requires `application/json`. Reverse proxies should preserve the 
 Host and Origin consistently; no permissive CORS is provided.
 
 Zone and record CRUD are available; see the [zone API contract](zones.md).
-Blocklists, query log APIs and authentication are not implemented.
+Query history is available via [the query logging API](query-logging.md).
+External sources support list/create/manual refresh under /api/v1/blocklists.
+Authentication is not implemented.
 Unknown API paths return 404. There is no wildcard route returning fabricated data.
 Config duration values serialize as nanoseconds. QPS is query count in the last 60
 seconds divided by 60; this includes the initial partial minute.

@@ -53,10 +53,14 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 		return fmt.Errorf("load filtering rules: %w", err)
 	}
 	observer := metrics.New(memory)
-	audit := querylog.New(db, c.QueryLog.Enabled, c.QueryLog.QueueSize, c.QueryLog.Retention)
+	audit := querylog.New(db, c.QueryLog.Enabled, c.QueryLog.QueueSize, c.QueryLog.Retention, c.QueryLog.MaxRows)
+	observer.ObserveQueryLog(audit)
+	auditCtx, auditCancel := context.WithCancel(context.Background())
+	var auditWG sync.WaitGroup
+	auditWG.Go(func() { audit.Run(auditCtx) })
+	defer func() { auditCancel(); auditWG.Wait() }()
 	var wg sync.WaitGroup
 	wg.Go(func() { memory.Run(runCtx) })
-	wg.Go(func() { audit.Run(runCtx) })
 	defer func() { cancel(); wg.Wait() }()
 	var allowed []netip.Prefix
 	for _, cidr := range c.DNS.AllowedClients {

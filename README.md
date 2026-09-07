@@ -14,7 +14,7 @@ Velora DNS is an independent, self-hosted DNS server built in Go, with a clean R
 
 [Quick start](#quick-start) · [Documentation](docs/README.md) · [Roadmap](docs/roadmap.md) · [Discussions](https://github.com/matta813/velora-dns/discussions)
 
-> **Development foundation, not a production release.** Forwarding, cache, lifecycle, operational API, dashboard, SQLite persistence, local authoritative zones with record management and metrics are implemented. Filtering, query history, authentication and encrypted DNS are planned. No releases or published images have been created.
+> **Development foundation, not a production release.** Forwarding, cache, lifecycle, operational API, dashboard, SQLite persistence, local authoritative zones, initial blocklists, opt-in query history and metrics are implemented. Authentication and encrypted DNS are planned. No releases or published images have been created.
 
 ## Quick start
 
@@ -35,6 +35,10 @@ curl http://127.0.0.1:8080/ready
 ```
 
 For a cache demonstration, send the same query twice with `+nocookie`; requests carrying client-specific EDNS options intentionally bypass the shared cache.
+
+Optional [query history](docs/query-logging.md) is available in the dashboard. Start Compose
+with `VELORA_QUERY_LOG_ENABLED=true docker compose up --build -d` to retain future queries
+with bounded age and row count.
 
 The Compose file builds locally, publishes only on host loopback, runs as UID 10001, drops capabilities and mounts a persistent data volume. Nothing is pulled from an unpublished project registry. See [deployment](docs/deployment.md) for LAN access, standard port 53, upgrades and backup.
 
@@ -127,7 +131,7 @@ Tests use local upstreams and nonprivileged ephemeral ports. Public DNS access i
 
 ## Roadmap
 
-The [roadmap](docs/roadmap.md) separates implemented foundation capabilities from the full MVP. Next: blocklists/allowlists, bounded query logging and their management screens. Later phases add users/roles, PostgreSQL, DoT/DoH/DNSSEC, DHCP/DoQ and multi-node operation.
+The [roadmap](docs/roadmap.md) separates implemented capabilities from the full MVP. Next: complete blocklist controls and top-domain/client statistics. Later phases add users/roles, PostgreSQL, DoT/DoH/DNSSEC, DHCP/DoQ and multi-node operation.
 
 ## Security
 

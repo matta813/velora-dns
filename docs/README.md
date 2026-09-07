@@ -6,6 +6,7 @@
 - [Validation evidence](validation.md)
 - [REST API and metrics](api.md)
 - [Local zones and record API](zones.md)
+- [Query history, retention and filters](query-logging.md)
 - [Architecture decisions](architecture/0001-foundation.md)
 - [DNS behavior and cache semantics](architecture/0002-dns-semantics.md)
 - [Repository administration](administration.md)
