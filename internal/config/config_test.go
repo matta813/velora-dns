@@ -1,9 +1,24 @@
 package config
 
 import (
+	"os"
 	"testing"
 	"time"
 )
+
+func TestLANExampleParses(t *testing.T) {
+	data, err := os.ReadFile("../../configs/config.lan.example.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := Parse(data, func(string) (string, bool) { return "", false })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.DNS.Listen) != 2 || c.DNS.Listen[0] != "0.0.0.0:53" || c.DNS.Listen[1] != "[::]:53" || c.HTTP.Listen != "127.0.0.1:8080" {
+		t.Fatalf("unsafe or incomplete LAN example: %+v", c)
+	}
+}
 
 func TestQueryLogEnvironmentAndBounds(t *testing.T) {
 	env := map[string]string{"VELORA_QUERY_LOG_ENABLED": "true", "VELORA_QUERY_LOG_RETENTION": "24h", "VELORA_QUERY_LOG_QUEUE_SIZE": "32", "VELORA_QUERY_LOG_MAX_ROWS": "250"}

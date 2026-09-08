@@ -1,0 +1,22 @@
+# Example native dual-stack LAN deployment. Replace both documentation prefixes.
+dns:
+  listen: ['0.0.0.0:53', '[::]:53']
+  upstreams: ['1.1.1.1:53', '9.9.9.9:53']
+  allowed_clients: ['192.168.50.0/24', 'fd12:3456:789a::/64', '127.0.0.0/8', '::1/128']
+  timeout: 2s
+  retries: 1
+  max_concurrent: 256
+cache:
+  max_entries: 10000
+http:
+  # Keep management local; use an SSH tunnel for remote administration.
+  listen: '127.0.0.1:8080'
+  web_dir: web/dist
+  allowed_hosts: ['localhost', '127.0.0.1', '::1']
+database_path: data/velora.db
+log_level: info
+query_log:
+  enabled: false
+  queue_size: 1024
+  retention: 168h
+  max_rows: 100000

@@ -1,0 +1,13 @@
+# Use with: docker compose -f docker-compose.yml -f configs/compose.lan.example.yaml up -d
+# Replace host addresses and client prefixes before deployment.
+services:
+  velora:
+    ports: !override
+      - {target: 5353, published: '53', host_ip: 192.168.50.10, protocol: udp}
+      - {target: 5353, published: '53', host_ip: 192.168.50.10, protocol: tcp}
+      - {target: 5353, published: '53', host_ip: 'fd12:3456:789a::10', protocol: udp}
+      - {target: 5353, published: '53', host_ip: 'fd12:3456:789a::10', protocol: tcp}
+      - {target: 8080, published: '8080', host_ip: 127.0.0.1, protocol: tcp}
+    environment:
+      # Include actual LANs plus the Compose bridge source seen after NAT.
+      VELORA_DNS_ALLOWED_CLIENTS: '192.168.50.0/24,fd12:3456:789a::/64,172.16.0.0/12'
