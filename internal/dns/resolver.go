@@ -87,6 +87,7 @@ func (r *Resolver) resolve(ctx context.Context, q *wire.Msg, depth int) (Result,
 	if r.blockedAnswer(m) {
 		return r.blocked(q), nil
 	}
+	cache.NormalizeNegativeTTL(m)
 	r.Cache.Put(q, m)
 	return Result{Message: m, Source: "upstream", Upstream: upstream}, nil
 }

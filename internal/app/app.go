@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -72,7 +73,11 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	}
 	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer}
 	resolver := &dns.Resolver{Cache: memory, Forwarder: forwarder, Local: local, Filter: matcher, BlockMode: c.Filtering.BlockMode}
-	listener, err := dns.Start(c.DNS.Listen, &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), Observer: observer, Audit: audit})
+	cookieSecret := make([]byte, 32)
+	if _, err = rand.Read(cookieSecret); err != nil {
+		return fmt.Errorf("initialize DNS cookie secret: %w", err)
+	}
+	listener, err := dns.Start(c.DNS.Listen, &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), Observer: observer, Audit: audit, CookieSecret: cookieSecret})
 	if err != nil {
 		return err
 	}

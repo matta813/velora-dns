@@ -7,7 +7,8 @@ The project is a tested development foundation, not a production certification.
 |---|---|
 | Backend | gofmt, go vet, golangci-lint v2.13.2 and race tests pass |
 | DNS | Local ephemeral UDP/TCP integration tests for A, AAAA, CNAME, TXT, MX, NS and PTR |
-| Forwarding | Failover, retries, context cancellation, question validation, large EDNS answer TCP fallback |
+| Forwarding | Failover, retries, context cancellation, question validation, CNAME-chain validation, EDNS option privacy and large-answer TCP fallback |
+| Protocol hardening | RFC 2308 NXDOMAIN/NODATA TTL boundaries, malformed EDNS, DNS Cookie challenge/replay behavior and parser policy fuzz seeds |
 | Cache | TTL aging, expiry sweep, exact expiration, copy isolation, LRU capacity and flush |
 | Config | Strict YAML, environment overrides, bounds, host validation; over 58,000 fuzz executions without failure |
 | HTTP | Database/listener readiness, origin/Host protection, request limits and JSON method errors |

@@ -61,7 +61,7 @@ func TestLRUAndFlush(t *testing.T) {
 	}
 }
 func TestUnsafeResponsesNotCached(t *testing.T) {
-	for _, kind := range []string{"zero", "truncated", "negative", "options", "disabled"} {
+	for _, kind := range []string{"zero", "truncated", "negative-without-soa", "options", "disabled"} {
 		t.Run(kind, func(t *testing.T) {
 			c := New(1)
 			q, m := pair("test.", 1)
@@ -70,7 +70,7 @@ func TestUnsafeResponsesNotCached(t *testing.T) {
 				m.Answer[0].Header().Ttl = 0
 			case "truncated":
 				m.Truncated = true
-			case "negative":
+			case "negative-without-soa":
 				m.Rcode = dns.RcodeNameError
 			case "options":
 				q.SetEdns0(1232, false)
@@ -83,6 +83,46 @@ func TestUnsafeResponsesNotCached(t *testing.T) {
 				t.Fatal("unsafe entry cached")
 			}
 		})
+	}
+}
+
+func TestRFC2308NegativeCaching(t *testing.T) {
+	for _, rcode := range []int{dns.RcodeNameError, dns.RcodeSuccess} {
+		t.Run(dns.RcodeToString[rcode], func(t *testing.T) {
+			c := New(2)
+			now := time.Unix(1000, 0)
+			c.now = func() time.Time { return now }
+			q, m := pair("missing.test.", 60)
+			m.Answer = nil
+			m.Rcode = rcode
+			m.Ns = []dns.RR{&dns.SOA{Hdr: dns.RR_Header{Name: "test.", Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: 600}, Minttl: 30}}
+			c.Put(q, m)
+			now = now.Add(10 * time.Second)
+			got, ok := c.Get(q)
+			if !ok || got.Rcode != rcode || got.Ns[0].Header().Ttl != 20 {
+				t.Fatalf("negative cache: %v", got)
+			}
+			now = now.Add(20 * time.Second)
+			if _, ok = c.Get(q); ok {
+				t.Fatal("negative entry survived minimum SOA TTL")
+			}
+		})
+	}
+}
+
+func TestNegativeTTLZeroAndCap(t *testing.T) {
+	q, m := pair("missing.test.", 1)
+	m.Answer = nil
+	m.Rcode = dns.RcodeNameError
+	m.Ns = []dns.RR{&dns.SOA{Hdr: dns.RR_Header{Rrtype: dns.TypeSOA, Ttl: 200000}, Minttl: 200000}}
+	if ttl, negative := cacheTTL(m); ttl != 86400 || !negative {
+		t.Fatalf("cap: %d %t", ttl, negative)
+	}
+	m.Ns[0].(*dns.SOA).Minttl = 0
+	c := New(1)
+	c.Put(q, m)
+	if _, ok := c.Get(q); ok {
+		t.Fatal("zero negative TTL cached")
 	}
 }
 func TestKeySeparatesDNSSECFlags(t *testing.T) {

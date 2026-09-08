@@ -15,12 +15,13 @@ type QueryObserver interface {
 }
 type AuditLogger interface{ Record(querylog.Entry) }
 type Handler struct {
-	Context  context.Context
-	Resolver *Resolver
-	Allowed  []netip.Prefix
-	Slots    chan struct{}
-	Observer QueryObserver
-	Audit    AuditLogger
+	Context      context.Context
+	Resolver     *Resolver
+	Allowed      []netip.Prefix
+	Slots        chan struct{}
+	Observer     QueryObserver
+	Audit        AuditLogger
+	CookieSecret []byte
 }
 
 func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
@@ -75,6 +76,15 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 		m.Rcode = wire.RcodeRefused
 		return
 	}
+	cookie, ednsRcode := clientEDNS(q, ip, h.CookieSecret)
+	if ednsRcode != wire.RcodeSuccess {
+		if q.IsEdns0() != nil {
+			m.SetEdns0(1232, false)
+		}
+		m.SetRcode(q, ednsRcode)
+		addResponseCookie(m, q, cookie)
+		return
+	}
 	if q.Response || len(q.Question) != 1 || q.Opcode != wire.OpcodeQuery {
 		m.Rcode = wire.RcodeFormatError
 		return
@@ -82,11 +92,6 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 	question := q.Question[0]
 	if !supported(question.Qtype) || question.Qclass != wire.ClassINET {
 		m.Rcode = wire.RcodeRefused
-		return
-	}
-	if opt := q.IsEdns0(); opt != nil && opt.Version() != 0 {
-		m.SetEdns0(1232, false)
-		m.Rcode = wire.RcodeBadVers
 		return
 	}
 	select {
@@ -107,6 +112,7 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 		return
 	}
 	m = result.Message
+	addResponseCookie(m, q, cookie)
 }
 func supported(t uint16) bool {
 	switch t {

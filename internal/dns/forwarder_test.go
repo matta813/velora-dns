@@ -47,6 +47,22 @@ func TestForwarderFailover(t *testing.T) {
 		t.Fatalf("failover: %v %s %v", m, used, err)
 	}
 }
+
+func TestForwarderRejectsMalformedCNAMEBeforeFailover(t *testing.T) {
+	bad := upstream(t, func(w wire.ResponseWriter, q *wire.Msg) {
+		m := new(wire.Msg)
+		m.SetReply(q)
+		m.Answer = []wire.RR{&wire.CNAME{Hdr: wire.RR_Header{Name: q.Question[0].Name, Rrtype: wire.TypeCNAME, Class: wire.ClassINET, Ttl: 60}, Target: q.Question[0].Name}}
+		_ = w.WriteMsg(m)
+	})
+	good := upstream(t, answer)
+	q := new(wire.Msg)
+	q.SetQuestion("alias.test.", wire.TypeA)
+	m, used, err := (&Forwarder{Upstreams: []string{bad.Addresses()[0], good.Addresses()[0]}, Timeout: time.Second}).Resolve(context.Background(), q)
+	if err != nil || used != good.Addresses()[0] || len(m.Answer) != 1 {
+		t.Fatalf("malformed CNAME failover: %v %s %v", m, used, err)
+	}
+}
 func TestRetryAndTCPFallback(t *testing.T) {
 	var calls atomic.Int32
 	s := upstream(t, func(w wire.ResponseWriter, q *wire.Msg) {
@@ -142,5 +158,39 @@ func TestLargeEDNSAnswerUsesTCP(t *testing.T) {
 	}
 	if q.IsEdns0().UDPSize() != 4096 {
 		t.Fatal("forwarder mutated client message")
+	}
+}
+
+func TestForwarderAppliesPrivacyPreservingEDNSPolicy(t *testing.T) {
+	seen := make(chan *wire.Msg, 1)
+	s := upstream(t, func(w wire.ResponseWriter, q *wire.Msg) {
+		seen <- q.Copy()
+		m := new(wire.Msg)
+		m.SetReply(q)
+		m.Answer = []wire.RR{&wire.A{Hdr: wire.RR_Header{Name: q.Question[0].Name, Rrtype: wire.TypeA, Class: wire.ClassINET, Ttl: 60}}}
+		m.SetEdns0(1232, true)
+		m.IsEdns0().Option = append(m.IsEdns0().Option, &wire.EDNS0_COOKIE{Code: wire.EDNS0COOKIE, Cookie: "0102030405060708"})
+		_ = w.WriteMsg(m)
+	})
+	q := new(wire.Msg)
+	q.SetQuestion("privacy.test.", wire.TypeA)
+	q.SetEdns0(4096, true)
+	q.IsEdns0().Option = append(q.IsEdns0().Option,
+		&wire.EDNS0_COOKIE{Code: wire.EDNS0COOKIE, Cookie: "0102030405060708"},
+		&wire.EDNS0_SUBNET{Code: wire.EDNS0SUBNET, Family: 1, SourceNetmask: 24, Address: net.ParseIP("192.0.2.1")},
+	)
+	m, _, err := (&Forwarder{Upstreams: s.Addresses(), Timeout: time.Second}).Resolve(context.Background(), q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	forwarded := <-seen
+	if opt := forwarded.IsEdns0(); opt == nil || opt.UDPSize() != 1232 || !opt.Do() || len(opt.Option) != 0 {
+		t.Fatalf("forwarded EDNS policy: %v", opt)
+	}
+	if len(m.IsEdns0().Option) != 0 {
+		t.Fatal("upstream cookie leaked to client")
+	}
+	if len(q.IsEdns0().Option) != 2 || q.IsEdns0().UDPSize() != 4096 {
+		t.Fatal("client query was mutated")
 	}
 }
