@@ -78,3 +78,40 @@ func (s *Store) ListQueries(ctx context.Context, filter querylog.Filter) ([]quer
 	}
 	return out, rows.Err()
 }
+
+// QuerySummary computes bounded, on-demand rankings from retained history. Domain and
+// client values intentionally stay out of Prometheus labels.
+func (s *Store) QuerySummary(ctx context.Context, start, end time.Time, limit int) (querylog.Summary, error) {
+	if !start.Before(end) || limit < 1 || limit > 50 {
+		return querylog.Summary{}, fmt.Errorf("invalid query summary bounds")
+	}
+	startText, endText := start.UTC().Format(queryTimeFormat), end.UTC().Format(queryTimeFormat)
+	result := querylog.Summary{WindowStart: start.UTC(), WindowEnd: end.UTC(), TopDomains: []querylog.Ranking{}, TopClients: []querylog.Ranking{}}
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*), COALESCE(SUM(CASE WHEN source='blocked' THEN 1 ELSE 0 END),0) FROM query_log WHERE occurred_at>=? AND occurred_at<?", startText, endText).Scan(&result.Total, &result.Blocked); err != nil {
+		return querylog.Summary{}, err
+	}
+	load := func(column string) ([]querylog.Ranking, error) {
+		rows, err := s.db.QueryContext(ctx, "SELECT "+column+", COUNT(*) AS frequency FROM query_log WHERE occurred_at>=? AND occurred_at<? GROUP BY "+column+" ORDER BY frequency DESC, "+column+" ASC LIMIT ?", startText, endText, limit)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = rows.Close() }()
+		out := []querylog.Ranking{}
+		for rows.Next() {
+			var item querylog.Ranking
+			if err = rows.Scan(&item.Value, &item.Count); err != nil {
+				return nil, err
+			}
+			out = append(out, item)
+		}
+		return out, rows.Err()
+	}
+	var err error
+	if result.TopDomains, err = load("domain"); err != nil {
+		return querylog.Summary{}, err
+	}
+	if result.TopClients, err = load("client_ip"); err != nil {
+		return querylog.Summary{}, err
+	}
+	return result, nil
+}

@@ -57,7 +57,7 @@ The Compose file builds locally, publishes only on host loopback, runs as UID 10
 - Prometheus metrics without domain or client labels
 - Protected PR workflow, Dependabot, CodeQL, dependency review, static analysis and Docker CI
 
-The foundation forwards recursive requests to configured upstreams. It does not perform iterative resolution or DNSSEC validation, and clears upstream AD assertions. Negative responses and client-option-dependent queries are not cached yet. Query names and client addresses are not persisted.
+The foundation forwards recursive requests to configured upstreams. It does not perform iterative resolution or DNSSEC validation, and clears upstream AD assertions. Negative responses and client-option-dependent queries are not cached yet. Query names and client addresses are persisted only when the opt-in, bounded query log is enabled.
 
 ## Architecture
 

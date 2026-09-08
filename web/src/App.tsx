@@ -148,7 +148,13 @@ export default function App() {
             <Routes>
               <Route
                 path="/"
-                element={<Dashboard data={data} history={history} />}
+                element={
+                  <Dashboard
+                    data={data}
+                    history={history}
+                    queryLoggingEnabled={data.config.query_log?.enabled ?? false}
+                  />
+                }
               />
               <Route
                 path="/cache"
