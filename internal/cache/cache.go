@@ -1,4 +1,4 @@
-// Package cache provides a bounded, positive-answer DNS cache with TTL aging.
+// Package cache provides bounded positive and RFC 2308 negative DNS caching.
 package cache
 
 import (
@@ -86,19 +86,16 @@ func (c *Cache) Get(q *dns.Msg) (*dns.Msg, bool) {
 }
 func (c *Cache) Put(q, m *dns.Msg) {
 	key, ok := Key(q)
-	if !ok || c.max == 0 || m.Rcode != dns.RcodeSuccess || m.Truncated || len(m.Answer) == 0 || m.Len() > 16384 {
+	if !ok || c.max == 0 || m.Truncated || m.Len() > 16384 {
 		return
 	}
-	ttl := uint32(86400)
-	for _, section := range [][]dns.RR{m.Answer, m.Ns, m.Extra} {
-		for _, rr := range section {
-			if rr.Header().Rrtype != dns.TypeOPT && rr.Header().Ttl < ttl {
-				ttl = rr.Header().Ttl
-			}
-		}
-	}
+	stored := m.Copy()
+	ttl, negative := cacheTTL(stored)
 	if ttl == 0 {
 		return
+	}
+	if negative {
+		clampNegativeSOA(stored, ttl)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -109,8 +106,63 @@ func (c *Cache) Put(q, m *dns.Msg) {
 		c.remove(c.lru.Back())
 	}
 	now := c.now()
-	e := &entry{key: key, message: m.Copy(), stored: now, expires: now.Add(time.Duration(ttl) * time.Second)}
+	e := &entry{key: key, message: stored, stored: now, expires: now.Add(time.Duration(ttl) * time.Second)}
 	c.items[key] = c.lru.PushFront(e)
+}
+
+// NormalizeNegativeTTL advertises the actual RFC 2308 cache lifetime on the wire.
+func NormalizeNegativeTTL(m *dns.Msg) {
+	if ttl, negative := cacheTTL(m); negative {
+		clampNegativeSOA(m, ttl)
+	}
+}
+
+func clampNegativeSOA(m *dns.Msg, ttl uint32) {
+	for _, rr := range m.Ns {
+		if soa, yes := rr.(*dns.SOA); yes {
+			soa.Hdr.Ttl = ttl
+		}
+	}
+}
+
+func cacheTTL(m *dns.Msg) (uint32, bool) {
+	const maxTTL = uint32(86400)
+	var soa *dns.SOA
+	for _, rr := range m.Ns {
+		if candidate, yes := rr.(*dns.SOA); yes {
+			soa = candidate
+			break
+		}
+	}
+	aliasOnly := true
+	for _, rr := range m.Answer {
+		if rr.Header().Rrtype != dns.TypeCNAME && rr.Header().Rrtype != dns.TypeRRSIG {
+			aliasOnly = false
+			break
+		}
+	}
+	negative := soa != nil && (m.Rcode == dns.RcodeNameError || (m.Rcode == dns.RcodeSuccess && (len(m.Answer) == 0 || aliasOnly)))
+	if negative {
+		ttl := min(soa.Hdr.Ttl, soa.Minttl, maxTTL)
+		for _, rr := range m.Answer {
+			if rr.Header().Ttl < ttl {
+				ttl = rr.Header().Ttl
+			}
+		}
+		return ttl, true
+	}
+	if m.Rcode == dns.RcodeSuccess && len(m.Answer) > 0 {
+		ttl := maxTTL
+		for _, section := range [][]dns.RR{m.Answer, m.Ns, m.Extra} {
+			for _, rr := range section {
+				if rr.Header().Rrtype != dns.TypeOPT && rr.Header().Ttl < ttl {
+					ttl = rr.Header().Ttl
+				}
+			}
+		}
+		return ttl, false
+	}
+	return 0, false
 }
 func (c *Cache) remove(el *list.Element) { delete(c.items, el.Value.(*entry).key); c.lru.Remove(el) }
 func (c *Cache) expire() {

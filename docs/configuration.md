@@ -31,7 +31,9 @@ and accidental hostname dependency. DNS supports up to eight listeners and eight
 
 Cache size zero disables caching; maximum is 1,000,000 entries. Concurrent DNS work is
 1–10,000 requests. Choose realistic limits for your memory budget; Compose defaults to
-256 MiB. Large DNS responses over 16 KiB are not cached. Expiry sweep runs each second;
+256 MiB. Large DNS responses over 16 KiB are not cached. Positive and SOA-backed negative
+TTLs are capped at one day. Negative TTL follows RFC 2308's minimum of the SOA TTL and
+MINIMUM field. Expiry sweep runs each second;
 expired entries are also rejected immediately on lookup.
 
 `VELORA_DNS_PORT` and `VELORA_HTTP_PORT` are Compose host-port substitutions, not Go

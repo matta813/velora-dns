@@ -30,8 +30,9 @@ func (f *Forwarder) Resolve(ctx context.Context, q *wire.Msg) (*wire.Msg, string
 			request := q.Copy()
 			request.Id = wire.Id()
 			request.AuthenticatedData = false
-			if opt := request.IsEdns0(); opt != nil {
-				opt.SetUDPSize(1232)
+			request.Extra = withoutOPT(request.Extra)
+			if opt := q.IsEdns0(); opt != nil {
+				request.SetEdns0(1232, opt.Do())
 			}
 			client := &wire.Client{Net: "udp", Timeout: f.Timeout, UDPSize: 1232}
 			m, _, err := client.ExchangeContext(attempt, request, upstream)
@@ -42,6 +43,9 @@ func (f *Forwarder) Resolve(ctx context.Context, q *wire.Msg) (*wire.Msg, string
 			cancel()
 			if err == nil && (!m.Response || !sameQuestion(q, m)) {
 				err = fmt.Errorf("invalid upstream response")
+			}
+			if err == nil {
+				err = validateAnswerChain(q, m)
 			}
 			if err == nil && (m.Rcode == wire.RcodeServerFailure || m.Rcode == wire.RcodeRefused) {
 				err = fmt.Errorf("upstream response %s", wire.RcodeToString[m.Rcode])
@@ -56,10 +60,25 @@ func (f *Forwarder) Resolve(ctx context.Context, q *wire.Msg) (*wire.Msg, string
 			m.Id = q.Id
 			m.Question = append([]wire.Question(nil), q.Question...)
 			m.AuthenticatedData = false
+			if q.IsEdns0() == nil {
+				m.Extra = withoutOPT(m.Extra)
+			} else if opt := m.IsEdns0(); opt != nil {
+				opt.Option = nil
+			}
 			return m, upstream, nil
 		}
 	}
 	return nil, "", fmt.Errorf("all upstream attempts failed: %v", last)
+}
+
+func withoutOPT(records []wire.RR) []wire.RR {
+	out := make([]wire.RR, 0, len(records))
+	for _, rr := range records {
+		if rr.Header().Rrtype != wire.TypeOPT {
+			out = append(out, rr)
+		}
+	}
+	return out
 }
 func sameQuestion(a, b *wire.Msg) bool {
 	return len(a.Question) == 1 && len(b.Question) == 1 && strings.EqualFold(a.Question[0].Name, b.Question[0].Name) && a.Question[0].Qtype == b.Question[0].Qtype && a.Question[0].Qclass == b.Question[0].Qclass
