@@ -2,7 +2,9 @@
 
 Query logging is disabled by default. Enable it using YAML `query_log.enabled: true`
 or `VELORA_QUERY_LOG_ENABLED=true`. Compose passes through this environment variable.
-New queries are retained; enabling history does not reconstruct earlier traffic.
+New queries are retained; enabling history does not reconstruct earlier traffic. When
+logging is disabled, history and aggregate endpoints return an explicit unavailable
+response and the UI does not display previously retained private activity.
 
 The DNS handler enqueues timestamp, client IP, domain, type, response code, elapsed
 time, source, upstream and cache-hit status without waiting for SQL. A single worker
@@ -42,3 +44,11 @@ is nanoseconds, matching other duration fields. The UI renders it in millisecond
 
 The Query log page supports all four filters and older pages. History includes private
 network activity: restrict access to the management interface and database backups.
+
+## Aggregate dashboard
+
+`GET /api/v1/query-stats` returns total and blocked counts plus top domains and clients.
+`window` is restricted to `1h`, `24h` (the default), or `7d`; `limit` defaults to 10 and
+is bounded at 50. Windows include their start and exclude their end. Rankings are computed
+on demand over retained rows and use deterministic value ordering for ties. Domain and
+client values are never exposed as Prometheus labels, avoiding unbounded metric cardinality.

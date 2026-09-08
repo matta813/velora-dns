@@ -9,6 +9,9 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     const controller = new AbortController();
     const params = new URLSearchParams({
       domain: filter.domain,
@@ -36,19 +39,21 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [filter]);
+  }, [enabled, filter]);
   function apply(before = "") {
     setLoading(true);
     setFilter({ ...draft, before, revision: filter.revision + 1 });
   }
+  if (!enabled) {
+    return (
+      <section className="panel zone-empty large" role="status">
+        <h2>Query history unavailable</h2>
+        <p>Enable query logging to collect and inspect future DNS activity.</p>
+      </section>
+    );
+  }
   return (
     <>
-      {!enabled && (
-        <div className="notice">
-          Query logging is disabled. Existing history remains visible until its
-          retention expires.
-        </div>
-      )}
       <div className="zones-toolbar">
         <span className="zone-count">
           Up to 100 retained responses per page
@@ -123,6 +128,19 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
           </div>
           <button className="button primary" disabled={loading}>
             Apply filters
+          </button>
+          <button
+            className="button"
+            type="button"
+            disabled={loading}
+            onClick={() => {
+              const blocked = { ...empty, source: "blocked" };
+              setDraft(blocked);
+              setLoading(true);
+              setFilter({ ...blocked, before: "", revision: filter.revision + 1 });
+            }}
+          >
+            Show blocked queries
           </button>
         </form>
       </section>

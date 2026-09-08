@@ -19,6 +19,7 @@ import (
 type Database interface{ Ping(context.Context) error }
 type QueryStore interface {
 	ListQueries(context.Context, querylog.Filter) ([]querylog.Entry, error)
+	QuerySummary(context.Context, time.Time, time.Time, int) (querylog.Summary, error)
 }
 type DNS interface {
 	Ready() bool
@@ -70,7 +71,7 @@ func New(d Dependencies) http.Handler {
 		capabilities = append(capabilities, "blocklists")
 	}
 	if d.Queries != nil {
-		registerQueries(mux, d.Queries)
+		registerQueries(mux, d.Queries, d.Config.QueryLog.Enabled)
 		capabilities = append(capabilities, "query_logging")
 	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
