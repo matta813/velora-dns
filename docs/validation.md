@@ -7,6 +7,7 @@ The project is a tested development foundation, not a production certification.
 |---|---|
 | Backend | gofmt, go vet, golangci-lint v2.13.2 and race tests pass |
 | DNS | Local ephemeral UDP/TCP integration tests for A, AAAA, CNAME, TXT, MX, NS and PTR |
+| Resource limits | Controlled-clock token refill, bounded client churn, concurrent limiter load, UDP/TCP shared limits and TCP slot release |
 | Forwarding | Failover, retries, context cancellation, question validation, large EDNS answer TCP fallback |
 | Cache | TTL aging, expiry sweep, exact expiration, copy isolation, LRU capacity and flush |
 | Config | Strict YAML, environment overrides, bounds, host validation; over 58,000 fuzz executions without failure |

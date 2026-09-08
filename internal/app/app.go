@@ -72,7 +72,8 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	}
 	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer}
 	resolver := &dns.Resolver{Cache: memory, Forwarder: forwarder, Local: local, Filter: matcher, BlockMode: c.Filtering.BlockMode}
-	listener, err := dns.Start(c.DNS.Listen, &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), Observer: observer, Audit: audit})
+	limiter := dns.NewLimiter(c.DNS.RatePerSecond, c.DNS.RateBurst, c.DNS.GlobalRatePerSecond, c.DNS.GlobalRateBurst, c.DNS.RateClients)
+	listener, err := dns.StartWithLimits(c.DNS.Listen, &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), Observer: observer, Audit: audit, Limiter: limiter, Overload: observer}, c.DNS.MaxTCPConnections, observer)
 	if err != nil {
 		return err
 	}

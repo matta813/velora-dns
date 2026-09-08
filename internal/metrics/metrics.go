@@ -35,6 +35,8 @@ type Metrics struct {
 	total            uint64
 	blocked          uint64
 	blockedCounter   prometheus.Counter
+	overload         *prometheus.CounterVec
+	tcpConnections   prometheus.Gauge
 	buckets          [60]uint64
 	seconds          [60]int64
 	cache            *cache.Cache
@@ -48,8 +50,18 @@ func New(c *cache.Cache) *Metrics {
 	m.requests = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "dns_upstream_requests_total", Help: "Upstream attempts including failures."}, []string{"upstream"})
 	m.errors = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "dns_upstream_errors_total", Help: "Failed upstream attempts."}, []string{"upstream"})
 	m.blockedCounter = prometheus.NewCounter(prometheus.CounterOpts{Name: "dns_queries_blocked_total", Help: "Queries blocked by DNS policy."})
-	r.MustRegister(m.queries, m.duration, m.requests, m.errors, prometheus.NewGaugeFunc(prometheus.GaugeOpts{Name: "dns_cache_entries", Help: "Live cache entries."}, func() float64 { return float64(c.Stats().Entries) }), prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_cache_hits_total", Help: "Cache hits."}, func() float64 { return float64(c.Stats().Hits) }), prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_cache_misses_total", Help: "Cache misses."}, func() float64 { return float64(c.Stats().Misses) }), m.blockedCounter)
+	m.overload = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "dns_overload_total", Help: "DNS work rejected by bounded overload reason."}, []string{"reason"})
+	m.tcpConnections = prometheus.NewGauge(prometheus.GaugeOpts{Name: "dns_tcp_connections", Help: "Currently accepted client TCP connections."})
+	r.MustRegister(m.queries, m.duration, m.requests, m.errors, prometheus.NewGaugeFunc(prometheus.GaugeOpts{Name: "dns_cache_entries", Help: "Live cache entries."}, func() float64 { return float64(c.Stats().Entries) }), prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_cache_hits_total", Help: "Cache hits."}, func() float64 { return float64(c.Stats().Hits) }), prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_cache_misses_total", Help: "Cache misses."}, func() float64 { return float64(c.Stats().Misses) }), m.blockedCounter, m.overload, m.tcpConnections)
 	return m
+}
+func (m *Metrics) Overload(reason string) { m.overload.WithLabelValues(reason).Inc() }
+func (m *Metrics) TCPConnection(open bool) {
+	if open {
+		m.tcpConnections.Inc()
+	} else {
+		m.tcpConnections.Dec()
+	}
 }
 func (m *Metrics) Query(kind, source string, rcode int, elapsed time.Duration) {
 	code, ok := wire.RcodeToString[rcode]

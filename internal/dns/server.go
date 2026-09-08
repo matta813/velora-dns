@@ -18,12 +18,20 @@ type Server struct {
 	wg      sync.WaitGroup
 	errors  chan error
 }
+type TransportObserver interface {
+	Overload(string)
+	TCPConnection(bool)
+}
 
 func (s *Server) Ready() bool          { return s.ready.Load() }
 func (s *Server) Errors() <-chan error { return s.errors }
 
 // Start binds every UDP/TCP socket before reporting readiness. Port zero is supported for tests.
 func Start(addresses []string, handler wire.Handler) (*Server, error) {
+	return StartWithLimits(addresses, handler, 256, nil)
+}
+
+func StartWithLimits(addresses []string, handler wire.Handler, maxTCPConnections int, observer TransportObserver) (*Server, error) {
 	s := &Server{errors: make(chan error, len(addresses)*2)}
 	cleanup := func() {
 		for _, server := range s.servers {
@@ -56,7 +64,8 @@ func Start(addresses []string, handler wire.Handler) (*Server, error) {
 			cleanup()
 			return nil, fmt.Errorf("bind UDP: %w", err)
 		}
-		s.servers = append(s.servers, &wire.Server{Listener: tcp, Handler: handler, ReadTimeout: 2 * time.Second, WriteTimeout: 2 * time.Second, IdleTimeout: func() time.Duration { return 5 * time.Second }, MaxTCPQueries: 100}, &wire.Server{PacketConn: udp, Handler: handler, UDPSize: 1232})
+		limited := &limitedListener{Listener: tcp, slots: make(chan struct{}, maxTCPConnections), observer: observer}
+		s.servers = append(s.servers, &wire.Server{Listener: limited, Handler: handler, ReadTimeout: 2 * time.Second, WriteTimeout: 2 * time.Second, IdleTimeout: func() time.Duration { return 5 * time.Second }, MaxTCPQueries: 100}, &wire.Server{PacketConn: udp, Handler: handler, UDPSize: 1232})
 	}
 	started := make(chan struct{}, len(s.servers))
 	for _, server := range s.servers {
@@ -80,6 +89,50 @@ func Start(addresses []string, handler wire.Handler) (*Server, error) {
 	}
 	s.ready.Store(true)
 	return s, nil
+}
+
+type limitedListener struct {
+	net.Listener
+	slots    chan struct{}
+	observer TransportObserver
+}
+
+func (l *limitedListener) Accept() (net.Conn, error) {
+	for {
+		conn, err := l.Listener.Accept()
+		if err != nil {
+			return nil, err
+		}
+		select {
+		case l.slots <- struct{}{}:
+			if l.observer != nil {
+				l.observer.TCPConnection(true)
+			}
+			return &limitedConn{Conn: conn, release: func() {
+				<-l.slots
+				if l.observer != nil {
+					l.observer.TCPConnection(false)
+				}
+			}}, nil
+		default:
+			_ = conn.Close()
+			if l.observer != nil {
+				l.observer.Overload("tcp_connections")
+			}
+		}
+	}
+}
+
+type limitedConn struct {
+	net.Conn
+	once    sync.Once
+	release func()
+}
+
+func (c *limitedConn) Close() error {
+	err := c.Conn.Close()
+	c.once.Do(c.release)
+	return err
 }
 func (s *Server) Addresses() []string {
 	var out []string

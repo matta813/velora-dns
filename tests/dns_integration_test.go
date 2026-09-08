@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
 	"sync/atomic"
 	"testing"
@@ -74,6 +75,55 @@ func TestDNSClientDenied(t *testing.T) {
 	m, _, err := (&wire.Client{Timeout: time.Second}).Exchange(q, s.Addresses()[0])
 	if err != nil || m.Rcode != wire.RcodeRefused {
 		t.Fatalf("ACL not enforced: %v %v", m, err)
+	}
+}
+
+type overloadCounter struct{ count atomic.Int32 }
+
+func (o *overloadCounter) Overload(reason string) {
+	if reason == "client_rate" {
+		o.count.Add(1)
+	}
+}
+
+func TestDNSRateLimitAppliesAcrossUDPAndTCP(t *testing.T) {
+	var calls atomic.Int32
+	up, err := server.Start([]string{"127.0.0.1:0"}, wire.HandlerFunc(func(w wire.ResponseWriter, q *wire.Msg) {
+		calls.Add(1)
+		m := new(wire.Msg)
+		m.SetReply(q)
+		m.Answer = []wire.RR{&wire.A{Hdr: wire.RR_Header{Name: q.Question[0].Name, Rrtype: wire.TypeA, Class: wire.ClassINET, Ttl: 1}}}
+		_ = w.WriteMsg(m)
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = up.Shutdown(context.Background()) }()
+	overloads := &overloadCounter{}
+	limiter := server.NewLimiter(1, 2, 100, 100, 10)
+	h := &server.Handler{Context: context.Background(), Resolver: &server.Resolver{Cache: cache.New(0), Forwarder: &server.Forwarder{Upstreams: up.Addresses(), Timeout: time.Second}}, Allowed: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}, Slots: make(chan struct{}, 5), Limiter: limiter, Overload: overloads}
+	s, err := server.Start([]string{"127.0.0.1:0"}, h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = s.Shutdown(context.Background()) }()
+	for i, network := range []string{"udp", "tcp", "udp"} {
+		q := new(wire.Msg)
+		q.SetQuestion(fmt.Sprintf("query-%d.test.", i), wire.TypeA)
+		m, _, exchangeErr := (&wire.Client{Net: network, Timeout: time.Second}).Exchange(q, s.Addresses()[0])
+		if exchangeErr != nil {
+			t.Fatal(exchangeErr)
+		}
+		want := wire.RcodeSuccess
+		if i == 2 {
+			want = wire.RcodeRefused
+		}
+		if m.Rcode != want {
+			t.Fatalf("query %d: got %s", i, wire.RcodeToString[m.Rcode])
+		}
+	}
+	if calls.Load() != 2 || overloads.count.Load() != 1 {
+		t.Fatalf("calls=%d overloads=%d", calls.Load(), overloads.count.Load())
 	}
 }
 
