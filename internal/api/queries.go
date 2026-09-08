@@ -11,8 +11,12 @@ import (
 	"time"
 )
 
-func registerQueries(mux *http.ServeMux, store QueryStore) {
+func registerQueries(mux *http.ServeMux, store QueryStore, enabled bool) {
 	mux.HandleFunc("GET /api/v1/queries", func(w http.ResponseWriter, r *http.Request) {
+		if !enabled {
+			failure(w, 503, "query_logging_disabled", "Query logging is disabled")
+			return
+		}
 		q := r.URL.Query()
 		f := querylog.Filter{Domain: strings.ToLower(q.Get("domain")), Client: q.Get("client"), Type: strings.ToUpper(q.Get("type")), Source: q.Get("source"), Limit: 100}
 		invalid := func() {
@@ -69,6 +73,43 @@ func registerQueries(mux *http.ServeMux, store QueryStore) {
 			w.Header().Set("X-Next-Before", strconv.FormatInt(entries[len(entries)-1].ID, 10))
 		}
 		respond(w, 200, entries)
+	})
+	mux.HandleFunc("GET /api/v1/query-stats", func(w http.ResponseWriter, r *http.Request) {
+		if !enabled {
+			failure(w, 503, "query_logging_disabled", "Query logging is disabled")
+			return
+		}
+		windows := map[string]time.Duration{"1h": time.Hour, "24h": 24 * time.Hour, "7d": 7 * 24 * time.Hour}
+		windowName := r.URL.Query().Get("window")
+		if windowName == "" {
+			windowName = "24h"
+		}
+		window, ok := windows[windowName]
+		limit := 10
+		if value := r.URL.Query().Get("limit"); value != "" {
+			var err error
+			limit, err = strconv.Atoi(value)
+			if err != nil || limit < 1 || limit > 50 {
+				ok = false
+			}
+		}
+		if !ok {
+			failure(w, 400, "invalid_filter", "Use window 1h, 24h or 7d and limit 1–50")
+			return
+		}
+		end := time.Now().UTC()
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		summary, err := store.QuerySummary(ctx, end.Add(-window), end, limit)
+		if err != nil {
+			failure(w, 503, "storage_unavailable", "Query statistics storage is unavailable")
+			return
+		}
+		respond(w, 200, summary)
+	})
+	mux.HandleFunc("/api/v1/query-stats", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Allow", "GET, HEAD")
+		failure(w, 405, "method_not_allowed", "Method not allowed")
 	})
 	mux.HandleFunc("/api/v1/queries", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Allow", "GET, HEAD")

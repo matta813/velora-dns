@@ -25,6 +25,18 @@ type Filter struct {
 	Limit                        int
 	Before                       int64
 }
+type Ranking struct {
+	Value string `json:"value"`
+	Count uint64 `json:"count"`
+}
+type Summary struct {
+	WindowStart time.Time `json:"window_start"`
+	WindowEnd   time.Time `json:"window_end"`
+	Total       uint64    `json:"total"`
+	Blocked     uint64    `json:"blocked"`
+	TopDomains  []Ranking `json:"top_domains"`
+	TopClients  []Ranking `json:"top_clients"`
+}
 type Store interface {
 	WriteQueries(context.Context, []Entry, time.Time, int) error
 }

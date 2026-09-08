@@ -55,6 +55,18 @@ export interface QueryLogEntry {
   duration: number;
   source: string;
 }
+export interface QueryRanking {
+  value: string;
+  count: number;
+}
+export interface QuerySummary {
+  window_start: string;
+  window_end: string;
+  total: number;
+  blocked: number;
+  top_domains: QueryRanking[];
+  top_clients: QueryRanking[];
+}
 export interface BlocklistSource {
   id: number;
   name: string;

@@ -48,3 +48,33 @@ func TestHistoryRoundTripLimitsAndLiteralFilters(t *testing.T) {
 		t.Fatalf("retention/empty list: %+v %v", got, err)
 	}
 }
+
+func TestQuerySummaryUsesHalfOpenWindowAndStableRankings(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(ctx, filepath.Join(t.TempDir(), "summary.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	start := time.Date(2026, 9, 8, 10, 0, 0, 0, time.UTC)
+	entries := []querylog.Entry{
+		{OccurredAt: start.Add(-time.Nanosecond), Domain: "before.test.", ClientIP: "192.0.2.9", Source: "upstream"},
+		{OccurredAt: start, Domain: "beta.test.", ClientIP: "192.0.2.2", Source: "blocked"},
+		{OccurredAt: start.Add(time.Second), Domain: "alpha.test.", ClientIP: "192.0.2.1", Source: "upstream"},
+		{OccurredAt: start.Add(2 * time.Second), Domain: "beta.test.", ClientIP: "192.0.2.2", Source: "blocked"},
+		{OccurredAt: start.Add(time.Hour), Domain: "after.test.", ClientIP: "192.0.2.8", Source: "upstream"},
+	}
+	if err = db.WriteQueries(ctx, entries, start.Add(-time.Hour), 100); err != nil {
+		t.Fatal(err)
+	}
+	summary, err := db.QuerySummary(ctx, start, start.Add(time.Hour), 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.Total != 3 || summary.Blocked != 2 || len(summary.TopDomains) != 2 || summary.TopDomains[0] != (querylog.Ranking{Value: "beta.test.", Count: 2}) || summary.TopDomains[1].Value != "alpha.test." {
+		t.Fatalf("summary: %+v", summary)
+	}
+	if len(summary.TopClients) != 2 || summary.TopClients[0] != (querylog.Ranking{Value: "192.0.2.2", Count: 2}) {
+		t.Fatalf("clients: %+v", summary.TopClients)
+	}
+}

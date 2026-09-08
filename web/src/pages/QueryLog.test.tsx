@@ -51,15 +51,23 @@ it("renders real API fields and submits all four filters only on apply", async (
     source: "blocked",
   });
 });
-it("shows load errors without displaying fabricated empty results", async () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockRejectedValue(new Error("Storage unavailable")),
-  );
+it("shows an unavailable state without fetching when logging is disabled", async () => {
+  const fetch = vi.fn();
+  vi.stubGlobal("fetch", fetch);
   render(<QueryLog enabled={false} />);
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Storage unavailable",
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "Query history unavailable",
   );
   expect(screen.queryByText("No matching queries")).not.toBeInTheDocument();
-  expect(screen.getByText(/Query logging is disabled/)).toBeInTheDocument();
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it("opens the blocked-query view", async () => {
+  const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: [] }) });
+  vi.stubGlobal("fetch", fetch);
+  render(<QueryLog enabled />);
+  await screen.findByText("No matching queries");
+  fireEvent.click(screen.getByText("Show blocked queries"));
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+  expect(new URL(fetch.mock.calls[1][0], "http://localhost").searchParams.get("source")).toBe("blocked");
 });

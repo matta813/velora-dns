@@ -7,6 +7,7 @@ import (
 	"github.com/matta813/velora-dns/internal/querylog"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -24,7 +25,7 @@ func TestQueriesRealStorageJSONAndValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	mux := http.NewServeMux()
-	registerQueries(mux, db)
+	registerQueries(mux, db, true)
 	w := zoneRequest(mux, "GET", "/api/v1/queries?domain=EXAMPLE&type=A&client=127.0.0.1&source=upstream", "", "")
 	if w.Code != 200 {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
@@ -48,5 +49,27 @@ func TestQueriesRealStorageJSONAndValidation(t *testing.T) {
 	}
 	if w = zoneRequest(mux, "POST", "/api/v1/queries", "", ""); w.Code != 405 {
 		t.Fatalf("method: %d", w.Code)
+	}
+	w = zoneRequest(mux, "GET", "/api/v1/query-stats?window=24h&limit=10", "", "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"top_domains":[{"value":"example.test.","count":1}]`) {
+		t.Fatalf("summary: %d %s", w.Code, w.Body.String())
+	}
+	for _, query := range []string{"window=forever", "limit=0", "limit=51"} {
+		if got := zoneRequest(mux, "GET", "/api/v1/query-stats?"+query, "", ""); got.Code != 400 {
+			t.Fatalf("summary %s: %d", query, got.Code)
+		}
+	}
+	if got := zoneRequest(mux, "POST", "/api/v1/query-stats", "", ""); got.Code != 405 {
+		t.Fatalf("summary method: %d", got.Code)
+	}
+}
+
+func TestQueriesUnavailableWhenDisabled(t *testing.T) {
+	mux := http.NewServeMux()
+	registerQueries(mux, nil, false)
+	for _, path := range []string{"/api/v1/queries", "/api/v1/query-stats"} {
+		if got := zoneRequest(mux, "GET", path, "", ""); got.Code != 503 || !strings.Contains(got.Body.String(), "query_logging_disabled") {
+			t.Fatalf("%s: %d %s", path, got.Code, got.Body.String())
+		}
 	}
 }
