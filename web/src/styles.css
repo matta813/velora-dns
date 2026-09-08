@@ -19,6 +19,11 @@
 body {
   margin: 0;
 }
+.login-shell { min-height: 100vh; display: grid; place-items: center; padding: 2rem; }
+.login-panel { width: min(100%, 420px); display: grid; gap: 1rem; padding: 2rem; }
+.login-panel label { display: grid; gap: 0.4rem; font-weight: 600; }
+.login-panel input { width: 100%; padding: 0.7rem; border: 1px solid #b9caca; border-radius: 6px; }
+.sidebar-logout { border: 0; background: transparent; color: inherit; display: flex; gap: 0.5rem; cursor: pointer; padding: 0.5rem; }
 button,
 a {
   -webkit-tap-highlight-color: transparent;

@@ -4,6 +4,8 @@ All notable changes are documented here. This project uses Semantic Versioning.
 
 ## Unreleased
 
+- Argon2id management users, revocable sessions, CSRF protection, roles and audit events.
+
 - Opt-in bounded query history, filtered API and dashboard, loss metrics and graceful drain.
 
 - Authoritative local zones with transactional SQLite persistence, SOA/NS and CNAME resolution.

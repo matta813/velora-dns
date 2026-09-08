@@ -1,8 +1,8 @@
 # Operational REST API
 
 Base path: `/api/v1`. Successful JSON responses contain `data`. Errors contain
-`error: {code, message}`. This unauthenticated development API belongs on a trusted
-management interface. One middleware boundary is reserved for future authentication.
+`error: {code, message}`. Health and readiness are public; management APIs and metrics
+require a session. Modifying requests also require the session-bound `X-CSRF-Token`.
 
 | Method | Path | Behavior |
 |---|---|---|
@@ -21,11 +21,23 @@ management interface. One middleware boundary is reserved for future authenticat
 | POST | /api/v1/blocklists/{id}/update | Refresh a remote source, preserving prior rules on failure |
 | DELETE | /api/v1/blocklists/{id} | Remove a source and its domains |
 | GET | /metrics | Prometheus exposition |
+| POST | /api/v1/auth/login | Create a revocable management session |
+| GET | /api/v1/auth/session | Return the current user and expiry |
+| POST | /api/v1/auth/logout | Revoke the current session |
+| GET/POST | /api/v1/users | List or create users (admin) |
+| PUT/DELETE | /api/v1/users/{id} | Update, disable or delete a user (admin) |
+| GET | /api/v1/audit | Recent bounded audit events (admin) |
 
 ```bash
-curl http://127.0.0.1:8080/api/v1/status
-curl -X DELETE -H 'Content-Type: application/json' http://127.0.0.1:8080/api/v1/cache
+curl -c cookies.txt -H 'Content-Type: application/json' \
+  --data '{"username":"admin","password":"REPLACE_ME"}' \
+  http://127.0.0.1:8080/api/v1/auth/login
+curl -b cookies.txt http://127.0.0.1:8080/api/v1/status
 ```
+
+The login response and readable `velora_csrf` cookie contain the CSRF token required as
+`X-CSRF-Token` for POST, PUT and DELETE. Browser clients send it automatically. Protect
+cookie jars like credentials and delete this manual example's file when finished.
 
 Bodies are limited to 1 MiB, headers to 16 KiB, concurrent HTTP requests to 32, with read,
 write and idle timeouts. Cross-site browser requests and mismatched Origin are rejected.
@@ -38,7 +50,7 @@ Query history is available via [the query logging API](query-logging.md).
 Blocklist sources support add, enable/disable, manual content and refresh. Remote
 sources require public HTTP(S) URLs on ports 80/443 without credentials, fragments or
 redirects; downloads are bounded to 8 MiB with SSRF protection. A failed refresh retains
-the previous domains. Authentication is not implemented.
+the previous domains. See [authentication and roles](authentication.md).
 Unknown API paths return 404. There is no wildcard route returning fabricated data.
 Config duration values serialize as nanoseconds. QPS is query count in the last 60
 seconds divided by 60; this includes the initial partial minute.

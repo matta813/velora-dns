@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/matta813/velora-dns/internal/api"
+	"github.com/matta813/velora-dns/internal/auth"
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/database"
@@ -34,6 +35,18 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 		return fmt.Errorf("open management database: %w", err)
 	}
 	defer func() { result = errors.Join(result, db.Close()) }()
+	authentication := auth.New(db, c.Auth.SessionTTL)
+	hasUsers, err := db.HasUsers(initCtx)
+	if err != nil {
+		return fmt.Errorf("inspect management users: %w", err)
+	}
+	if !hasUsers && c.Auth.BootstrapPassword == "" {
+		return fmt.Errorf("no management users exist; set VELORA_BOOTSTRAP_PASSWORD for first startup")
+	}
+	if err = authentication.Bootstrap(initCtx, c.Auth.BootstrapUsername, c.Auth.BootstrapPassword); err != nil {
+		return fmt.Errorf("bootstrap management administrator: %w", err)
+	}
+	c.Auth.BootstrapPassword = ""
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	memory := cache.New(c.Cache.MaxEntries)
@@ -90,7 +103,7 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, Version: version, Started: started}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Zones: local, Filtering: matcher, Queries: db, Auth: authentication, DNS: listener, Cache: memory, Metrics: observer, Config: c, Version: version, Started: started}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)

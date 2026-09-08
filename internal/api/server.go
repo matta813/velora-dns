@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/matta813/velora-dns/internal/auth"
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/metrics"
@@ -34,6 +35,7 @@ type Dependencies struct {
 	Zones     ZoneStore
 	Filtering BlocklistStore
 	Queries   QueryStore
+	Auth      *auth.Service
 	DNS       DNS
 	Cache     *cache.Cache
 	Metrics   *metrics.Metrics
@@ -73,6 +75,10 @@ func New(d Dependencies) http.Handler {
 		registerQueries(mux, d.Queries)
 		capabilities = append(capabilities, "query_logging")
 	}
+	if d.Auth != nil {
+		registerAuth(mux, d.Auth, d.Config.Auth.SecureCookies)
+		capabilities = append(capabilities, "management_auth")
+	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
@@ -102,7 +108,11 @@ func New(d Dependencies) http.Handler {
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { failure(w, 404, "not_found", "Endpoint not found") })
 	mux.Handle("/", web(d.Config.HTTP.WebDir))
 	slots := make(chan struct{}, 32)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	protected := http.Handler(mux)
+	if d.Auth != nil {
+		protected = authenticate(d.Auth, d.Config.Auth.SecureCookies, mux)
+	}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
@@ -153,6 +163,7 @@ func New(d Dependencies) http.Handler {
 			failure(w, 429, "busy", "Too many requests")
 			return
 		}
-		mux.ServeHTTP(w, r)
+		protected.ServeHTTP(w, r)
 	})
+	return handler
 }

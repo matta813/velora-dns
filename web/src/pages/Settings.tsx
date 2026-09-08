@@ -29,8 +29,8 @@ export function Settings({ data }: { data: Snapshot }) {
         ))}
       </dl>
       <div className="notice">
-        Management authentication is planned. Keep this interface on a trusted
-        local network.
+        Management access requires an authenticated session. Continue to bind
+        this interface only to networks where administrators intend to expose it.
       </div>
     </section>
   );

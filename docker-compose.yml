@@ -25,6 +25,8 @@ services:
       VELORA_QUERY_LOG_RETENTION: '${VELORA_QUERY_LOG_RETENTION:-168h}'
       VELORA_QUERY_LOG_MAX_ROWS: '${VELORA_QUERY_LOG_MAX_ROWS:-100000}'
       VELORA_QUERY_LOG_QUEUE_SIZE: '${VELORA_QUERY_LOG_QUEUE_SIZE:-1024}'
+      # Required only for the first startup of a new data volume.
+      VELORA_BOOTSTRAP_PASSWORD: '${VELORA_BOOTSTRAP_PASSWORD:-}'
     volumes:
       - velora-data:/data
     tmpfs:

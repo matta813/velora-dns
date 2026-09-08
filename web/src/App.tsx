@@ -9,7 +9,10 @@ import {
   ShieldCheck,
   ShieldBan,
   ScrollText,
+  LogOut,
+  UsersRound,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useSnapshot } from "./useSnapshot";
 import { Dashboard } from "./pages/Dashboard";
@@ -18,14 +21,41 @@ import { Settings } from "./pages/Settings";
 import { Zones } from "./pages/Zones";
 import { QueryLog } from "./pages/QueryLog";
 import { Blocklists } from "./pages/Blocklists";
+import { Login } from "./pages/Login";
+import { Users } from "./pages/Users";
+import { APIError, request, type AuthSession } from "./api";
 export default function App() {
+  const [identity, setIdentity] = useState<AuthSession | null>();
+  const [authError, setAuthError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    void request<AuthSession>("/api/v1/auth/session", controller.signal)
+      .then((session) => setIdentity(session))
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        if (error instanceof APIError && error.status === 401) setIdentity(null);
+        else setAuthError(error instanceof Error ? error.message : "Authentication unavailable");
+      });
+    return () => controller.abort();
+  }, []);
+  if (identity === undefined) {
+    return authError ? <Login error={authError} onLogin={setIdentity} /> : <div className="login-shell" role="status">Checking management session…</div>;
+  }
+  if (identity === null) return <Login error={authError} onLogin={setIdentity} />;
+  return <Workspace identity={identity} onLogout={() => setIdentity(null)} />;
+}
+
+function Workspace({ identity, onLogout }: { identity: AuthSession; onLogout: () => void }) {
   const { data, error, history, refresh } = useSnapshot();
+  const [logoutError, setLogoutError] = useState("");
   const { pathname } = useLocation();
   const title =
     pathname === "/zones"
       ? "Local zones"
       : pathname === "/queries"
-        ? "Query log"
+      ? "Query log"
+      : pathname === "/users"
+        ? "Users"
         : pathname === "/blocklists"
           ? "Blocklists"
           : pathname === "/cache"
@@ -72,6 +102,7 @@ export default function App() {
             <ShieldBan size={18} />
             Blocklists
           </NavLink>
+          {identity.user.role === "admin" && <NavLink to="/users"><UsersRound size={18} />Users</NavLink>}
           <NavLink to="/cache">
             <Database size={18} />
             DNS cache
@@ -82,6 +113,24 @@ export default function App() {
           </NavLink>
         </nav>
         <div className="sidebar-bottom">
+          <div className="privacy"><div><strong>{identity.user.username}</strong><p>{identity.user.role} access</p></div></div>
+          <button
+            className="sidebar-logout"
+            onClick={() => {
+              setLogoutError("");
+              void request("/api/v1/auth/logout", undefined, "POST")
+                .then(onLogout)
+                .catch((logoutFailure: unknown) => {
+                  setLogoutError(
+                    logoutFailure instanceof Error
+                      ? logoutFailure.message
+                      : "Sign out failed",
+                  );
+                });
+            }}
+          >
+            <LogOut size={15} /> Sign out
+          </button>
           <div className="privacy">
             <ShieldCheck size={18} />
             <div>
@@ -114,6 +163,11 @@ export default function App() {
           </span>
         </header>
         <main id="main">
+          {logoutError && (
+            <div className="notice error" role="alert">
+              {logoutError}
+            </div>
+          )}
           <div className="page-heading">
             <div>
               <span className="eyebrow">YOUR NETWORK, AT A GLANCE</span>
@@ -162,6 +216,7 @@ export default function App() {
                 }
               />
               <Route path="/blocklists" element={<Blocklists />} />
+              <Route path="/users" element={identity.user.role === "admin" ? <Users /> : <p>Page not found.</p>} />
               <Route path="/settings" element={<Settings data={data} />} />
               <Route path="*" element={<p>Page not found.</p>} />
             </Routes>

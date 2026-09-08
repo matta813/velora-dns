@@ -42,18 +42,25 @@ type QueryLog struct {
 	QueueSize int           `yaml:"queue_size" json:"queue_size"`
 	Retention time.Duration `yaml:"retention" json:"retention"`
 }
+type Auth struct {
+	BootstrapUsername string        `yaml:"bootstrap_username" json:"bootstrap_username"`
+	BootstrapPassword string        `yaml:"-" json:"-"`
+	SessionTTL        time.Duration `yaml:"session_ttl" json:"session_ttl"`
+	SecureCookies     bool          `yaml:"secure_cookies" json:"secure_cookies"`
+}
 type Config struct {
 	DNS          DNS       `yaml:"dns" json:"dns"`
 	Cache        Cache     `yaml:"cache" json:"cache"`
 	HTTP         HTTP      `yaml:"http" json:"http"`
 	Filtering    Filtering `yaml:"filtering" json:"filtering"`
 	QueryLog     QueryLog  `yaml:"query_log" json:"query_log"`
+	Auth         Auth      `yaml:"auth" json:"auth"`
 	DatabasePath string    `yaml:"database_path" json:"-"`
 	LogLevel     string    `yaml:"log_level" json:"log_level"`
 }
 
 func Default() Config {
-	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, DatabasePath: "data/velora.db", LogLevel: "info"}
+	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, Auth: Auth{BootstrapUsername: "admin", SessionTTL: 12 * time.Hour}, DatabasePath: "data/velora.db", LogLevel: "info"}
 }
 func Load(path string) (Config, error) {
 	var data []byte
@@ -83,6 +90,26 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 		if v, ok := lookup("VELORA_" + key); ok {
 			*target = v
 		}
+	}
+	if value, ok := lookup("VELORA_BOOTSTRAP_USERNAME"); ok {
+		c.Auth.BootstrapUsername = value
+	}
+	if value, ok := lookup("VELORA_BOOTSTRAP_PASSWORD"); ok {
+		c.Auth.BootstrapPassword = value
+	}
+	if value, ok := lookup("VELORA_AUTH_SECURE_COOKIES"); ok {
+		parsed, err := strconv.ParseBool(value)
+		if err != nil {
+			return c, fmt.Errorf("invalid VELORA_AUTH_SECURE_COOKIES")
+		}
+		c.Auth.SecureCookies = parsed
+	}
+	if value, ok := lookup("VELORA_AUTH_SESSION_TTL"); ok {
+		parsed, err := time.ParseDuration(value)
+		if err != nil {
+			return c, fmt.Errorf("invalid VELORA_AUTH_SESSION_TTL")
+		}
+		c.Auth.SessionTTL = parsed
 	}
 	for key, target := range map[string]*[]string{"HTTP_ALLOWED_HOSTS": &c.HTTP.AllowedHosts, "DNS_LISTEN": &c.DNS.Listen, "DNS_UPSTREAMS": &c.DNS.Upstreams, "DNS_ALLOWED_CLIENTS": &c.DNS.AllowedClients} {
 		if v, ok := lookup("VELORA_" + key); ok {
@@ -193,6 +220,12 @@ func (c Config) Validate() error {
 	}
 	if c.QueryLog.QueueSize < 1 || c.QueryLog.QueueSize > 100000 || c.QueryLog.Retention < time.Minute || c.QueryLog.Retention > 365*24*time.Hour || c.QueryLog.MaxRows < 1 || c.QueryLog.MaxRows > 1000000 {
 		return fmt.Errorf("invalid query_log settings")
+	}
+	if len(c.Auth.BootstrapUsername) < 3 || len(c.Auth.BootstrapUsername) > 64 || strings.Trim(c.Auth.BootstrapUsername, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-") != "" || c.Auth.SessionTTL < 5*time.Minute || c.Auth.SessionTTL > 30*24*time.Hour {
+		return fmt.Errorf("invalid auth settings")
+	}
+	if c.Auth.BootstrapPassword != "" && (len(c.Auth.BootstrapPassword) < 12 || len(c.Auth.BootstrapPassword) > 1024) {
+		return fmt.Errorf("bootstrap password must be 12–1024 bytes")
 	}
 	if c.DatabasePath == "" || c.HTTP.WebDir == "" {
 		return fmt.Errorf("database_path and web_dir cannot be empty")

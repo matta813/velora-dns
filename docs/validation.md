@@ -11,6 +11,7 @@ The project is a tested development foundation, not a production certification.
 | Cache | TTL aging, expiry sweep, exact expiration, copy isolation, LRU capacity and flush |
 | Config | Strict YAML, environment overrides, bounds, host validation; over 58,000 fuzz executions without failure |
 | HTTP | Database/listener readiness, origin/Host protection, request limits and JSON method errors |
+| Authentication | Argon2id verification, first-run bootstrap failure, hashed/revoked sessions, CSRF, role denial, login abuse bounds, last-admin and secret-redaction tests |
 | Local zones | Matching, SOA/NXDOMAIN/NODATA, CNAME chains/loops, nested zones, atomic snapshots, migration/reopen and optimistic revision tests |
 | Zone API | CRUD, ETag/If-Match, stale writers, record ownership, strict JSON and chunked payload limits |
 | Frontend | TypeScript, ESLint, Vitest/Testing Library and Vite production build pass |

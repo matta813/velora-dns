@@ -26,3 +26,7 @@ query_log:
   queue_size: 1024
   retention: 168h
   max_rows: 100000
+auth:
+  bootstrap_username: admin
+  session_ttl: 12h
+  secure_cookies: false

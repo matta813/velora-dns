@@ -20,6 +20,10 @@ it("shows connection errors without fabricated dashboard numbers", async () => {
 });
 it("renders server counters from the operational API", async () => {
   const responses: Record<string, unknown> = {
+    "/api/v1/auth/session": {
+      user: { id: 1, username: "admin", role: "admin", active: true, created_at: "2026-09-08T00:00:00Z" },
+      expires_at: "2026-09-09T00:00:00Z",
+    },
     "/api/v1/status": {
       ready: true,
       uptime_seconds: 3600,

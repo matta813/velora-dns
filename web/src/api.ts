@@ -5,6 +5,18 @@ export interface Status {
   version: { version: string; commit: string; built: string };
   capabilities: string[];
 }
+export interface AuthUser {
+  id: number;
+  username: string;
+  role: "admin" | "operator" | "viewer";
+  active: boolean;
+  created_at: string;
+}
+export interface AuthSession {
+  user: AuthUser;
+  expires_at: string;
+  csrf_token?: string;
+}
 export interface Stats {
   queries_total: number;
   blocked_queries: number;
@@ -34,6 +46,11 @@ export interface Config {
   };
   cache: { max_entries: number };
   http: { listen: string; web_dir: string };
+  auth: {
+    bootstrap_username: string;
+    session_ttl: number;
+    secure_cookies: boolean;
+  };
   log_level: string;
 }
 export interface Snapshot {
@@ -83,6 +100,9 @@ export async function request<T>(
     signal,
     headers: {
       "Content-Type": "application/json",
+      ...(method === "GET" || method === "HEAD"
+        ? {}
+        : { "X-CSRF-Token": csrfCookie() }),
       ...(options.revision === undefined
         ? {}
         : { "If-Match": `"${options.revision}"` }),
@@ -101,6 +121,12 @@ export async function request<T>(
   }
   const body: { data: T } = await response.json();
   return body.data;
+}
+
+function csrfCookie(): string {
+  const prefix = "velora_csrf=";
+  const value = document.cookie.split("; ").find((part) => part.startsWith(prefix));
+  return value ? decodeURIComponent(value.slice(prefix.length)) : "";
 }
 export async function loadSnapshot(signal: AbortSignal): Promise<Snapshot> {
   const [status, stats, cache, config] = await Promise.all([

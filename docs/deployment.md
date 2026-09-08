@@ -3,7 +3,7 @@
 ## Local Docker start
 
 ```bash
-docker compose up --build -d
+VELORA_BOOTSTRAP_PASSWORD='use-a-unique-password-manager-value' docker compose up --build -d
 docker compose ps
 curl http://127.0.0.1:8080/ready
 dig @127.0.0.1 -p 5353 google.com A

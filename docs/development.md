@@ -21,6 +21,7 @@ Package boundaries:
 - `cmd/server`: flags, process signals, build identity
 - `internal/app`: composition and lifecycle
 - `internal/config`, `logging`, `database`: typed config, JSON logs and management persistence
+- `internal/auth`: password hashing, session/CSRF lifecycle, roles and audit contracts
 - `internal/dns`: transport, access control, resolver and upstream strategies
 - `internal/cache`: bounded positive-answer TTL cache
 - `internal/zones`: record validation, immutable authority snapshots and revision-protected mutations

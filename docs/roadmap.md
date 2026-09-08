@@ -25,7 +25,7 @@ Only checked items are implemented. Milestones describe targets, not release pro
 - [ ] DNS-over-TLS
 - [ ] DNS-over-HTTPS
 - [ ] DNSSEC validation
-- [ ] Users and roles
+- [x] Users and roles
 - [ ] PostgreSQL storage adapter
 - [ ] Zone import/export
 

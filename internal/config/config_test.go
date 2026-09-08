@@ -1,9 +1,29 @@
 package config
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestAuthEnvironmentAndSecretRedaction(t *testing.T) {
+	env := map[string]string{"VELORA_BOOTSTRAP_USERNAME": "root.admin", "VELORA_BOOTSTRAP_PASSWORD": "correct horse battery staple", "VELORA_AUTH_SESSION_TTL": "2h", "VELORA_AUTH_SECURE_COOKIES": "true"}
+	c, err := Parse(nil, func(key string) (string, bool) { value, ok := env[key]; return value, ok })
+	if err != nil || c.Auth.BootstrapUsername != "root.admin" || c.Auth.SessionTTL != 2*time.Hour || !c.Auth.SecureCookies {
+		t.Fatalf("auth config: %+v %v", c.Auth, err)
+	}
+	encoded, err := json.Marshal(c)
+	if err != nil || strings.Contains(string(encoded), c.Auth.BootstrapPassword) {
+		t.Fatal("bootstrap password exposed by config JSON")
+	}
+	for _, value := range []string{"short", strings.Repeat("x", 1025)} {
+		env["VELORA_BOOTSTRAP_PASSWORD"] = value
+		if _, err = Parse(nil, func(key string) (string, bool) { item, ok := env[key]; return item, ok }); err == nil {
+			t.Fatal("invalid bootstrap password accepted")
+		}
+	}
+}
 
 func TestQueryLogEnvironmentAndBounds(t *testing.T) {
 	env := map[string]string{"VELORA_QUERY_LOG_ENABLED": "true", "VELORA_QUERY_LOG_RETENTION": "24h", "VELORA_QUERY_LOG_QUEUE_SIZE": "32", "VELORA_QUERY_LOG_MAX_ROWS": "250"}

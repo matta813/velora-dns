@@ -23,7 +23,7 @@ Requires Docker Engine and Compose v2:
 ```bash
 git clone https://github.com/matta813/velora-dns.git
 cd velora-dns
-docker compose up --build -d
+VELORA_BOOTSTRAP_PASSWORD='use-a-unique-password-manager-value' docker compose up --build -d
 ```
 
 Open [localhost:8080](http://localhost:8080). Test both DNS transports:
@@ -55,6 +55,7 @@ The Compose file builds locally, publishes only on host loopback, runs as UID 10
 - Versioned zones, records, status, stats, config and cache API; liveness and dependency readiness
 - Responsive overview, zone/record management, cache management and read-only settings; live data and error states
 - Prometheus metrics without domain or client labels
+- Argon2id users, revocable sessions, CSRF protection and server-enforced management roles
 - Protected PR workflow, Dependabot, CodeQL, dependency review, static analysis and Docker CI
 
 The foundation forwards recursive requests to configured upstreams. It does not perform iterative resolution or DNSSEC validation, and clears upstream AD assertions. Negative responses and client-option-dependent queries are not cached yet. Query names and client addresses are not persisted.
@@ -135,6 +136,6 @@ The [roadmap](docs/roadmap.md) separates implemented capabilities from the full 
 
 ## Security
 
-The management API currently has no authentication. Keep it on loopback or a trusted management network. Do not expose it or recursive DNS to the internet. Client CIDRs remain enforced inside the DNS server; Docker network access and host firewall policy are separate controls. See [SECURITY.md](SECURITY.md) for reporting and [deployment hardening](docs/deployment.md).
+Management requires an authenticated session and role, but should still remain on loopback or a trusted management network. Do not expose recursive DNS to the internet. Client CIDRs remain enforced inside the DNS server; Docker network access and host firewall policy are separate controls. See [management authentication](docs/authentication.md), [SECURITY.md](SECURITY.md), and [deployment hardening](docs/deployment.md).
 
 Release automation is prepared but explicitly disabled. Normal development does not create release tags, GitHub releases or registry images. See [release process](docs/releases.md).

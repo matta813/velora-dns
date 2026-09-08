@@ -79,4 +79,5 @@ Migration from the foundation creates zone tables transactionally at startup. Ba
 volume before upgrading. An older binary cannot manage the new zone state; keep the backup
 for rollback. Never modify live SQLite tables manually: management changes publish snapshots
 and invalidate forwarding cache, whereas out-of-band SQL cannot notify the running resolver.
-Management remains unauthenticated and must stay on trusted interfaces.
+Management requires an authenticated session and must still stay on explicitly trusted
+interfaces as a defense-in-depth measure.
