@@ -53,6 +53,9 @@ seconds divided by 60; this includes the initial partial minute.
 - `dns_upstream_errors_total{upstream}`
 - `dns_query_duration_seconds` (histogram)
 - `dns_cache_entries`
+- `dns_tcp_connections`
+- `dns_overload_total{reason}` where reason is one of the server-defined bounded values
+  `client_rate`, `global_rate`, `concurrency`, or `tcp_connections`
 
 Labels use only known query types, fixed pipeline sources, known response codes and
 configured upstream addresses. No domain or client-IP labels. Sources currently include

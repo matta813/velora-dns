@@ -14,6 +14,7 @@ type QueryObserver interface {
 	Query(kind, source string, rcode int, elapsed time.Duration)
 }
 type AuditLogger interface{ Record(querylog.Entry) }
+type OverloadObserver interface{ Overload(string) }
 type Handler struct {
 	Context  context.Context
 	Resolver *Resolver
@@ -21,6 +22,8 @@ type Handler struct {
 	Slots    chan struct{}
 	Observer QueryObserver
 	Audit    AuditLogger
+	Limiter  *Limiter
+	Overload OverloadObserver
 }
 
 func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
@@ -75,6 +78,16 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 		m.Rcode = wire.RcodeRefused
 		return
 	}
+	if h.Limiter != nil {
+		if reason := h.Limiter.Allow(ip); reason != "" {
+			m.Rcode = wire.RcodeRefused
+			source = "overload"
+			if h.Overload != nil {
+				h.Overload.Overload(reason)
+			}
+			return
+		}
+	}
 	if q.Response || len(q.Question) != 1 || q.Opcode != wire.OpcodeQuery {
 		m.Rcode = wire.RcodeFormatError
 		return
@@ -95,6 +108,9 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 	default:
 		m.Rcode = wire.RcodeServerFailure
 		source = "overload"
+		if h.Overload != nil {
+			h.Overload.Overload("concurrency")
+		}
 		return
 	}
 	ctx, cancel := context.WithTimeout(h.Context, 5*time.Second)

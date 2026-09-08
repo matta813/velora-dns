@@ -32,6 +32,26 @@ func TestParsing(t *testing.T) {
 		t.Fatalf("incorrect overrides: %+v", c)
 	}
 }
+func TestDNSResourceLimitEnvironmentAndValidation(t *testing.T) {
+	env := map[string]string{
+		"VELORA_DNS_RATE_PER_SECOND": "10", "VELORA_DNS_RATE_BURST": "20",
+		"VELORA_DNS_GLOBAL_RATE_PER_SECOND": "100", "VELORA_DNS_GLOBAL_RATE_BURST": "200",
+		"VELORA_DNS_RATE_CLIENTS": "50", "VELORA_DNS_MAX_TCP_CONNECTIONS": "25",
+	}
+	c, err := Parse(nil, func(key string) (string, bool) { value, ok := env[key]; return value, ok })
+	if err != nil || c.DNS.RatePerSecond != 10 || c.DNS.RateBurst != 20 || c.DNS.GlobalRatePerSecond != 100 || c.DNS.GlobalRateBurst != 200 || c.DNS.RateClients != 50 || c.DNS.MaxTCPConnections != 25 {
+		t.Fatalf("resource overrides: %+v %v", c.DNS, err)
+	}
+	for _, yaml := range []string{
+		"dns:\n  rate_per_second: 0\n", "dns:\n  rate_per_second: 100\n  rate_burst: 10\n",
+		"dns:\n  global_rate_per_second: 100\n  global_rate_burst: 10\n", "dns:\n  rate_clients: 1000001\n",
+		"dns:\n  max_tcp_connections: 0\n",
+	} {
+		if _, err = Parse([]byte(yaml), func(string) (string, bool) { return "", false }); err == nil {
+			t.Fatalf("accepted invalid resource limits: %s", yaml)
+		}
+	}
+}
 func TestRejectInvalid(t *testing.T) {
 	for _, data := range []string{"typo: 1", "dns:\n  allowed_clients: []", "dns:\n  retries: -1", "cache:\n  max_entries: -2", "dns:\n  timeout: 0s", "dns:\n  upstreams: [localhost:53]", "---\nlog_level: info\n---\nlog_level: debug", "http:\n  listen: 127.0.0.1:0"} {
 		t.Run(data, func(t *testing.T) {

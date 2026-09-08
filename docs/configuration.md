@@ -12,6 +12,12 @@ The server prints structured errors and exits nonzero before reporting readiness
 | dns.timeout | VELORA_DNS_TIMEOUT | 2s |
 | dns.retries | VELORA_DNS_RETRIES | 1 |
 | dns.max_concurrent | VELORA_DNS_MAX_CONCURRENT | 256 |
+| dns.rate_per_second | VELORA_DNS_RATE_PER_SECOND | 200 |
+| dns.rate_burst | VELORA_DNS_RATE_BURST | 400 |
+| dns.global_rate_per_second | VELORA_DNS_GLOBAL_RATE_PER_SECOND | 5000 |
+| dns.global_rate_burst | VELORA_DNS_GLOBAL_RATE_BURST | 10000 |
+| dns.rate_clients | VELORA_DNS_RATE_CLIENTS | 4096 |
+| dns.max_tcp_connections | VELORA_DNS_MAX_TCP_CONNECTIONS | 256 |
 | cache.max_entries | VELORA_CACHE_MAX_ENTRIES | 10000 |
 | filtering.block_mode | VELORA_FILTERING_BLOCK_MODE | (NXDOMAIN) |
 | filtering.blocklist | VELORA_FILTERING_BLOCKLIST | (empty) |
@@ -33,6 +39,17 @@ Cache size zero disables caching; maximum is 1,000,000 entries. Concurrent DNS w
 1–10,000 requests. Choose realistic limits for your memory budget; Compose defaults to
 256 MiB. Large DNS responses over 16 KiB are not cached. Expiry sweep runs each second;
 expired entries are also rejected immediately on lookup.
+
+DNS rate limits use token buckets shared by UDP and TCP. Each source address receives
+`rate_per_second` tokens per second up to `rate_burst`; all clients also share the global
+rate and burst. Rate-limited requests receive REFUSED without reaching the resolver.
+The per-client table retains at most `rate_clients` addresses and replaces entries in
+constant time; rotating-source attacks remain bounded by the global bucket. Bursts must
+cover at least one second, and global limits must be no smaller than per-client limits.
+All six values accept 1–1,000,000. `max_tcp_connections` bounds accepted connections
+across each listener; excess connections are closed immediately. Resolver work remains
+separately bounded by `max_concurrent`, and TCP keeps its five-second idle timeout and
+100-query-per-connection cap.
 
 `VELORA_DNS_PORT` and `VELORA_HTTP_PORT` are Compose host-port substitutions, not Go
 server settings. Compose deliberately overrides listener and data paths for the container.

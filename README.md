@@ -48,7 +48,7 @@ The Compose file builds locally, publishes only on host loopback, runs as UID 10
 - Configured upstream ordering, per-attempt timeout, retries and TCP fallback after truncation
 - Positive-answer LRU cache with TTL aging, expiry, capacity limits and API flush
 - Strict YAML configuration and explicit environment overrides
-- Client CIDR allowlisting, bounded concurrent DNS/HTTP requests and safe loopback defaults
+- Client CIDR allowlisting, per-client/global DNS rate limits, bounded TCP/DNS/HTTP work and safe loopback defaults
 - Structured JSON lifecycle logs, context cancellation and graceful shutdown
 - Local authoritative A, AAAA, CNAME, TXT, MX, NS and PTR records, generated SOA and negative answers
 - SQLite management storage with transactional migrations and revision-safe record updates
@@ -98,6 +98,12 @@ dns:
   timeout: 2s
   retries: 1
   max_concurrent: 256
+  rate_per_second: 200
+  rate_burst: 400
+  global_rate_per_second: 5000
+  global_rate_burst: 10000
+  rate_clients: 4096
+  max_tcp_connections: 256
 cache:
   max_entries: 10000
 http:

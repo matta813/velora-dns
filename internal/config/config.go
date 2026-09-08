@@ -16,12 +16,18 @@ import (
 )
 
 type DNS struct {
-	Listen         []string      `yaml:"listen" json:"listen"`
-	Upstreams      []string      `yaml:"upstreams" json:"upstreams"`
-	AllowedClients []string      `yaml:"allowed_clients" json:"allowed_clients"`
-	Timeout        time.Duration `yaml:"timeout" json:"timeout"`
-	Retries        int           `yaml:"retries" json:"retries"`
-	MaxConcurrent  int           `yaml:"max_concurrent" json:"max_concurrent"`
+	Listen              []string      `yaml:"listen" json:"listen"`
+	Upstreams           []string      `yaml:"upstreams" json:"upstreams"`
+	AllowedClients      []string      `yaml:"allowed_clients" json:"allowed_clients"`
+	Timeout             time.Duration `yaml:"timeout" json:"timeout"`
+	Retries             int           `yaml:"retries" json:"retries"`
+	MaxConcurrent       int           `yaml:"max_concurrent" json:"max_concurrent"`
+	RatePerSecond       int           `yaml:"rate_per_second" json:"rate_per_second"`
+	RateBurst           int           `yaml:"rate_burst" json:"rate_burst"`
+	GlobalRatePerSecond int           `yaml:"global_rate_per_second" json:"global_rate_per_second"`
+	GlobalRateBurst     int           `yaml:"global_rate_burst" json:"global_rate_burst"`
+	RateClients         int           `yaml:"rate_clients" json:"rate_clients"`
+	MaxTCPConnections   int           `yaml:"max_tcp_connections" json:"max_tcp_connections"`
 }
 type Cache struct {
 	MaxEntries int `yaml:"max_entries" json:"max_entries"`
@@ -53,7 +59,7 @@ type Config struct {
 }
 
 func Default() Config {
-	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, DatabasePath: "data/velora.db", LogLevel: "info"}
+	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256, RatePerSecond: 200, RateBurst: 400, GlobalRatePerSecond: 5000, GlobalRateBurst: 10000, RateClients: 4096, MaxTCPConnections: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, DatabasePath: "data/velora.db", LogLevel: "info"}
 }
 func Load(path string) (Config, error) {
 	var data []byte
@@ -100,7 +106,7 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 			}
 		}
 	}
-	for key, target := range map[string]*int{"DNS_RETRIES": &c.DNS.Retries, "DNS_MAX_CONCURRENT": &c.DNS.MaxConcurrent, "CACHE_MAX_ENTRIES": &c.Cache.MaxEntries} {
+	for key, target := range map[string]*int{"DNS_RETRIES": &c.DNS.Retries, "DNS_MAX_CONCURRENT": &c.DNS.MaxConcurrent, "DNS_RATE_PER_SECOND": &c.DNS.RatePerSecond, "DNS_RATE_BURST": &c.DNS.RateBurst, "DNS_GLOBAL_RATE_PER_SECOND": &c.DNS.GlobalRatePerSecond, "DNS_GLOBAL_RATE_BURST": &c.DNS.GlobalRateBurst, "DNS_RATE_CLIENTS": &c.DNS.RateClients, "DNS_MAX_TCP_CONNECTIONS": &c.DNS.MaxTCPConnections, "CACHE_MAX_ENTRIES": &c.Cache.MaxEntries} {
 		if v, ok := lookup("VELORA_" + key); ok {
 			n, err := strconv.Atoi(v)
 			if err != nil {
@@ -190,6 +196,14 @@ func (c Config) Validate() error {
 	}
 	if c.Cache.MaxEntries < 0 || c.Cache.MaxEntries > 1000000 || c.DNS.MaxConcurrent < 1 || c.DNS.MaxConcurrent > 10000 {
 		return fmt.Errorf("invalid cache or concurrency limit")
+	}
+	for name, value := range map[string]int{"rate_per_second": c.DNS.RatePerSecond, "rate_burst": c.DNS.RateBurst, "global_rate_per_second": c.DNS.GlobalRatePerSecond, "global_rate_burst": c.DNS.GlobalRateBurst, "rate_clients": c.DNS.RateClients, "max_tcp_connections": c.DNS.MaxTCPConnections} {
+		if value < 1 || value > 1000000 {
+			return fmt.Errorf("dns.%s must be 1–1000000", name)
+		}
+	}
+	if c.DNS.RateBurst < c.DNS.RatePerSecond || c.DNS.GlobalRateBurst < c.DNS.GlobalRatePerSecond || c.DNS.GlobalRatePerSecond < c.DNS.RatePerSecond || c.DNS.GlobalRateBurst < c.DNS.RateBurst {
+		return fmt.Errorf("DNS rate bursts must cover one second and global limits must cover per-client limits")
 	}
 	if c.QueryLog.QueueSize < 1 || c.QueryLog.QueueSize > 100000 || c.QueryLog.Retention < time.Minute || c.QueryLog.Retention > 365*24*time.Hour || c.QueryLog.MaxRows < 1 || c.QueryLog.MaxRows > 1000000 {
 		return fmt.Errorf("invalid query_log settings")

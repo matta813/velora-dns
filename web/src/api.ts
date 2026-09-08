@@ -31,6 +31,12 @@ export interface Config {
     timeout: number;
     retries: number;
     max_concurrent: number;
+    rate_per_second: number;
+    rate_burst: number;
+    global_rate_per_second: number;
+    global_rate_burst: number;
+    rate_clients: number;
+    max_tcp_connections: number;
   };
   cache: { max_entries: number };
   http: { listen: string; web_dir: string };
