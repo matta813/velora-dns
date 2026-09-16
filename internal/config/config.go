@@ -22,6 +22,10 @@ type DNS struct {
 	Timeout        time.Duration `yaml:"timeout" json:"timeout"`
 	Retries        int           `yaml:"retries" json:"retries"`
 	MaxConcurrent  int           `yaml:"max_concurrent" json:"max_concurrent"`
+	GlobalQPS      int           `yaml:"global_qps" json:"global_qps"`
+	ClientQPS      int           `yaml:"client_qps" json:"client_qps"`
+	RateLimitBurst int           `yaml:"rate_limit_burst" json:"rate_limit_burst"`
+	MaxTCPConns    int           `yaml:"max_tcp_connections" json:"max_tcp_connections"`
 }
 type Cache struct {
 	MaxEntries int `yaml:"max_entries" json:"max_entries"`
@@ -53,7 +57,7 @@ type Config struct {
 }
 
 func Default() Config {
-	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, DatabasePath: "data/velora.db", LogLevel: "info"}
+	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256, GlobalQPS: 1000, ClientQPS: 100, RateLimitBurst: 100, MaxTCPConns: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, DatabasePath: "data/velora.db", LogLevel: "info"}
 }
 func Load(path string) (Config, error) {
 	var data []byte
@@ -100,7 +104,7 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 			}
 		}
 	}
-	for key, target := range map[string]*int{"DNS_RETRIES": &c.DNS.Retries, "DNS_MAX_CONCURRENT": &c.DNS.MaxConcurrent, "CACHE_MAX_ENTRIES": &c.Cache.MaxEntries} {
+	for key, target := range map[string]*int{"DNS_RETRIES": &c.DNS.Retries, "DNS_MAX_CONCURRENT": &c.DNS.MaxConcurrent, "DNS_GLOBAL_QPS": &c.DNS.GlobalQPS, "DNS_CLIENT_QPS": &c.DNS.ClientQPS, "DNS_RATE_LIMIT_BURST": &c.DNS.RateLimitBurst, "DNS_MAX_TCP_CONNECTIONS": &c.DNS.MaxTCPConns, "CACHE_MAX_ENTRIES": &c.Cache.MaxEntries} {
 		if v, ok := lookup("VELORA_" + key); ok {
 			n, err := strconv.Atoi(v)
 			if err != nil {
@@ -188,7 +192,7 @@ func (c Config) Validate() error {
 	if c.DNS.Timeout < 10*time.Millisecond || c.DNS.Timeout > 10*time.Second || c.DNS.Retries < 0 || c.DNS.Retries > 3 {
 		return fmt.Errorf("timeout must be 10ms–10s and retries 0–3")
 	}
-	if c.Cache.MaxEntries < 0 || c.Cache.MaxEntries > 1000000 || c.DNS.MaxConcurrent < 1 || c.DNS.MaxConcurrent > 10000 {
+	if c.Cache.MaxEntries < 0 || c.Cache.MaxEntries > 1000000 || c.DNS.MaxConcurrent < 1 || c.DNS.MaxConcurrent > 10000 || c.DNS.GlobalQPS < 1 || c.DNS.GlobalQPS > 100000 || c.DNS.ClientQPS < 1 || c.DNS.ClientQPS > 100000 || c.DNS.RateLimitBurst < 1 || c.DNS.RateLimitBurst > 100000 || c.DNS.MaxTCPConns < 1 || c.DNS.MaxTCPConns > 100000 {
 		return fmt.Errorf("invalid cache or concurrency limit")
 	}
 	if c.QueryLog.QueueSize < 1 || c.QueryLog.QueueSize > 100000 || c.QueryLog.Retention < time.Minute || c.QueryLog.Retention > 365*24*time.Hour || c.QueryLog.MaxRows < 1 || c.QueryLog.MaxRows > 1000000 {

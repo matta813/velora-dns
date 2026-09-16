@@ -6,6 +6,10 @@ dns:
   timeout: 2s
   retries: 1
   max_concurrent: 256
+  global_qps: 1000
+  client_qps: 100
+  rate_limit_burst: 100
+  max_tcp_connections: 256
 cache:
   max_entries: 10000
 http:
