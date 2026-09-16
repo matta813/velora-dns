@@ -76,6 +76,20 @@ type Transfer struct {
 	Interval int    `yaml:"interval" json:"interval"`
 }
 
+type Cluster struct {
+	PrimaryDSN      string        `yaml:"primary_dsn" json:"-"`
+	ReplicaDSNs     []string      `yaml:"replica_dsns" json:"-"`
+	MaxOpenConns    int           `yaml:"max_open_conns" json:"max_open_conns"`
+	MaxIdleConns    int           `yaml:"max_idle_conns" json:"max_idle_conns"`
+	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" json:"conn_max_lifetime"`
+}
+
+type Node struct {
+	ID           string `yaml:"id" json:"id"`
+	Name         string `yaml:"name" json:"name"`
+	Address      string `yaml:"address" json:"address"`
+}
+
 type Config struct {
 	DNS            DNS        `yaml:"dns" json:"dns"`
 	Cache          Cache      `yaml:"cache" json:"cache"`
@@ -84,6 +98,8 @@ type Config struct {
 	QueryLog       QueryLog   `yaml:"query_log" json:"query_log"`
 	TSIG           TSIG       `yaml:"tsig" json:"tsig"`
 	Transfers      []Transfer `yaml:"transfers" json:"transfers"`
+	Cluster        Cluster    `yaml:"cluster" json:"cluster"`
+	Node           Node       `yaml:"node" json:"node"`
 	Management     Management `yaml:"-" json:"-"`
 	DatabasePath   string     `yaml:"database_path" json:"-"`
 	DatabaseDriver string     `yaml:"database_driver" json:"-"`
@@ -92,7 +108,7 @@ type Config struct {
 }
 
 func Default() Config {
-	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256, GlobalQPS: 1000, ClientQPS: 100, RateLimitBurst: 100, MaxTCPConns: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, DatabasePath: "data/velora.db", DatabaseDriver: "sqlite", LogLevel: "info"}
+	return Config{DNS: DNS{Listen: []string{"127.0.0.1:3535"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256, GlobalQPS: 1000, ClientQPS: 100, RateLimitBurst: 100, MaxTCPConns: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, Cluster: Cluster{MaxOpenConns: 10, MaxIdleConns: 5, ConnMaxLifetime: 5 * time.Minute}, Node: Node{ID: "node-1", Name: "Primary"}, DatabasePath: "data/velora.db", DatabaseDriver: "sqlite", LogLevel: "info"}
 }
 func Load(path string) (Config, error) {
 	var data []byte
