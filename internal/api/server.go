@@ -4,6 +4,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
+	"github.com/matta813/velora-dns/internal/database"
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/querylog"
 )
@@ -35,6 +37,7 @@ type Dependencies struct {
 	Zones     ZoneStore
 	Filtering BlocklistStore
 	Queries   QueryStore
+	Auth      AuthStore
 	DNS       DNS
 	Cache     *cache.Cache
 	Metrics   *metrics.Metrics
@@ -61,6 +64,9 @@ func failure(w http.ResponseWriter, status int, code, message string) {
 }
 func New(d Dependencies) http.Handler {
 	mux := http.NewServeMux()
+	if d.Auth != nil {
+		registerAuth(mux, d.Auth)
+	}
 	capabilities := []string{"forwarding", "cache", "metrics"}
 	if d.Zones != nil {
 		registerZones(mux, d.Zones)
@@ -147,6 +153,40 @@ func New(d Dependencies) http.Handler {
 				return
 			}
 		}
+		if d.Auth != nil && (strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/metrics") && r.URL.Path != "/api/v1/auth/login" {
+			authenticated, csrf, ok := authenticate(r, d.Auth)
+			if !ok {
+				failure(w, http.StatusUnauthorized, "authentication_required", "Sign in to access management")
+				return
+			}
+			r = authenticated
+			user := r.Context().Value(authContextKey{}).(database.User)
+			token, isToken := r.Context().Value(tokenContextKey{}).(database.APIToken)
+			tokenScopes := token.Scopes
+			unsafe := r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
+			if strings.HasPrefix(r.URL.Path, "/api/v1/users") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
+				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
+				return
+			}
+			if unsafe && (user.Role == "viewer" || (isToken && !hasScope(tokenScopes, "write") && !hasScope(tokenScopes, "admin"))) {
+				failure(w, http.StatusForbidden, "insufficient_role", "Viewer role is read-only")
+				return
+			}
+			if unsafe && !isToken && !validCSRF(r.Header.Get("X-CSRF-Token"), csrf) {
+				failure(w, http.StatusForbidden, "invalid_csrf", "Valid CSRF token required")
+				return
+			}
+			if unsafe {
+				detail := r.URL.Path
+				if isToken {
+					detail = fmt.Sprintf("token=%d path=%s", token.ID, r.URL.Path)
+				}
+				if err := d.Auth.Audit(r.Context(), &user.ID, r.Method, detail); err != nil {
+					failure(w, http.StatusServiceUnavailable, "audit_unavailable", "Audit event could not be recorded")
+					return
+				}
+			}
+		}
 		select {
 		case slots <- struct{}{}:
 			defer func() { <-slots }()
@@ -156,4 +196,13 @@ func New(d Dependencies) http.Handler {
 		}
 		mux.ServeHTTP(w, r)
 	})
+}
+
+func hasScope(scopes, wanted string) bool {
+	for _, scope := range strings.Split(scopes, ",") {
+		if scope == wanted {
+			return true
+		}
+	}
+	return false
 }

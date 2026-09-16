@@ -14,7 +14,7 @@ Velora DNS is an independent, self-hosted DNS server built in Go, with a clean R
 
 [Quick start](#quick-start) · [Documentation](docs/README.md) · [Roadmap](docs/roadmap.md) · [Discussions](https://github.com/matta813/velora-dns/discussions)
 
-> **Development foundation, not a production release.** Forwarding, cache, lifecycle, operational API, dashboard, SQLite persistence, local authoritative zones, initial blocklists, opt-in query history and metrics are implemented. Authentication and encrypted DNS are planned. No releases or published images have been created.
+> **Development foundation, not a production release.** Forwarding, cache, lifecycle, authenticated operational API, dashboard, SQLite persistence, local authoritative zones, initial blocklists, opt-in query history and metrics are implemented. Encrypted DNS is planned. No releases or published images have been created.
 
 ## Quick start
 
@@ -23,6 +23,8 @@ Requires Docker Engine and Compose v2:
 ```bash
 git clone https://github.com/matta813/velora-dns.git
 cd velora-dns
+VELORA_BOOTSTRAP_USERNAME=admin \
+VELORA_BOOTSTRAP_PASSWORD='replace-with-a-long-unique-password' \
 docker compose up --build -d
 ```
 
@@ -33,6 +35,11 @@ dig @127.0.0.1 -p 5353 google.com A
 dig @127.0.0.1 -p 5353 google.com A +tcp
 curl http://127.0.0.1:8080/ready
 ```
+
+The bootstrap credentials are consumed only when the database has no users. Without
+them the resolver starts with management locked, allowing health-only container checks.
+They are never returned by the configuration API; remove them from the environment after
+the first successful start and sign in through the UI.
 
 For a cache demonstration, send the same query twice with `+nocookie`; requests carrying client-specific EDNS options intentionally bypass the shared cache.
 

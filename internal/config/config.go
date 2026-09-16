@@ -46,14 +46,19 @@ type QueryLog struct {
 	QueueSize int           `yaml:"queue_size" json:"queue_size"`
 	Retention time.Duration `yaml:"retention" json:"retention"`
 }
+type Management struct {
+	BootstrapUsername string `yaml:"-" json:"-"`
+	BootstrapPassword string `yaml:"-" json:"-"`
+}
 type Config struct {
-	DNS          DNS       `yaml:"dns" json:"dns"`
-	Cache        Cache     `yaml:"cache" json:"cache"`
-	HTTP         HTTP      `yaml:"http" json:"http"`
-	Filtering    Filtering `yaml:"filtering" json:"filtering"`
-	QueryLog     QueryLog  `yaml:"query_log" json:"query_log"`
-	DatabasePath string    `yaml:"database_path" json:"-"`
-	LogLevel     string    `yaml:"log_level" json:"log_level"`
+	DNS          DNS        `yaml:"dns" json:"dns"`
+	Cache        Cache      `yaml:"cache" json:"cache"`
+	HTTP         HTTP       `yaml:"http" json:"http"`
+	Filtering    Filtering  `yaml:"filtering" json:"filtering"`
+	QueryLog     QueryLog   `yaml:"query_log" json:"query_log"`
+	Management   Management `yaml:"-" json:"-"`
+	DatabasePath string     `yaml:"database_path" json:"-"`
+	LogLevel     string     `yaml:"log_level" json:"log_level"`
 }
 
 func Default() Config {
@@ -87,6 +92,12 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 		if v, ok := lookup("VELORA_" + key); ok {
 			*target = v
 		}
+	}
+	if v, ok := lookup("VELORA_BOOTSTRAP_USERNAME"); ok {
+		c.Management.BootstrapUsername = v
+	}
+	if v, ok := lookup("VELORA_BOOTSTRAP_PASSWORD"); ok {
+		c.Management.BootstrapPassword = v
 	}
 	for key, target := range map[string]*[]string{"HTTP_ALLOWED_HOSTS": &c.HTTP.AllowedHosts, "DNS_LISTEN": &c.DNS.Listen, "DNS_UPSTREAMS": &c.DNS.Upstreams, "DNS_ALLOWED_CLIENTS": &c.DNS.AllowedClients} {
 		if v, ok := lookup("VELORA_" + key); ok {
@@ -146,6 +157,9 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 	return c, c.Validate()
 }
 func (c Config) Validate() error {
+	if (c.Management.BootstrapUsername == "") != (c.Management.BootstrapPassword == "") || (c.Management.BootstrapPassword != "" && len(c.Management.BootstrapPassword) < 12) {
+		return fmt.Errorf("bootstrap username and password must both be set; password requires at least 12 characters")
+	}
 	if c.Filtering.BlockMode != "" && c.Filtering.BlockMode != "NXDOMAIN" && c.Filtering.BlockMode != "ZERO" {
 		return fmt.Errorf("filtering.block_mode must be NXDOMAIN or ZERO")
 	}
