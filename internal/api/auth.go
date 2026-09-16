@@ -140,7 +140,7 @@ func registerAuth(mux *http.ServeMux, store AuthStore) {
 		}
 		token, _ := base64.RawURLEncoding.DecodeString(cookie.Value)
 		_ = store.RevokeSession(r.Context(), token)
-		http.SetCookie(w, &http.Cookie{Name: sessionCookie, Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode})
+		http.SetCookie(w, &http.Cookie{Name: sessionCookie, Path: "/", MaxAge: -1, HttpOnly: true, Secure: true, SameSite: http.SameSiteStrictMode})
 		respond(w, 200, map[string]bool{"logged_out": true})
 	})
 }
