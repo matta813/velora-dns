@@ -12,6 +12,7 @@ import (
 
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
+	"github.com/matta813/velora-dns/internal/database"
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/querylog"
 )
@@ -35,6 +36,7 @@ type Dependencies struct {
 	Zones     ZoneStore
 	Filtering BlocklistStore
 	Queries   QueryStore
+	Auth      AuthStore
 	DNS       DNS
 	Cache     *cache.Cache
 	Metrics   *metrics.Metrics
@@ -61,6 +63,9 @@ func failure(w http.ResponseWriter, status int, code, message string) {
 }
 func New(d Dependencies) http.Handler {
 	mux := http.NewServeMux()
+	if d.Auth != nil {
+		registerAuth(mux, d.Auth)
+	}
 	capabilities := []string{"forwarding", "cache", "metrics"}
 	if d.Zones != nil {
 		registerZones(mux, d.Zones)
@@ -145,6 +150,31 @@ func New(d Dependencies) http.Handler {
 			if err != nil || u.Host != r.Host || (u.Scheme != "http" && u.Scheme != "https") {
 				failure(w, 403, "forbidden_origin", "Origin is not allowed")
 				return
+			}
+		}
+		if d.Auth != nil && (strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/metrics") && r.URL.Path != "/api/v1/auth/login" {
+			authenticated, csrf, ok := authenticate(r, d.Auth)
+			if !ok {
+				failure(w, http.StatusUnauthorized, "authentication_required", "Sign in to access management")
+				return
+			}
+			r = authenticated
+			user := r.Context().Value(authContextKey{}).(database.User)
+			unsafe := r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
+			if strings.HasPrefix(r.URL.Path, "/api/v1/users") && user.Role != "admin" {
+				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
+				return
+			}
+			if unsafe && user.Role == "viewer" {
+				failure(w, http.StatusForbidden, "insufficient_role", "Viewer role is read-only")
+				return
+			}
+			if unsafe && !validCSRF(r.Header.Get("X-CSRF-Token"), csrf) {
+				failure(w, http.StatusForbidden, "invalid_csrf", "Valid CSRF token required")
+				return
+			}
+			if unsafe {
+				defer func() { _ = d.Auth.Audit(context.Background(), &user.ID, r.Method, r.URL.Path) }()
 			}
 		}
 		select {

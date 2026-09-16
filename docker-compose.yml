@@ -16,6 +16,8 @@ services:
       - '127.0.0.1:${VELORA_DNS_PORT:-5353}:5353/tcp'
       - '127.0.0.1:${VELORA_HTTP_PORT:-8080}:8080/tcp'
     environment:
+      VELORA_BOOTSTRAP_USERNAME: '${VELORA_BOOTSTRAP_USERNAME:-}'
+      VELORA_BOOTSTRAP_PASSWORD: '${VELORA_BOOTSTRAP_PASSWORD:-}'
       VELORA_DNS_UPSTREAMS: '${VELORA_DNS_UPSTREAMS:-1.1.1.1:53,9.9.9.9:53}'
       # Docker NAT may present the bridge gateway as the source of host-local requests.
       # Ports above remain host-loopback-only. For LAN deployment set exact client CIDRs.

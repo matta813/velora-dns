@@ -18,6 +18,7 @@ import { Settings } from "./pages/Settings";
 import { Zones } from "./pages/Zones";
 import { QueryLog } from "./pages/QueryLog";
 import { Blocklists } from "./pages/Blocklists";
+import { logout } from "./api";
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
   const { pathname } = useLocation();
@@ -96,6 +97,7 @@ export default function App() {
           <a href="https://github.com/matta813/velora-dns">
             GitHub repository <ArrowUpRight size={15} />
           </a>
+          <button className="button secondary" onClick={() => void logout().then(() => window.location.reload())}>Sign out</button>
           <small>{data?.status.version.version ?? "Connecting…"}</small>
         </div>
       </aside>

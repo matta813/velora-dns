@@ -35,6 +35,19 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 		return fmt.Errorf("open management database: %w", err)
 	}
 	defer func() { result = errors.Join(result, db.Close()) }()
+	userCount, err := db.UserCount(initCtx)
+	if err != nil {
+		return fmt.Errorf("inspect management users: %w", err)
+	}
+	if userCount == 0 {
+		if c.Management.BootstrapUsername == "" {
+			return fmt.Errorf("management bootstrap required: set VELORA_BOOTSTRAP_USERNAME and VELORA_BOOTSTRAP_PASSWORD")
+		}
+		if _, err = db.CreateUser(initCtx, c.Management.BootstrapUsername, c.Management.BootstrapPassword, "admin"); err != nil {
+			return fmt.Errorf("bootstrap management admin: %w", err)
+		}
+		logger.Info("management admin bootstrapped", "username", c.Management.BootstrapUsername)
+	}
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	memory := cache.New(c.Cache.MaxEntries)
@@ -95,7 +108,7 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, Version: version, Started: started}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, Version: version, Started: started}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)

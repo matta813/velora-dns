@@ -25,6 +25,8 @@ The server prints structured errors and exits nonzero before reporting readiness
 | http.web_dir | VELORA_WEB_DIR | web/dist |
 | database_path | VELORA_DATABASE_PATH | data/velora.db |
 | log_level | VELORA_LOG_LEVEL | info |
+| — | VELORA_BOOTSTRAP_USERNAME | (empty) |
+| — | VELORA_BOOTSTRAP_PASSWORD | (empty) |
 
 List overrides are comma-separated. Duration overrides use Go durations such as `500ms`
 or `2s`. Timeout is 10ms–10s; retries are 0–3 additional rounds across all upstreams.
@@ -49,6 +51,13 @@ above the cap are closed before DNS request handling. Rejections are exported as
 `VELORA_DNS_PORT` and `VELORA_HTTP_PORT` are Compose host-port substitutions, not Go
 server settings. Compose deliberately overrides listener and data paths for the container.
 The default config file is a development example; it is not automatically loaded.
+
+On the first start of an empty database, both bootstrap variables are required and
+the password must contain at least 12 characters. They create the first `admin` user;
+later starts ignore them once a user exists. Credentials are environment-only, never
+accepted in YAML, never included in `/api/v1/config`, and should be removed after bootstrap.
+Management sessions last 12 hours, use HttpOnly SameSite=Strict cookies, are revocable,
+and require a per-session CSRF token for state-changing requests.
 
 HTTP Host values must match `http.allowed_hosts` (ports are ignored). Add the exact
 management hostname or IP for a reverse proxy or LAN interface. Wildcards are rejected

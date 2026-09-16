@@ -84,6 +84,27 @@ export class APIError extends Error {
     this.name = "APIError";
   }
 }
+export interface AuthUser {
+  username: string;
+  role: "admin" | "operator" | "viewer";
+  csrf_token: string;
+}
+let csrfToken = "";
+export function setCSRFToken(token: string) { csrfToken = token; }
+export async function authenticate(username: string, password: string): Promise<AuthUser> {
+  const user = await request<AuthUser>("/api/v1/auth/login", undefined, "POST", { body: { username, password } });
+  setCSRFToken(user.csrf_token);
+  return user;
+}
+export async function currentUser(): Promise<AuthUser> {
+  const user = await request<AuthUser>("/api/v1/auth/me");
+  setCSRFToken(user.csrf_token);
+  return user;
+}
+export async function logout(): Promise<void> {
+  await request<{ logged_out: boolean }>("/api/v1/auth/logout", undefined, "POST");
+  setCSRFToken("");
+}
 export async function request<T>(
   path: string,
   signal?: AbortSignal,
@@ -98,6 +119,9 @@ export async function request<T>(
       ...(options.revision === undefined
         ? {}
         : { "If-Match": `"${options.revision}"` }),
+      ...(method === "GET" || method === "HEAD" || !csrfToken
+        ? {}
+        : { "X-CSRF-Token": csrfToken }),
     },
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
