@@ -47,6 +47,6 @@ docker-up:
 	docker compose up --build -d
 
 screenshot:
-	npm --prefix web install --save-dev playwright
+	npm --prefix web install --no-save playwright
 	npx --prefix web playwright install chromium
 	npm --prefix web run screenshot

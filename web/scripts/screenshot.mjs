@@ -8,13 +8,13 @@
  *   node scripts/screenshot.mjs --pages dashboard zones  # specific pages
  *   node scripts/screenshot.mjs --base-url http://127.0.0.1:8080
  *
- * Requires: npx playwright install chromium
+ * Requires: npx playwright install chromium (done automatically if missing)
  */
 
-import { chromium } from "playwright";
 import { parseArgs } from "node:util";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execSync } from "node:child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = resolve(__dirname, "../../docs/assets");
@@ -86,26 +86,29 @@ Examples:
   process.exit(0);
 }
 
+async function ensurePlaywright() {
+  try {
+    return await import("playwright");
+  } catch {
+    console.log("Playwright not found. Installing...");
+    execSync("npm install --no-save playwright", {
+      cwd: resolve(__dirname, ".."),
+      stdio: "inherit",
+    });
+    execSync("npx playwright install chromium", {
+      cwd: resolve(__dirname, ".."),
+      stdio: "inherit",
+    });
+    return await import("playwright");
+  }
+}
+
 const baseUrl = values["base-url"];
 const timeout = parseInt(values.timeout, 10);
 const headless = values.headless;
 const selectedPages = values.pages?.length
   ? values.pages
   : Object.keys(PAGES);
-
-async function waitForApp(page) {
-  try {
-    await page.goto(baseUrl, { waitUntil: "networkidle", timeout });
-    await page.waitForTimeout(2000);
-  } catch {
-    console.error(`  Failed to connect to ${baseUrl}`);
-    console.error("  Is the app running? Start it with:");
-    console.error("    docker compose up --build -d");
-    console.error("  or:");
-    console.error("    make build && ./bin/velora-dns -config configs/config.example.yaml");
-    process.exit(1);
-  }
-}
 
 async function capturePage(browser, pageName) {
   const config = PAGES[pageName];
@@ -142,6 +145,7 @@ async function capturePage(browser, pageName) {
 async function main() {
   console.log(`Capturing screenshots from ${baseUrl}\n`);
 
+  const { chromium } = await ensurePlaywright();
   const browser = await chromium.launch({ headless });
 
   const results = [];
