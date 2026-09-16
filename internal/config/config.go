@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/netip"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -26,6 +27,10 @@ type DNS struct {
 	ClientQPS      int           `yaml:"client_qps" json:"client_qps"`
 	RateLimitBurst int           `yaml:"rate_limit_burst" json:"rate_limit_burst"`
 	MaxTCPConns    int           `yaml:"max_tcp_connections" json:"max_tcp_connections"`
+	DoTListen      string        `yaml:"dot_listen" json:"dot_listen"`
+	DoHListen      string        `yaml:"doh_listen" json:"doh_listen"`
+	TLSCertFile    string        `yaml:"tls_cert_file" json:"tls_cert_file"`
+	TLSKeyFile     string        `yaml:"tls_key_file" json:"-"`
 }
 type Cache struct {
 	MaxEntries int `yaml:"max_entries" json:"max_entries"`
@@ -88,7 +93,7 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 			return c, fmt.Errorf("config must contain one YAML document")
 		}
 	}
-	for key, target := range map[string]*string{"HTTP_LISTEN": &c.HTTP.Listen, "WEB_DIR": &c.HTTP.WebDir, "DATABASE_PATH": &c.DatabasePath, "LOG_LEVEL": &c.LogLevel, "FILTERING_BLOCK_MODE": &c.Filtering.BlockMode} {
+	for key, target := range map[string]*string{"HTTP_LISTEN": &c.HTTP.Listen, "WEB_DIR": &c.HTTP.WebDir, "DATABASE_PATH": &c.DatabasePath, "LOG_LEVEL": &c.LogLevel, "FILTERING_BLOCK_MODE": &c.Filtering.BlockMode, "DNS_DOT_LISTEN": &c.DNS.DoTListen, "DNS_DOH_LISTEN": &c.DNS.DoHListen, "DNS_TLS_CERT_FILE": &c.DNS.TLSCertFile, "DNS_TLS_KEY_FILE": &c.DNS.TLSKeyFile} {
 		if v, ok := lookup("VELORA_" + key); ok {
 			*target = v
 		}
@@ -166,6 +171,19 @@ func (c Config) Validate() error {
 	if len(c.DNS.Listen) == 0 || len(c.DNS.Listen) > 8 || len(c.DNS.Upstreams) == 0 || len(c.DNS.Upstreams) > 8 {
 		return fmt.Errorf("DNS requires 1–8 listeners and upstreams")
 	}
+	if (c.DNS.TLSCertFile == "") != (c.DNS.TLSKeyFile == "") {
+		return fmt.Errorf("dns.tls_cert_file and dns.tls_key_file must both be set")
+	}
+	for name, value := range map[string]string{"dot": c.DNS.DoTListen, "doh": c.DNS.DoHListen} {
+		if value != "" {
+			if c.DNS.TLSCertFile == "" {
+				return fmt.Errorf("DNS-over-%s requires TLS certificate and key", name)
+			}
+			if err := address(value, true); err != nil {
+				return fmt.Errorf("invalid DNS-over-%s listener: %w", name, err)
+			}
+		}
+	}
 	seen := map[string]bool{}
 	for _, a := range c.DNS.Listen {
 		if err := address(a, true); err != nil {
@@ -223,6 +241,20 @@ func (c Config) Validate() error {
 	return nil
 }
 func address(a string, listen bool) error {
+	if !listen {
+		if strings.HasPrefix(a, "https://") {
+			u, err := url.Parse(a)
+			if err != nil || u.Scheme != "https" || u.Path != "/dns-query" || u.RawQuery != "" || u.Fragment != "" {
+				return fmt.Errorf("invalid DoH upstream %q", a)
+			}
+			host, port, err := net.SplitHostPort(u.Host)
+			if err != nil || net.ParseIP(host) == nil || port == "" {
+				return fmt.Errorf("DoH upstream requires IP literal, port and /dns-query path")
+			}
+			return nil
+		}
+		a = strings.TrimPrefix(a, "tls://")
+	}
 	host, port, err := net.SplitHostPort(a)
 	if err != nil {
 		return fmt.Errorf("invalid address %q", a)

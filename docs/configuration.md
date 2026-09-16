@@ -16,6 +16,10 @@ The server prints structured errors and exits nonzero before reporting readiness
 | dns.client_qps | VELORA_DNS_CLIENT_QPS | 100 |
 | dns.rate_limit_burst | VELORA_DNS_RATE_LIMIT_BURST | 100 |
 | dns.max_tcp_connections | VELORA_DNS_MAX_TCP_CONNECTIONS | 256 |
+| dns.dot_listen | VELORA_DNS_DOT_LISTEN | (disabled) |
+| dns.doh_listen | VELORA_DNS_DOH_LISTEN | (disabled) |
+| dns.tls_cert_file | VELORA_DNS_TLS_CERT_FILE | (empty) |
+| dns.tls_key_file | VELORA_DNS_TLS_KEY_FILE | (empty, never returned by API) |
 | cache.max_entries | VELORA_CACHE_MAX_ENTRIES | 10000 |
 | filtering.block_mode | VELORA_FILTERING_BLOCK_MODE | (NXDOMAIN) |
 | filtering.blocklist | VELORA_FILTERING_BLOCKLIST | (empty) |
@@ -47,6 +51,11 @@ Their client table is capped at 10,000 entries; inactive entries are pruned when
 excess active distinct clients are rejected. `max_tcp_connections` bounds live TCP connections; connections
 above the cap are closed before DNS request handling. Rejections are exported as
 `dns_overload_rejections_total` with only the bounded `reason` label.
+
+DoT and DoH listeners are disabled unless their listen address and both TLS files are
+configured. Certificate/key changes are detected on new TLS handshakes without a restart.
+Encrypted upstreams use `tls://IP:port` or `https://IP:port/dns-query`; certificates are
+verified against the IP SAN and all existing retry/deadline rules still apply.
 
 `VELORA_DNS_PORT` and `VELORA_HTTP_PORT` are Compose host-port substitutions, not Go
 server settings. Compose deliberately overrides listener and data paths for the container.
