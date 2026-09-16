@@ -4,10 +4,12 @@ Base path: `/api/v1`. Successful JSON responses contain `data`. Errors contain
 `error: {code, message}`. Health and readiness are public; management endpoints and
 metrics require an authenticated session or scoped API token.
 
+## Endpoints
+
 | Method | Path | Behavior |
 |---|---|---|
 | GET | /health | HTTP process liveness |
-| GET | /ready | 200 when SQLite and DNS are ready; otherwise 503 |
+| GET | /ready | 200 when SQLite/PostgreSQL and DNS are ready; otherwise 503 |
 | POST | /api/v1/auth/login | Create a 12-hour management session |
 | POST | /api/v1/auth/logout | Revoke the current session |
 | GET | /api/v1/auth/me | Current role and per-session CSRF token |
@@ -19,7 +21,7 @@ metrics require an authenticated session or scoped API token.
 | GET | /api/v1/stats | Lifetime queries and rolling 60-second QPS; cache hit ratio |
 | GET | /api/v1/cache | Live entries, capacity, lifetime hits and misses |
 | DELETE | /api/v1/cache | Clear cached answers; preserve lifetime counters |
-| GET | /api/v1/config | Current config, excluding database path |
+| GET | /api/v1/config | Current config, excluding database path and secrets |
 | GET | /api/v1/blocklists | Blocklist sources with domain counts and status |
 | POST | /api/v1/blocklists | Add an HTTP(S) or local blocklist source |
 | PUT | /api/v1/blocklists/{id} | Enable or disable a source |
@@ -28,9 +30,35 @@ metrics require an authenticated session or scoped API token.
 | DELETE | /api/v1/blocklists/{id} | Remove a source and its domains |
 | GET | /metrics | Prometheus exposition |
 
+## TSIG key management
+
+| Method | Path | Behavior |
+|---|---|---|
+| GET | /api/v1/tsig-keys | List all TSIG keys (names and algorithms, secrets never returned) |
+| POST | /api/v1/tsig-keys | Create a TSIG key (hmac-sha256, hmac-sha1, or hmac-sha512) |
+| DELETE | /api/v1/tsig-keys/{name} | Delete a TSIG key |
+
+## Secondary zone management
+
+| Method | Path | Behavior |
+|---|---|---|
+| POST | /api/v1/zones/secondary | Create a secondary zone with primary address and transfer settings |
+| GET | /api/v1/zones/{id}/transfer-status | Get transfer status and last serial for a secondary zone |
+
+## Zone and record management
+
+See the [zone API contract](zones.md) for full CRUD endpoints.
+
+## Authentication
+
 ```bash
-curl http://127.0.0.1:8080/api/v1/status
-curl -X DELETE -H 'Content-Type: application/json' http://127.0.0.1:8080/api/v1/cache
+# Session-based login
+curl -X POST http://127.0.0.1:8080/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"your-password"}'
+
+# Bearer token
+curl -H 'Authorization: Bearer velora_<secret>' http://127.0.0.1:8080/api/v1/status
 ```
 
 API tokens use `Authorization: Bearer velora_<secret>`. Valid scopes are `read`,
@@ -43,17 +71,6 @@ write and idle timeouts. Cross-site browser requests and mismatched Origin are r
 HTTP Host must match the configured allowlist to reject DNS rebinding.
 Cache mutation requires `application/json`. Reverse proxies should preserve the public
 Host and Origin consistently; no permissive CORS is provided.
-
-Zone and record CRUD are available; see the [zone API contract](zones.md).
-Query history is available via [the query logging API](query-logging.md).
-Blocklist sources support add, enable/disable, manual content and refresh. Remote
-sources require public HTTP(S) URLs on ports 80/443 without credentials, fragments or
-redirects; downloads are bounded to 8 MiB with SSRF protection. A failed refresh retains
-the previous domains. Authorized mutations and authentication events are audited without
-request bodies, credentials or token secrets.
-Unknown API paths return 404. There is no wildcard route returning fabricated data.
-Config duration values serialize as nanoseconds. QPS is query count in the last 60
-seconds divided by 60; this includes the initial partial minute.
 
 ## Metrics
 

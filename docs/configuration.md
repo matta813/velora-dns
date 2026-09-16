@@ -4,6 +4,8 @@ Precedence: built-in defaults → optional YAML file → explicit environment va
 Missing files, unknown fields, multiple documents and invalid overrides are errors.
 The server prints structured errors and exits nonzero before reporting readiness.
 
+## DNS settings
+
 | YAML key | Environment variable | Default |
 |---|---|---|
 | dns.listen | VELORA_DNS_LISTEN | 127.0.0.1:5353 |
@@ -16,23 +18,87 @@ The server prints structured errors and exits nonzero before reporting readiness
 | dns.client_qps | VELORA_DNS_CLIENT_QPS | 100 |
 | dns.rate_limit_burst | VELORA_DNS_RATE_LIMIT_BURST | 100 |
 | dns.max_tcp_connections | VELORA_DNS_MAX_TCP_CONNECTIONS | 256 |
+
+## Encrypted DNS
+
+| YAML key | Environment variable | Default |
+|---|---|---|
 | dns.dot_listen | VELORA_DNS_DOT_LISTEN | (disabled) |
 | dns.doh_listen | VELORA_DNS_DOH_LISTEN | (disabled) |
+| dns.doq_listen | VELORA_DNS_DOQ_LISTEN | (disabled) |
 | dns.tls_cert_file | VELORA_DNS_TLS_CERT_FILE | (empty) |
 | dns.tls_key_file | VELORA_DNS_TLS_KEY_FILE | (empty, never returned by API) |
 | dns.dnssec | VELORA_DNS_DNSSEC | false |
 | dns.trust_anchors | VELORA_DNS_TRUST_ANCHORS | (empty) |
+
+## Cache and filtering
+
+| YAML key | Environment variable | Default |
+|---|---|---|
 | cache.max_entries | VELORA_CACHE_MAX_ENTRIES | 10000 |
 | filtering.block_mode | VELORA_FILTERING_BLOCK_MODE | (NXDOMAIN) |
 | filtering.blocklist | VELORA_FILTERING_BLOCKLIST | (empty) |
 | filtering.allowlist | VELORA_FILTERING_ALLOWLIST | (empty) |
+
+## HTTP and database
+
+| YAML key | Environment variable | Default |
+|---|---|---|
 | http.listen | VELORA_HTTP_LISTEN | 127.0.0.1:8080 |
 | http.allowed_hosts | VELORA_HTTP_ALLOWED_HOSTS | localhost,127.0.0.1,::1 |
 | http.web_dir | VELORA_WEB_DIR | web/dist |
 | database_path | VELORA_DATABASE_PATH | data/velora.db |
+| database_driver | VELORA_DATABASE_DRIVER | sqlite |
+| database_url | VELORA_DATABASE_URL | (empty) |
 | log_level | VELORA_LOG_LEVEL | info |
 | — | VELORA_BOOTSTRAP_USERNAME | (empty) |
 | — | VELORA_BOOTSTRAP_PASSWORD | (empty) |
+
+## TSIG keys
+
+Configure TSIG keys for signed zone transfers:
+
+```yaml
+tsig:
+  keys:
+    - name: transfer-key
+      algorithm: hmac-sha256
+      secret: 'base64-encoded-secret'
+```
+
+## Zone transfers
+
+Configure AXFR/IXFR transfers from primary servers:
+
+```yaml
+transfers:
+  - zone: example.com
+    primary: 192.168.1.1:53
+    tsig_key: transfer-key
+    interval: 3600
+```
+
+## Cluster and node
+
+Configure multi-node clustering:
+
+```yaml
+cluster:
+  primary_dsn: 'postgres://user:pass@primary:5432/velora'
+  replica_dsns:
+    - 'postgres://user:pass@replica1:5432/velora'
+    - 'postgres://user:pass@replica2:5432/velora'
+  max_open_conns: 10
+  max_idle_conns: 5
+  conn_max_lifetime: 5m
+
+node:
+  id: node-1
+  name: Primary DNS
+  address: 192.168.1.1:9090
+```
+
+## Overrides
 
 List overrides are comma-separated. Duration overrides use Go durations such as `500ms`
 or `2s`. Timeout is 10ms–10s; retries are 0–3 additional rounds across all upstreams.
@@ -54,10 +120,10 @@ excess active distinct clients are rejected. `max_tcp_connections` bounds live T
 above the cap are closed before DNS request handling. Rejections are exported as
 `dns_overload_rejections_total` with only the bounded `reason` label.
 
-DoT and DoH listeners are disabled unless their listen address and both TLS files are
-configured. Certificate/key changes are detected on new TLS handshakes without a restart.
-Encrypted upstreams use `tls://IP:port` or `https://IP:port/dns-query`; certificates are
-verified against the IP SAN and all existing retry/deadline rules still apply.
+DoT, DoH and DoQ listeners are disabled unless their listen address and both TLS files are
+configured (DoQ does not require TLS files). Certificate/key changes are detected on new TLS
+handshakes without a restart. Encrypted upstreams use `tls://IP:port` or `https://IP:port/dns-query`;
+certificates are verified against the IP SAN and all existing retry/deadline rules still apply.
 
 DNSSEC validation requires at least one DS trust anchor. Multiple anchors are supported
 for safe key rollover. See [DNSSEC validation](dnssec.md) for chain validation, negative
@@ -84,3 +150,7 @@ to prevent DNS rebinding from bypassing the loopback management boundary.
 `ZERO` (an all-zero A/AAAA answer). Wildcard blocklist entries match the domain and its
 subdomains; an exact allowlist entry always wins. External blocklist sources are managed
 through the API and dashboard, not this configuration.
+
+PostgreSQL is used when `database_driver` is set to `postgres` and `database_url` contains
+a valid connection URL. Migrations run automatically on startup. The `cluster` section
+configures primary/replica routing for multi-node deployments.

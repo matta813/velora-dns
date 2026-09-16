@@ -22,30 +22,30 @@ Only checked items are implemented. Milestones describe targets, not release pro
 
 ## Phase 2
 
-- [ ] DNS-over-TLS
-- [ ] DNS-over-HTTPS
+- [x] DNS-over-TLS
+- [x] DNS-over-HTTPS
 - [x] DNSSEC validation
-- [ ] Users and roles
-- [ ] PostgreSQL storage adapter
-- [ ] Zone import/export
+- [x] Users and roles
+- [x] PostgreSQL storage adapter
+- [x] Zone import/export
 
 ## Phase 3
 
 - [ ] DHCP server
-- [ ] DNS-over-QUIC
-- [ ] Secondary zones
-- [ ] AXFR/IXFR
-- [ ] TSIG
-- [ ] API tokens
+- [x] DNS-over-QUIC
+- [x] Secondary zones
+- [x] AXFR/IXFR
+- [x] TSIG
+- [x] API tokens
 
 ## Phase 4
 
-- [ ] High availability
-- [ ] Multiple DNS nodes
-- [ ] Configuration replication
-- [ ] Zone replication
-- [ ] Central management
-- [ ] PostgreSQL cluster support
+- [x] High availability (foundation)
+- [x] Multiple DNS nodes
+- [x] Configuration replication
+- [x] Zone replication
+- [x] Central management
+- [x] PostgreSQL cluster support
 
 ## Milestones
 
@@ -53,4 +53,6 @@ Only checked items are implemented. Milestones describe targets, not release pro
 - **v0.2.0 – DNS MVP:** local zones, filtering, query logging, protocol hardening.
 - **v0.3.0 – Management:** full CRUD UI, users/roles, import/export.
 - **v0.4.0 – Production Preview:** encrypted DNS, DNSSEC, security assessment.
-- **v1.0.0:** stable storage/API contracts and operational validation. HA remains a longer-term track.
+- **v0.5.0 – Transports and Authority:** DoT/DoH/DoQ, secondary zones, TSIG, AXFR/IXFR.
+- **v0.6.0 – Multi-Node:** node membership, config/zone replication, central management, PG cluster.
+- **v1.0.0:** stable storage/API contracts and operational validation. Full HA with quorum-based writes remains a longer-term track.
