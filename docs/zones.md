@@ -49,9 +49,11 @@ without DNS zone-file quoting. MX uses a separate numeric `priority` (0–65535)
 |---|---|---|
 | GET | /api/v1/zones | Zone array, including records |
 | POST | /api/v1/zones | 201, created zone, Location and ETag |
+| POST | /api/v1/zones/import | 201, atomically imported zone; request is `text/dns` |
 | GET | /api/v1/zones/:id | Zone and current ETag |
 | PUT | /api/v1/zones/:id | Full replacement, updated zone and ETag |
 | DELETE | /api/v1/zones/:id | Deleted zone ID |
+| GET | /api/v1/zones/:id/export | `text/dns` zone-file download |
 | GET | /api/v1/zones/:id/records | Record array and zone ETag |
 | GET | /api/v1/zones/:id/records/:recordID | Record and zone ETag |
 | POST | /api/v1/zones/:id/records | 201, updated **zone**, record Location and new ETag |

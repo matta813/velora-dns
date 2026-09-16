@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"mime"
 	"net/http"
 	"strconv"
 
@@ -48,6 +49,25 @@ func currentZone(w http.ResponseWriter, r *http.Request, store ZoneStore) (zones
 	return z, true
 }
 func registerZones(mux *http.ServeMux, store ZoneStore) {
+	mux.HandleFunc("POST /api/v1/zones/import", func(w http.ResponseWriter, r *http.Request) {
+		media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if err != nil || media != "text/dns" {
+			failure(w, 415, "unsupported_media_type", "Use text/dns")
+			return
+		}
+		z, err := zones.ReadZoneFile(r.Body, 1<<20)
+		if err != nil {
+			zoneFailure(w, err)
+			return
+		}
+		z, err = store.Create(r.Context(), z)
+		if err != nil {
+			zoneFailure(w, err)
+			return
+		}
+		w.Header().Set("Location", fmt.Sprintf("/api/v1/zones/%d", z.ID))
+		zoneResponse(w, 201, z)
+	})
 	mux.HandleFunc("GET /api/v1/zones", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, store.List()) })
 	mux.HandleFunc("POST /api/v1/zones", func(w http.ResponseWriter, r *http.Request) {
 		var input zoneInput
@@ -67,6 +87,20 @@ func registerZones(mux *http.ServeMux, store ZoneStore) {
 		if ok {
 			zoneResponse(w, 200, z)
 		}
+	})
+	mux.HandleFunc("GET /api/v1/zones/{id}/export", func(w http.ResponseWriter, r *http.Request) {
+		z, ok := currentZone(w, r, store)
+		if !ok {
+			return
+		}
+		body, err := zones.FormatZoneFile(z)
+		if err != nil {
+			zoneFailure(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "text/dns; charset=utf-8")
+		w.Header().Set("Content-Disposition", "attachment; filename=zone.db")
+		_, _ = w.Write([]byte(body))
 	})
 	mux.HandleFunc("PUT /api/v1/zones/{id}", func(w http.ResponseWriter, r *http.Request) {
 		z, ok := currentZone(w, r, store)
