@@ -22,7 +22,7 @@ import (
 
 func zoneAPI(t *testing.T) (http.Handler, *zones.Service) {
 	t.Helper()
-	db, err := database.Open(context.Background(), filepath.Join(t.TempDir(), "api.db"))
+	db, err := database.Open(context.Background(), "sqlite", filepath.Join(t.TempDir(), "api.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

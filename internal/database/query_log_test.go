@@ -10,7 +10,7 @@ import (
 
 func TestHistoryRoundTripLimitsAndLiteralFilters(t *testing.T) {
 	ctx := context.Background()
-	db, err := Open(ctx, filepath.Join(t.TempDir(), "history.db"))
+	db, err := Open(ctx, "sqlite", filepath.Join(t.TempDir(), "history.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestHistoryRoundTripLimitsAndLiteralFilters(t *testing.T) {
 
 func TestQuerySummaryUsesHalfOpenWindowAndStableRankings(t *testing.T) {
 	ctx := context.Background()
-	db, err := Open(ctx, filepath.Join(t.TempDir(), "summary.db"))
+	db, err := Open(ctx, "sqlite", filepath.Join(t.TempDir(), "summary.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -58,7 +58,16 @@ func (s *Store) CreateUser(ctx context.Context, username, password, role string)
 	if err != nil {
 		return User{}, err
 	}
-	result, err := s.db.ExecContext(ctx, "INSERT INTO users(username,password_hash,role) VALUES(?,?,?)", username, string(hash), role)
+	p := s.placeholder
+	insertSQL := fmt.Sprintf("INSERT INTO users(username,password_hash,role) VALUES(%s,%s,%s)%s", p(1), p(2), p(3), s.insertReturning())
+	if s.driver == "postgres" {
+		var id int64
+		if err = s.db.QueryRowContext(ctx, insertSQL, username, string(hash), role).Scan(&id); err != nil {
+			return User{}, err
+		}
+		return User{ID: id, Username: username, Role: role}, nil
+	}
+	result, err := s.db.ExecContext(ctx, insertSQL, username, string(hash), role)
 	if err != nil {
 		return User{}, err
 	}
@@ -73,7 +82,9 @@ func (s *Store) Authenticate(ctx context.Context, username, password string) (Us
 	var u User
 	var hash string
 	var disabled bool
-	err := s.db.QueryRowContext(ctx, "SELECT id,username,password_hash,role,disabled FROM users WHERE username=?", strings.TrimSpace(username)).Scan(&u.ID, &u.Username, &hash, &u.Role, &disabled)
+	p := s.placeholder
+	query := fmt.Sprintf("SELECT id,username,password_hash,role,disabled FROM users WHERE username=%s", p(1))
+	err := s.db.QueryRowContext(ctx, query, strings.TrimSpace(username)).Scan(&u.ID, &u.Username, &hash, &u.Role, &disabled)
 	comparisonHash := []byte(hash)
 	if err != nil {
 		comparisonHash = dummyPasswordHash
@@ -86,7 +97,9 @@ func (s *Store) Authenticate(ctx context.Context, username, password string) (Us
 
 func (s *Store) CreateSession(ctx context.Context, u User, token, csrf []byte, expires time.Time) error {
 	hash := sha256.Sum256(token)
-	_, err := s.db.ExecContext(ctx, "INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at) VALUES(?,?,?,?)", hash[:], u.ID, csrf, expires.UTC().Format(time.RFC3339Nano))
+	p := s.placeholder
+	insertSQL := fmt.Sprintf("INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at) VALUES(%s,%s,%s,%s)", p(1), p(2), p(3), p(4))
+	_, err := s.db.ExecContext(ctx, insertSQL, hash[:], u.ID, csrf, expires.UTC().Format(time.RFC3339Nano))
 	return err
 }
 
@@ -95,7 +108,9 @@ func (s *Store) Session(ctx context.Context, token []byte) (User, []byte, error)
 	var u User
 	var csrf []byte
 	var expires string
-	err := s.db.QueryRowContext(ctx, "SELECT u.id,u.username,u.role,s.csrf_token,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND u.disabled=0", hash[:]).Scan(&u.ID, &u.Username, &u.Role, &csrf, &expires)
+	p := s.placeholder
+	query := fmt.Sprintf("SELECT u.id,u.username,u.role,s.csrf_token,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=%s AND u.disabled=0", p(1))
+	err := s.db.QueryRowContext(ctx, query, hash[:]).Scan(&u.ID, &u.Username, &u.Role, &csrf, &expires)
 	if err != nil {
 		return User{}, nil, ErrAuthentication
 	}
@@ -108,12 +123,16 @@ func (s *Store) Session(ctx context.Context, token []byte) (User, []byte, error)
 
 func (s *Store) RevokeSession(ctx context.Context, token []byte) error {
 	hash := sha256.Sum256(token)
-	_, err := s.db.ExecContext(ctx, "DELETE FROM sessions WHERE token_hash=?", hash[:])
+	p := s.placeholder
+	query := fmt.Sprintf("DELETE FROM sessions WHERE token_hash=%s", p(1))
+	_, err := s.db.ExecContext(ctx, query, hash[:])
 	return err
 }
 
 func (s *Store) Audit(ctx context.Context, userID *int64, action, detail string) error {
-	_, err := s.db.ExecContext(ctx, "INSERT INTO audit_events(user_id,action,detail) VALUES(?,?,?)", userID, action, detail)
+	p := s.placeholder
+	insertSQL := fmt.Sprintf("INSERT INTO audit_events(user_id,action,detail) VALUES(%s,%s,%s)", p(1), p(2), p(3))
+	_, err := s.db.ExecContext(ctx, insertSQL, userID, action, detail)
 	return err
 }
 
@@ -123,7 +142,16 @@ func (s *Store) CreateAPIToken(ctx context.Context, userID int64, name, scopes s
 		return APIToken{}, fmt.Errorf("invalid API token")
 	}
 	hash := sha256.Sum256(raw)
-	result, err := s.db.ExecContext(ctx, "INSERT INTO api_tokens(name,token_hash,scopes,expires_at,created_by) VALUES(?,?,?,?,?)", name, hash[:], scopes, expires.UTC().Format(time.RFC3339Nano), userID)
+	p := s.placeholder
+	insertSQL := fmt.Sprintf("INSERT INTO api_tokens(name,token_hash,scopes,expires_at,created_by) VALUES(%s,%s,%s,%s,%s)%s", p(1), p(2), p(3), p(4), p(5), s.insertReturning())
+	if s.driver == "postgres" {
+		var id int64
+		if err := s.db.QueryRowContext(ctx, insertSQL, name, hash[:], scopes, expires.UTC().Format(time.RFC3339Nano), userID).Scan(&id); err != nil {
+			return APIToken{}, err
+		}
+		return APIToken{ID: id, Name: name, Scopes: scopes, ExpiresAt: expires.UTC()}, nil
+	}
+	result, err := s.db.ExecContext(ctx, insertSQL, name, hash[:], scopes, expires.UTC().Format(time.RFC3339Nano), userID)
 	if err != nil {
 		return APIToken{}, err
 	}
@@ -139,7 +167,9 @@ func (s *Store) AuthenticateAPIToken(ctx context.Context, raw []byte) (User, API
 	var user User
 	var token APIToken
 	var expires string
-	err := s.db.QueryRowContext(ctx, "SELECT u.id,u.username,u.role,t.id,t.name,t.scopes,t.expires_at FROM api_tokens t JOIN users u ON u.id=t.created_by WHERE t.token_hash=? AND t.revoked_at IS NULL AND u.disabled=0", hash[:]).Scan(&user.ID, &user.Username, &user.Role, &token.ID, &token.Name, &token.Scopes, &expires)
+	p := s.placeholder
+	query := fmt.Sprintf("SELECT u.id,u.username,u.role,t.id,t.name,t.scopes,t.expires_at FROM api_tokens t JOIN users u ON u.id=t.created_by WHERE t.token_hash=%s AND t.revoked_at IS NULL AND u.disabled=0", p(1))
+	err := s.db.QueryRowContext(ctx, query, hash[:]).Scan(&user.ID, &user.Username, &user.Role, &token.ID, &token.Name, &token.Scopes, &expires)
 	if err != nil {
 		return User{}, APIToken{}, ErrAuthentication
 	}
@@ -151,7 +181,9 @@ func (s *Store) AuthenticateAPIToken(ctx context.Context, raw []byte) (User, API
 }
 
 func (s *Store) RevokeAPIToken(ctx context.Context, id int64, userID int64) error {
-	result, err := s.db.ExecContext(ctx, "UPDATE api_tokens SET revoked_at=CURRENT_TIMESTAMP WHERE id=? AND created_by=? AND revoked_at IS NULL", id, userID)
+	p := s.placeholder
+	query := fmt.Sprintf("UPDATE api_tokens SET revoked_at=CURRENT_TIMESTAMP WHERE id=%s AND created_by=%s AND revoked_at IS NULL", p(1), p(2))
+	result, err := s.db.ExecContext(ctx, query, id, userID)
 	if err != nil {
 		return err
 	}

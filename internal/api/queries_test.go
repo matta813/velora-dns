@@ -14,7 +14,7 @@ import (
 
 func TestQueriesRealStorageJSONAndValidation(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.Open(ctx, filepath.Join(t.TempDir(), "api.db"))
+	db, err := database.Open(ctx, "sqlite", filepath.Join(t.TempDir(), "api.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -18,7 +18,7 @@ import (
 )
 
 func TestManagementAuthenticationCSRFAndRoles(t *testing.T) {
-	db, err := database.Open(context.Background(), filepath.Join(t.TempDir(), "auth.db"))
+	db, err := database.Open(context.Background(), "sqlite", filepath.Join(t.TempDir(), "auth.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

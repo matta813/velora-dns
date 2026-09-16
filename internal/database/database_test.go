@@ -9,7 +9,7 @@ import (
 func TestOpenReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "data", "test.db")
 	for range 2 {
-		s, err := Open(context.Background(), path)
+		s, err := Open(context.Background(), "sqlite", path)
 		if err != nil {
 			t.Fatal(err)
 		}

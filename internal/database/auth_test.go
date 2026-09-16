@@ -11,7 +11,7 @@ import (
 
 func TestUsersAndRevocableSessions(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, filepath.Join(t.TempDir(), "auth.db"))
+	store, err := Open(ctx, "sqlite", filepath.Join(t.TempDir(), "auth.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestUsersAndRevocableSessions(t *testing.T) {
 
 func TestRejectsWeakUsersAndExpiredSessions(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, filepath.Join(t.TempDir(), "auth.db"))
+	store, err := Open(ctx, "sqlite", filepath.Join(t.TempDir(), "auth.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
