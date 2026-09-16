@@ -25,6 +25,7 @@ type Forwarder struct {
 	Retries   int
 	Observer  UpstreamObserver
 	TLSConfig *tls.Config
+	Validator *DNSSECValidator
 	dohOnce   sync.Once
 	dohClient *http.Client
 }
@@ -41,8 +42,12 @@ func (f *Forwarder) Resolve(ctx context.Context, q *wire.Msg) (*wire.Msg, string
 			request.Id = wire.Id()
 			request.AuthenticatedData = false
 			request.Extra = withoutOPT(request.Extra)
-			if opt := q.IsEdns0(); opt != nil {
-				request.SetEdns0(1232, opt.Do())
+			if opt := q.IsEdns0(); opt != nil || f.Validator != nil {
+				do := f.Validator != nil
+				if opt != nil {
+					do = do || opt.Do()
+				}
+				request.SetEdns0(1232, do)
 			}
 			address := strings.TrimPrefix(upstream, "tls://")
 			var m *wire.Msg
@@ -84,6 +89,18 @@ func (f *Forwarder) Resolve(ctx context.Context, q *wire.Msg) (*wire.Msg, string
 			if err == nil && (m.Rcode == wire.RcodeServerFailure || m.Rcode == wire.RcodeRefused) {
 				err = fmt.Errorf("upstream response %s", wire.RcodeToString[m.Rcode])
 			}
+			if err == nil && f.Validator != nil && !q.CheckingDisabled {
+				status, validationErr := f.Validator.Validate(ctx, q, m, func(validationCtx context.Context, validationQuery *wire.Msg) (*wire.Msg, error) {
+					validatorForwarder := &Forwarder{Upstreams: []string{upstream}, Timeout: f.Timeout, TLSConfig: f.TLSConfig}
+					validationResponse, _, exchangeErr := validatorForwarder.Resolve(validationCtx, validationQuery)
+					return validationResponse, exchangeErr
+				})
+				if validationErr != nil {
+					err = fmt.Errorf("DNSSEC bogus: %w", validationErr)
+				} else {
+					m.AuthenticatedData = status == DNSSECSecure
+				}
+			}
 			if f.Observer != nil {
 				f.Observer.Upstream(upstream, err != nil)
 			}
@@ -93,16 +110,36 @@ func (f *Forwarder) Resolve(ctx context.Context, q *wire.Msg) (*wire.Msg, string
 			}
 			m.Id = q.Id
 			m.Question = append([]wire.Question(nil), q.Question...)
-			m.AuthenticatedData = false
+			if f.Validator == nil || q.CheckingDisabled {
+				m.AuthenticatedData = false
+			}
 			if q.IsEdns0() == nil {
 				m.Extra = withoutOPT(m.Extra)
 			} else if opt := m.IsEdns0(); opt != nil {
 				opt.Option = nil
 			}
+			if opt := q.IsEdns0(); opt == nil || !opt.Do() {
+				m.Answer = withoutDNSSEC(m.Answer)
+				m.Ns = withoutDNSSEC(m.Ns)
+				m.Extra = withoutDNSSEC(m.Extra)
+			}
 			return m, upstream, nil
 		}
 	}
 	return nil, "", fmt.Errorf("all upstream attempts failed: %v", last)
+}
+
+func withoutDNSSEC(records []wire.RR) []wire.RR {
+	out := make([]wire.RR, 0, len(records))
+	for _, rr := range records {
+		switch rr.Header().Rrtype {
+		case wire.TypeRRSIG, wire.TypeNSEC, wire.TypeNSEC3, wire.TypeDNSKEY, wire.TypeDS:
+			continue
+		default:
+			out = append(out, rr)
+		}
+	}
+	return out
 }
 
 func (f *Forwarder) exchangeDoH(ctx context.Context, query *wire.Msg, upstream string) (*wire.Msg, error) {

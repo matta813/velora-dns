@@ -85,7 +85,14 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 		}
 		allowed = append(allowed, p)
 	}
-	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer}
+	var validator *dns.DNSSECValidator
+	if c.DNS.DNSSEC {
+		validator, err = dns.NewDNSSECValidator(c.DNS.TrustAnchors)
+		if err != nil {
+			return fmt.Errorf("initialize DNSSEC: %w", err)
+		}
+	}
+	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer, Validator: validator}
 	resolver := &dns.Resolver{Cache: memory, Forwarder: forwarder, Local: local, Filter: matcher, BlockMode: c.Filtering.BlockMode}
 	cookieSecret := make([]byte, 32)
 	if _, err = rand.Read(cookieSecret); err != nil {

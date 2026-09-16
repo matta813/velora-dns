@@ -11,7 +11,7 @@ the stated drills are performed in the target environment.
 |---|---|---|
 | Management access | Blocked | Issue #19 is open: the HTTP API has no users, sessions or roles. Keep it loopback-only and use an authenticated administrative tunnel. |
 | Resolver transport | Conditional | UDP/TCP DNS works; DoT and DoH remain open (#16, #17). Use a trusted private network and firewall until encrypted transports are delivered. |
-| DNS correctness | Conditional | Local integration tests cover supported record types, TCP fallback, EDNS, cookies and cache semantics. DNSSEC validation is still open (#18), so do not claim validated answers. |
+| DNS correctness | Conditional | Local integration tests cover supported record types, TCP fallback, EDNS, cookies, cache semantics and opt-in DNSSEC validation. Production anchor lifecycle exercises remain an operator responsibility. |
 | Abuse resistance | Conditional | Global/client query limits, concurrent-work and TCP-connection caps are configured. Size them with the procedure below and monitor rejection metrics. |
 | Data durability | Conditional | SQLite persistence, migrations and WAL checkpointing are tested. Operators must complete a backup/restore drill before use. |
 | Availability | Blocked | The service is a single-node deployment. HA, node membership and replication are tracked by #28–#32. |
@@ -47,8 +47,8 @@ go test ./internal/dns ./tests
 It covers UDP and TCP listener behavior, supported IN record classes, local-zone
 SOA/NXDOMAIN/NODATA behavior, upstream failover/retries, response/question and
 CNAME-chain validation, EDNS size and privacy policy, DNS Cookies, and cache TTL
-semantics. Track unsupported standards as explicit issues: DNSSEC (#18), DoT (#16),
-DoH (#17), DoQ (#23), AXFR/IXFR (#25) and TSIG (#26).
+semantics. Track unsupported standards as explicit issues: DoQ (#23), AXFR/IXFR (#25)
+and TSIG (#26).
 
 ## Sustained-load procedure and resource sizing
 

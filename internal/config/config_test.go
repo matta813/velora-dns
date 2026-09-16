@@ -95,3 +95,15 @@ func TestEncryptedDNSConfiguration(t *testing.T) {
 		t.Fatal("DoT without certificate accepted")
 	}
 }
+
+func TestDNSSECConfiguration(t *testing.T) {
+	anchor := ". 3600 IN DS 20326 8 2 E06D44B80B8F1D39A95C0B0D7C65D08458E880409BBC683457104237C7F8EC8D"
+	env := map[string]string{"VELORA_DNS_DNSSEC": "true", "VELORA_DNS_TRUST_ANCHORS": anchor}
+	c, err := Parse(nil, func(key string) (string, bool) { value, ok := env[key]; return value, ok })
+	if err != nil || !c.DNS.DNSSEC || len(c.DNS.TrustAnchors) != 1 {
+		t.Fatalf("DNSSEC config: %+v %v", c.DNS, err)
+	}
+	if _, err = Parse([]byte("dns:\n  dnssec: true\n"), func(string) (string, bool) { return "", false }); err == nil {
+		t.Fatal("DNSSEC without trust anchor accepted")
+	}
+}

@@ -20,6 +20,8 @@ The server prints structured errors and exits nonzero before reporting readiness
 | dns.doh_listen | VELORA_DNS_DOH_LISTEN | (disabled) |
 | dns.tls_cert_file | VELORA_DNS_TLS_CERT_FILE | (empty) |
 | dns.tls_key_file | VELORA_DNS_TLS_KEY_FILE | (empty, never returned by API) |
+| dns.dnssec | VELORA_DNS_DNSSEC | false |
+| dns.trust_anchors | VELORA_DNS_TRUST_ANCHORS | (empty) |
 | cache.max_entries | VELORA_CACHE_MAX_ENTRIES | 10000 |
 | filtering.block_mode | VELORA_FILTERING_BLOCK_MODE | (NXDOMAIN) |
 | filtering.blocklist | VELORA_FILTERING_BLOCKLIST | (empty) |
@@ -56,6 +58,10 @@ DoT and DoH listeners are disabled unless their listen address and both TLS file
 configured. Certificate/key changes are detected on new TLS handshakes without a restart.
 Encrypted upstreams use `tls://IP:port` or `https://IP:port/dns-query`; certificates are
 verified against the IP SAN and all existing retry/deadline rules still apply.
+
+DNSSEC validation requires at least one DS trust anchor. Multiple anchors are supported
+for safe key rollover. See [DNSSEC validation](dnssec.md) for chain validation, negative
+answers, AD/CD/DO behavior and anchor operations.
 
 `VELORA_DNS_PORT` and `VELORA_HTTP_PORT` are Compose host-port substitutions, not Go
 server settings. Compose deliberately overrides listener and data paths for the container.

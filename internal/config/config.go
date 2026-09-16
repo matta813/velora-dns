@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	wire "github.com/miekg/dns"
 	"gopkg.in/yaml.v3"
 )
 
@@ -31,6 +32,8 @@ type DNS struct {
 	DoHListen      string        `yaml:"doh_listen" json:"doh_listen"`
 	TLSCertFile    string        `yaml:"tls_cert_file" json:"tls_cert_file"`
 	TLSKeyFile     string        `yaml:"tls_key_file" json:"-"`
+	DNSSEC         bool          `yaml:"dnssec" json:"dnssec"`
+	TrustAnchors   []string      `yaml:"trust_anchors" json:"trust_anchors"`
 }
 type Cache struct {
 	MaxEntries int `yaml:"max_entries" json:"max_entries"`
@@ -104,7 +107,7 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 	if v, ok := lookup("VELORA_BOOTSTRAP_PASSWORD"); ok {
 		c.Management.BootstrapPassword = v
 	}
-	for key, target := range map[string]*[]string{"HTTP_ALLOWED_HOSTS": &c.HTTP.AllowedHosts, "DNS_LISTEN": &c.DNS.Listen, "DNS_UPSTREAMS": &c.DNS.Upstreams, "DNS_ALLOWED_CLIENTS": &c.DNS.AllowedClients} {
+	for key, target := range map[string]*[]string{"HTTP_ALLOWED_HOSTS": &c.HTTP.AllowedHosts, "DNS_LISTEN": &c.DNS.Listen, "DNS_UPSTREAMS": &c.DNS.Upstreams, "DNS_ALLOWED_CLIENTS": &c.DNS.AllowedClients, "DNS_TRUST_ANCHORS": &c.DNS.TrustAnchors} {
 		if v, ok := lookup("VELORA_" + key); ok {
 			*target = strings.Split(v, ",")
 			for i := range *target {
@@ -143,6 +146,13 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 		}
 		c.QueryLog.Enabled = enabled
 	}
+	if v, ok := lookup("VELORA_DNS_DNSSEC"); ok {
+		enabled, err := strconv.ParseBool(v)
+		if err != nil {
+			return c, fmt.Errorf("invalid VELORA_DNS_DNSSEC")
+		}
+		c.DNS.DNSSEC = enabled
+	}
 	for key, target := range map[string]*int{"QUERY_LOG_QUEUE_SIZE": &c.QueryLog.QueueSize, "QUERY_LOG_MAX_ROWS": &c.QueryLog.MaxRows} {
 		if v, ok := lookup("VELORA_" + key); ok {
 			n, err := strconv.Atoi(v)
@@ -173,6 +183,15 @@ func (c Config) Validate() error {
 	}
 	if (c.DNS.TLSCertFile == "") != (c.DNS.TLSKeyFile == "") {
 		return fmt.Errorf("dns.tls_cert_file and dns.tls_key_file must both be set")
+	}
+	if c.DNS.DNSSEC && len(c.DNS.TrustAnchors) == 0 {
+		return fmt.Errorf("dns.trust_anchors is required when DNSSEC validation is enabled")
+	}
+	for _, anchor := range c.DNS.TrustAnchors {
+		rr, err := wire.NewRR(anchor)
+		if err != nil || rr.Header().Rrtype != wire.TypeDS {
+			return fmt.Errorf("invalid DNSSEC DS trust anchor %q", anchor)
+		}
 	}
 	for name, value := range map[string]string{"dot": c.DNS.DoTListen, "doh": c.DNS.DoHListen} {
 		if value != "" {
