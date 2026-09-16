@@ -18,12 +18,20 @@ type Server struct {
 	wg      sync.WaitGroup
 	errors  chan error
 }
+type ServerOptions struct {
+	MaxTCPConnections int
+	Observer          OverloadObserver
+}
 
 func (s *Server) Ready() bool          { return s.ready.Load() }
 func (s *Server) Errors() <-chan error { return s.errors }
 
 // Start binds every UDP/TCP socket before reporting readiness. Port zero is supported for tests.
 func Start(addresses []string, handler wire.Handler) (*Server, error) {
+	return StartWithOptions(addresses, handler, ServerOptions{})
+}
+
+func StartWithOptions(addresses []string, handler wire.Handler, options ServerOptions) (*Server, error) {
 	s := &Server{errors: make(chan error, len(addresses)*2)}
 	cleanup := func() {
 		for _, server := range s.servers {
@@ -56,7 +64,11 @@ func Start(addresses []string, handler wire.Handler) (*Server, error) {
 			cleanup()
 			return nil, fmt.Errorf("bind UDP: %w", err)
 		}
-		s.servers = append(s.servers, &wire.Server{Listener: tcp, Handler: handler, ReadTimeout: 2 * time.Second, WriteTimeout: 2 * time.Second, IdleTimeout: func() time.Duration { return 5 * time.Second }, MaxTCPQueries: 100}, &wire.Server{PacketConn: udp, Handler: handler, UDPSize: 1232})
+		listener := net.Listener(tcp)
+		if options.MaxTCPConnections > 0 {
+			listener = newLimitedListener(tcp, options.MaxTCPConnections, options.Observer)
+		}
+		s.servers = append(s.servers, &wire.Server{Listener: listener, Handler: handler, ReadTimeout: 2 * time.Second, WriteTimeout: 2 * time.Second, IdleTimeout: func() time.Duration { return 5 * time.Second }, MaxTCPQueries: 100}, &wire.Server{PacketConn: udp, Handler: handler, UDPSize: 1232})
 	}
 	started := make(chan struct{}, len(s.servers))
 	for _, server := range s.servers {

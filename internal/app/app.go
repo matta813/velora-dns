@@ -77,7 +77,7 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	if _, err = rand.Read(cookieSecret); err != nil {
 		return fmt.Errorf("initialize DNS cookie secret: %w", err)
 	}
-	listener, err := dns.Start(c.DNS.Listen, &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), Observer: observer, Audit: audit, CookieSecret: cookieSecret})
+	listener, err := dns.StartWithOptions(c.DNS.Listen, &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), Limiter: dns.NewRateLimiter(c.DNS.GlobalQPS, c.DNS.ClientQPS, c.DNS.RateLimitBurst), Observer: observer, Audit: audit, CookieSecret: cookieSecret}, dns.ServerOptions{MaxTCPConnections: c.DNS.MaxTCPConns, Observer: observer})
 	if err != nil {
 		return err
 	}

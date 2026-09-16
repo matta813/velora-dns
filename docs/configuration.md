@@ -12,6 +12,10 @@ The server prints structured errors and exits nonzero before reporting readiness
 | dns.timeout | VELORA_DNS_TIMEOUT | 2s |
 | dns.retries | VELORA_DNS_RETRIES | 1 |
 | dns.max_concurrent | VELORA_DNS_MAX_CONCURRENT | 256 |
+| dns.global_qps | VELORA_DNS_GLOBAL_QPS | 1000 |
+| dns.client_qps | VELORA_DNS_CLIENT_QPS | 100 |
+| dns.rate_limit_burst | VELORA_DNS_RATE_LIMIT_BURST | 100 |
+| dns.max_tcp_connections | VELORA_DNS_MAX_TCP_CONNECTIONS | 256 |
 | cache.max_entries | VELORA_CACHE_MAX_ENTRIES | 10000 |
 | filtering.block_mode | VELORA_FILTERING_BLOCK_MODE | (NXDOMAIN) |
 | filtering.blocklist | VELORA_FILTERING_BLOCKLIST | (empty) |
@@ -35,6 +39,12 @@ Cache size zero disables caching; maximum is 1,000,000 entries. Concurrent DNS w
 TTLs are capped at one day. Negative TTL follows RFC 2308's minimum of the SOA TTL and
 MINIMUM field. Expiry sweep runs each second;
 expired entries are also rejected immediately on lookup.
+
+DNS rate limits use global and per-client token buckets with the same configured burst.
+Their client table is capped at 10,000 entries; inactive entries are pruned when full and
+excess active distinct clients are rejected. `max_tcp_connections` bounds live TCP connections; connections
+above the cap are closed before DNS request handling. Rejections are exported as
+`dns_overload_rejections_total` with only the bounded `reason` label.
 
 `VELORA_DNS_PORT` and `VELORA_HTTP_PORT` are Compose host-port substitutions, not Go
 server settings. Compose deliberately overrides listener and data paths for the container.

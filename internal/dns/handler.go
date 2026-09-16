@@ -13,6 +13,7 @@ import (
 type QueryObserver interface {
 	Query(kind, source string, rcode int, elapsed time.Duration)
 }
+type OverloadObserver interface{ Overload(reason string) }
 type AuditLogger interface{ Record(querylog.Entry) }
 type Handler struct {
 	Context      context.Context
@@ -22,6 +23,7 @@ type Handler struct {
 	Observer     QueryObserver
 	Audit        AuditLogger
 	CookieSecret []byte
+	Limiter      *RateLimiter
 }
 
 func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
@@ -76,6 +78,12 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 		m.Rcode = wire.RcodeRefused
 		return
 	}
+	if h.Limiter != nil && !h.Limiter.Allow(ip.Unmap(), started) {
+		m.Rcode = wire.RcodeServerFailure
+		source = "rate_limit"
+		h.overloaded("rate_limit")
+		return
+	}
 	cookie, ednsRcode := clientEDNS(q, ip, h.CookieSecret)
 	if ednsRcode != wire.RcodeSuccess {
 		if q.IsEdns0() != nil {
@@ -100,6 +108,7 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 	default:
 		m.Rcode = wire.RcodeServerFailure
 		source = "overload"
+		h.overloaded("concurrency")
 		return
 	}
 	ctx, cancel := context.WithTimeout(h.Context, 5*time.Second)
@@ -113,6 +122,12 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 	}
 	m = result.Message
 	addResponseCookie(m, q, cookie)
+}
+
+func (h *Handler) overloaded(reason string) {
+	if observer, ok := h.Observer.(OverloadObserver); ok {
+		observer.Overload(reason)
+	}
 }
 func supported(t uint16) bool {
 	switch t {
