@@ -145,7 +145,7 @@ func TestUpgradeFromFoundation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = db.db.Exec("DROP TABLE zone_records; DROP TABLE zones; DELETE FROM schema_migrations WHERE version=2"); err != nil {
+	if _, err = db.db.Exec("DROP TABLE zone_records; DROP TABLE zones; DELETE FROM schema_migrations WHERE version=2; DELETE FROM schema_migrations WHERE version=7"); err != nil {
 		t.Fatal(err)
 	}
 	if err = db.Close(); err != nil {

@@ -58,12 +58,31 @@ type Management struct {
 	BootstrapUsername string `yaml:"-" json:"-"`
 	BootstrapPassword string `yaml:"-" json:"-"`
 }
+type TSIGKey struct {
+	Name      string `yaml:"name" json:"name"`
+	Algorithm string `yaml:"algorithm" json:"algorithm"`
+	Secret    string `yaml:"secret" json:"-"`
+}
+
+type TSIG struct {
+	Keys []TSIGKey `yaml:"keys" json:"keys"`
+}
+
+type Transfer struct {
+	Zone     string `yaml:"zone" json:"zone"`
+	Primary  string `yaml:"primary" json:"primary"`
+	TSIGKey  string `yaml:"tsig_key" json:"tsig_key"`
+	Interval int    `yaml:"interval" json:"interval"`
+}
+
 type Config struct {
 	DNS            DNS        `yaml:"dns" json:"dns"`
 	Cache          Cache      `yaml:"cache" json:"cache"`
 	HTTP           HTTP       `yaml:"http" json:"http"`
 	Filtering      Filtering  `yaml:"filtering" json:"filtering"`
 	QueryLog       QueryLog   `yaml:"query_log" json:"query_log"`
+	TSIG           TSIG       `yaml:"tsig" json:"tsig"`
+	Transfers      []Transfer `yaml:"transfers" json:"transfers"`
 	Management     Management `yaml:"-" json:"-"`
 	DatabasePath   string     `yaml:"database_path" json:"-"`
 	DatabaseDriver string     `yaml:"database_driver" json:"-"`
