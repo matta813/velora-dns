@@ -9,6 +9,7 @@
 - [Local zones and record API](zones.md)
 - [Query history, retention and filters](query-logging.md)
 - [Architecture decisions](architecture/0001-foundation.md)
+- [HA and failure-semantics decision](architecture/0004-high-availability.md)
 - [DNS behavior and cache semantics](architecture/0002-dns-semantics.md)
 - [Repository administration](administration.md)
 - [Release preparation and recovery](releases.md)
