@@ -41,12 +41,13 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	}
 	if userCount == 0 {
 		if c.Management.BootstrapUsername == "" {
-			return fmt.Errorf("management bootstrap required: set VELORA_BOOTSTRAP_USERNAME and VELORA_BOOTSTRAP_PASSWORD")
+			logger.Warn("management locked: no users exist; restart with bootstrap credentials to enable access")
+		} else {
+			if _, err = db.CreateUser(initCtx, c.Management.BootstrapUsername, c.Management.BootstrapPassword, "admin"); err != nil {
+				return fmt.Errorf("bootstrap management admin: %w", err)
+			}
+			logger.Info("management admin bootstrapped", "username", c.Management.BootstrapUsername)
 		}
-		if _, err = db.CreateUser(initCtx, c.Management.BootstrapUsername, c.Management.BootstrapPassword, "admin"); err != nil {
-			return fmt.Errorf("bootstrap management admin: %w", err)
-		}
-		logger.Info("management admin bootstrapped", "username", c.Management.BootstrapUsername)
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()

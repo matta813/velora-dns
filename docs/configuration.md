@@ -52,9 +52,11 @@ above the cap are closed before DNS request handling. Rejections are exported as
 server settings. Compose deliberately overrides listener and data paths for the container.
 The default config file is a development example; it is not automatically loaded.
 
-On the first start of an empty database, both bootstrap variables are required and
-the password must contain at least 12 characters. They create the first `admin` user;
-later starts ignore them once a user exists. Credentials are environment-only, never
+On the first start of an empty database, both bootstrap variables create the first
+`admin` user and the password must contain at least 12 characters. Without them DNS
+and health endpoints start, but management remains locked because no login can succeed;
+restart with both variables to enable it. Later starts ignore them once a user exists.
+Credentials are environment-only, never
 accepted in YAML, never included in `/api/v1/config`, and should be removed after bootstrap.
 Management sessions last 12 hours, use HttpOnly SameSite=Strict cookies, are revocable,
 and require a per-session CSRF token for state-changing requests.
