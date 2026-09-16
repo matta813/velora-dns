@@ -17,7 +17,7 @@ import (
 
 func TestDNSHistoryCapturesSourcesAndDrains(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.Open(ctx, filepath.Join(t.TempDir(), "history.db"))
+	db, err := database.Open(ctx, "sqlite", filepath.Join(t.TempDir(), "history.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -30,7 +30,11 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	started := time.Now()
 	initCtx, initCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer initCancel()
-	db, err := database.Open(initCtx, c.DatabasePath)
+	dbPath := c.DatabasePath
+	if c.DatabaseDriver == "postgres" {
+		dbPath = c.DatabaseURL
+	}
+	db, err := database.Open(initCtx, c.DatabaseDriver, dbPath)
 	if err != nil {
 		return fmt.Errorf("open management database: %w", err)
 	}

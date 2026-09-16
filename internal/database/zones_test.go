@@ -15,7 +15,7 @@ import (
 func TestZonePersistenceAndRevisions(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "zones.db")
-	db, err := Open(ctx, path)
+	db, err := Open(ctx, "sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestZonePersistenceAndRevisions(t *testing.T) {
 	if err = db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	db, err = Open(ctx, path)
+	db, err = Open(ctx, "sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestZonePersistenceAndRevisions(t *testing.T) {
 }
 func TestConcurrentZoneUpdateAndDNSReads(t *testing.T) {
 	ctx := context.Background()
-	db, err := Open(ctx, filepath.Join(t.TempDir(), "zones.db"))
+	db, err := Open(ctx, "sqlite", filepath.Join(t.TempDir(), "zones.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestConcurrentZoneUpdateAndDNSReads(t *testing.T) {
 }
 func TestStorageFailureDoesNotPublish(t *testing.T) {
 	ctx := context.Background()
-	db, err := Open(ctx, filepath.Join(t.TempDir(), "zones.db"))
+	db, err := Open(ctx, "sqlite", filepath.Join(t.TempDir(), "zones.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,17 +141,17 @@ func TestStorageFailureDoesNotPublish(t *testing.T) {
 func TestUpgradeFromFoundation(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "old.db")
-	db, err := Open(ctx, path)
+	db, err := Open(ctx, "sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = db.db.Exec("DROP TABLE zone_records; DROP TABLE zones; DELETE FROM schema_migrations WHERE version=2"); err != nil {
+	if _, err = db.db.Exec("DROP TABLE zone_records; DROP TABLE zones; DELETE FROM schema_migrations WHERE version=2; DELETE FROM schema_migrations WHERE version=7"); err != nil {
 		t.Fatal(err)
 	}
 	if err = db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	db, err = Open(ctx, path)
+	db, err = Open(ctx, "sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}

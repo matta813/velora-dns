@@ -17,7 +17,7 @@ import (
 
 func TestLocalZoneOverridesCacheAndNeverForwardsMisses(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.Open(ctx, filepath.Join(t.TempDir(), "zones.db"))
+	db, err := database.Open(ctx, "sqlite", filepath.Join(t.TempDir(), "zones.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

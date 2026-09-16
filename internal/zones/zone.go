@@ -4,6 +4,7 @@ package zones
 import (
 	"context"
 	"errors"
+	"time"
 )
 
 var (
@@ -27,6 +28,7 @@ type Record struct {
 	Value    string `json:"value"`
 	Priority uint16 `json:"priority"`
 }
+
 type Zone struct {
 	ID        int64    `json:"id"`
 	Name      string   `json:"name"`
@@ -34,6 +36,15 @@ type Zone struct {
 	Contact   string   `json:"contact"`
 	Revision  uint32   `json:"revision"`
 	Records   []Record `json:"records"`
+
+	// Secondary zone fields
+	ZoneType           string     `json:"zone_type,omitempty"`
+	PrimaryAddress     string     `json:"primary_address,omitempty"`
+	TransferTSIGKey    string     `json:"transfer_tsig_key,omitempty"`
+	TransferInterval   int        `json:"transfer_interval,omitempty"`
+	LastTransferAt     *time.Time `json:"last_transfer_at,omitempty"`
+	NextRefreshAt      *time.Time `json:"next_refresh_at,omitempty"`
+	LastTransferSerial uint32     `json:"last_transfer_serial,omitempty"`
 }
 
 // Repository persists whole-zone revisions atomically. Save may only assign IDs;

@@ -58,19 +58,40 @@ type Management struct {
 	BootstrapUsername string `yaml:"-" json:"-"`
 	BootstrapPassword string `yaml:"-" json:"-"`
 }
+type TSIGKey struct {
+	Name      string `yaml:"name" json:"name"`
+	Algorithm string `yaml:"algorithm" json:"algorithm"`
+	Secret    string `yaml:"secret" json:"-"`
+}
+
+type TSIG struct {
+	Keys []TSIGKey `yaml:"keys" json:"keys"`
+}
+
+type Transfer struct {
+	Zone     string `yaml:"zone" json:"zone"`
+	Primary  string `yaml:"primary" json:"primary"`
+	TSIGKey  string `yaml:"tsig_key" json:"tsig_key"`
+	Interval int    `yaml:"interval" json:"interval"`
+}
+
 type Config struct {
-	DNS          DNS        `yaml:"dns" json:"dns"`
-	Cache        Cache      `yaml:"cache" json:"cache"`
-	HTTP         HTTP       `yaml:"http" json:"http"`
-	Filtering    Filtering  `yaml:"filtering" json:"filtering"`
-	QueryLog     QueryLog   `yaml:"query_log" json:"query_log"`
-	Management   Management `yaml:"-" json:"-"`
-	DatabasePath string     `yaml:"database_path" json:"-"`
-	LogLevel     string     `yaml:"log_level" json:"log_level"`
+	DNS            DNS        `yaml:"dns" json:"dns"`
+	Cache          Cache      `yaml:"cache" json:"cache"`
+	HTTP           HTTP       `yaml:"http" json:"http"`
+	Filtering      Filtering  `yaml:"filtering" json:"filtering"`
+	QueryLog       QueryLog   `yaml:"query_log" json:"query_log"`
+	TSIG           TSIG       `yaml:"tsig" json:"tsig"`
+	Transfers      []Transfer `yaml:"transfers" json:"transfers"`
+	Management     Management `yaml:"-" json:"-"`
+	DatabasePath   string     `yaml:"database_path" json:"-"`
+	DatabaseDriver string     `yaml:"database_driver" json:"-"`
+	DatabaseURL    string     `yaml:"database_url" json:"-"`
+	LogLevel       string     `yaml:"log_level" json:"log_level"`
 }
 
 func Default() Config {
-	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256, GlobalQPS: 1000, ClientQPS: 100, RateLimitBurst: 100, MaxTCPConns: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, DatabasePath: "data/velora.db", LogLevel: "info"}
+	return Config{DNS: DNS{Listen: []string{"127.0.0.1:5353"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256, GlobalQPS: 1000, ClientQPS: 100, RateLimitBurst: 100, MaxTCPConns: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, DatabasePath: "data/velora.db", DatabaseDriver: "sqlite", LogLevel: "info"}
 }
 func Load(path string) (Config, error) {
 	var data []byte
@@ -96,7 +117,7 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 			return c, fmt.Errorf("config must contain one YAML document")
 		}
 	}
-	for key, target := range map[string]*string{"HTTP_LISTEN": &c.HTTP.Listen, "WEB_DIR": &c.HTTP.WebDir, "DATABASE_PATH": &c.DatabasePath, "LOG_LEVEL": &c.LogLevel, "FILTERING_BLOCK_MODE": &c.Filtering.BlockMode, "DNS_DOT_LISTEN": &c.DNS.DoTListen, "DNS_DOH_LISTEN": &c.DNS.DoHListen, "DNS_TLS_CERT_FILE": &c.DNS.TLSCertFile, "DNS_TLS_KEY_FILE": &c.DNS.TLSKeyFile} {
+	for key, target := range map[string]*string{"HTTP_LISTEN": &c.HTTP.Listen, "WEB_DIR": &c.HTTP.WebDir, "DATABASE_PATH": &c.DatabasePath, "DATABASE_DRIVER": &c.DatabaseDriver, "DATABASE_URL": &c.DatabaseURL, "LOG_LEVEL": &c.LogLevel, "FILTERING_BLOCK_MODE": &c.Filtering.BlockMode, "DNS_DOT_LISTEN": &c.DNS.DoTListen, "DNS_DOH_LISTEN": &c.DNS.DoHListen, "DNS_TLS_CERT_FILE": &c.DNS.TLSCertFile, "DNS_TLS_KEY_FILE": &c.DNS.TLSKeyFile} {
 		if v, ok := lookup("VELORA_" + key); ok {
 			*target = v
 		}
@@ -249,8 +270,20 @@ func (c Config) Validate() error {
 	if c.QueryLog.QueueSize < 1 || c.QueryLog.QueueSize > 100000 || c.QueryLog.Retention < time.Minute || c.QueryLog.Retention > 365*24*time.Hour || c.QueryLog.MaxRows < 1 || c.QueryLog.MaxRows > 1000000 {
 		return fmt.Errorf("invalid query_log settings")
 	}
-	if c.DatabasePath == "" || c.HTTP.WebDir == "" {
-		return fmt.Errorf("database_path and web_dir cannot be empty")
+	if c.DatabaseDriver == "" {
+		c.DatabaseDriver = "sqlite"
+	}
+	if c.DatabaseDriver != "sqlite" && c.DatabaseDriver != "postgres" {
+		return fmt.Errorf("database_driver must be sqlite or postgres")
+	}
+	if c.DatabaseDriver == "postgres" && c.DatabaseURL == "" {
+		return fmt.Errorf("database_url is required when database_driver is postgres")
+	}
+	if c.DatabaseDriver == "sqlite" && c.DatabasePath == "" {
+		return fmt.Errorf("database_path cannot be empty for sqlite")
+	}
+	if c.HTTP.WebDir == "" {
+		return fmt.Errorf("web_dir cannot be empty")
 	}
 	switch c.LogLevel {
 	case "debug", "info", "warn", "error":

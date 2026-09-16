@@ -10,19 +10,36 @@ import (
 	"path/filepath"
 	"time"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 )
 
 //go:embed migrations/*.sql
 var migrations embed.FS
 
-type Store struct{ db *sql.DB }
+type Store struct {
+	db     *sql.DB
+	driver string // "sqlite" or "postgres"
+}
 
-func Open(ctx context.Context, path string) (*Store, error) {
+// Open opens a database connection using the specified driver.
+// driver must be "sqlite" or "postgres".
+// For sqlite, path is a file path; for postgres, path is a connection URL.
+func Open(ctx context.Context, driver, path string) (*Store, error) {
+	switch driver {
+	case "sqlite":
+		return openSQLite(ctx, path)
+	case "postgres":
+		return openPostgres(ctx, path)
+	default:
+		return nil, fmt.Errorf("unsupported database driver: %q", driver)
+	}
+}
+
+func openSQLite(ctx context.Context, path string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, fmt.Errorf("create data directory: %w", err)
 	}
-	// Create private storage before SQLite opens its database and sidecars.
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, err
@@ -41,19 +58,64 @@ func Open(ctx context.Context, path string) (*Store, error) {
 			return fail(err)
 		}
 	}
-	if err = migrate(ctx, db); err != nil {
+	s := &Store{db: db, driver: "sqlite"}
+	if err = s.migrate(ctx); err != nil {
 		return fail(err)
 	}
-	return &Store{db: db}, nil
+	return s, nil
 }
-func (s *Store) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
-func (s *Store) Close() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	_, err := s.db.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
-	closeErr := s.db.Close()
+
+func openPostgres(ctx context.Context, url string) (*Store, error) {
+	db, err := sql.Open("pgx", url)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("open postgres: %w", err)
 	}
-	return closeErr
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+	fail := func(e error) (*Store, error) { _ = db.Close(); return nil, e }
+	if err = db.PingContext(ctx); err != nil {
+		return fail(fmt.Errorf("ping postgres: %w", err))
+	}
+	s := &Store{db: db, driver: "postgres"}
+	if err = s.migrate(ctx); err != nil {
+		return fail(err)
+	}
+	return s, nil
+}
+
+func (s *Store) Driver() string                 { return s.driver }
+func (s *Store) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
+
+func (s *Store) Close() error {
+	if s.driver == "sqlite" {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_, err := s.db.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
+		closeErr := s.db.Close()
+		if err != nil {
+			return err
+		}
+		return closeErr
+	}
+	return s.db.Close()
+}
+
+// placeholder returns the appropriate placeholder for the driver.
+// SQLite uses "?", PostgreSQL uses "$1", "$2", etc.
+func (s *Store) placeholder(n int) string {
+	if s.driver == "postgres" {
+		return fmt.Sprintf("$%d", n)
+	}
+	return "?"
+}
+
+// insertReturning returns the suffix to append to an INSERT statement to get the last insert id.
+// SQLite: no suffix (use LastInsertId).
+// PostgreSQL: " RETURNING id"
+func (s *Store) insertReturning() string {
+	if s.driver == "postgres" {
+		return " RETURNING id"
+	}
+	return ""
 }

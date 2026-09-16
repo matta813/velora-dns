@@ -5,27 +5,32 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/matta813/velora-dns/internal/filtering"
-	"modernc.org/sqlite"
 	"time"
+
+	"github.com/matta813/velora-dns/internal/filtering"
 )
 
 var _ filtering.SourceStore = (*Store)(nil)
 
-func sourceError(err error) error {
-	var e *sqlite.Error
-	if errors.As(err, &e) && e.Code()&255 == 19 {
-		return filtering.ErrExists
+func (s *Store) constraintSourceError(err error) error {
+	if s.driver == "sqlite" {
+		var e interface{ Code() int64 }
+		if errors.As(err, &e) {
+			return filtering.ErrExists
+		}
 	}
 	return err
 }
+
 func (s *Store) LoadSources(ctx context.Context) ([]filtering.Source, error) {
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	rows, err := tx.QueryContext(ctx, "SELECT id,name,url,enabled,last_updated_at,last_error FROM blocklist_sources ORDER BY id LIMIT ?", filtering.MaxSources+1)
+	p := s.placeholder
+	query := fmt.Sprintf("SELECT id,name,url,enabled,last_updated_at,last_error FROM blocklist_sources ORDER BY id LIMIT %s", p(1))
+	rows, err := tx.QueryContext(ctx, query, filtering.MaxSources+1)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +45,6 @@ func (s *Store) LoadSources(ctx context.Context) ([]filtering.Source, error) {
 		}
 		if updated.Valid {
 			var timestamp time.Time
-			// Accept timestamps written by the initial source implementation as well.
 			for _, layout := range []string{time.RFC3339Nano, "2006-01-02 15:04:05.999999999 -0700 MST"} {
 				timestamp, err = time.Parse(layout, updated.String)
 				if err == nil {
@@ -62,7 +66,8 @@ func (s *Store) LoadSources(ctx context.Context) ([]filtering.Source, error) {
 	if len(out) > filtering.MaxSources {
 		return nil, fmt.Errorf("stored source limit exceeded")
 	}
-	rows, err = tx.QueryContext(ctx, "SELECT source_id,domain FROM blocklist_domains ORDER BY source_id,domain LIMIT ?", filtering.MaxTotalDomains+1)
+	query = fmt.Sprintf("SELECT source_id,domain FROM blocklist_domains ORDER BY source_id,domain LIMIT %s", p(1))
+	rows, err = tx.QueryContext(ctx, query, filtering.MaxTotalDomains+1)
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +97,7 @@ func (s *Store) LoadSources(ctx context.Context) ([]filtering.Source, error) {
 	}
 	return out, nil
 }
+
 func (s *Store) SaveSource(ctx context.Context, source filtering.Source) (filtering.Source, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -102,19 +108,30 @@ func (s *Store) SaveSource(ctx context.Context, source filtering.Source) (filter
 	if source.LastUpdatedAt != nil {
 		timestamp = source.LastUpdatedAt.UTC().Format(time.RFC3339Nano)
 	}
+	p := s.placeholder
 	if source.ID == 0 {
-		result, e := tx.ExecContext(ctx, "INSERT INTO blocklist_sources(name,url,enabled,last_updated_at,last_error) VALUES(?,?,?,?,?)", source.Name, source.URL, source.Enabled, timestamp, source.LastError)
-		if e != nil {
-			return source, sourceError(e)
-		}
-		source.ID, err = result.LastInsertId()
-		if err != nil {
-			return source, err
+		insertSQL := fmt.Sprintf("INSERT INTO blocklist_sources(name,url,enabled,last_updated_at,last_error) VALUES(%s,%s,%s,%s,%s)%s", p(1), p(2), p(3), p(4), p(5), s.insertReturning())
+		if s.driver == "postgres" {
+			var id int64
+			if e := tx.QueryRowContext(ctx, insertSQL, source.Name, source.URL, source.Enabled, timestamp, source.LastError).Scan(&id); e != nil {
+				return source, s.constraintSourceError(e)
+			}
+			source.ID = id
+		} else {
+			result, e := tx.ExecContext(ctx, insertSQL, source.Name, source.URL, source.Enabled, timestamp, source.LastError)
+			if e != nil {
+				return source, s.constraintSourceError(e)
+			}
+			source.ID, err = result.LastInsertId()
+			if err != nil {
+				return source, err
+			}
 		}
 	} else {
-		result, e := tx.ExecContext(ctx, "UPDATE blocklist_sources SET name=?,url=?,enabled=?,last_updated_at=?,last_error=? WHERE id=?", source.Name, source.URL, source.Enabled, timestamp, source.LastError, source.ID)
+		updateSQL := fmt.Sprintf("UPDATE blocklist_sources SET name=%s,url=%s,enabled=%s,last_updated_at=%s,last_error=%s WHERE id=%s", p(1), p(2), p(3), p(4), p(5), p(6))
+		result, e := tx.ExecContext(ctx, updateSQL, source.Name, source.URL, source.Enabled, timestamp, source.LastError, source.ID)
 		if e != nil {
-			return source, sourceError(e)
+			return source, s.constraintSourceError(e)
 		}
 		n, e := result.RowsAffected()
 		if e != nil {
@@ -124,10 +141,12 @@ func (s *Store) SaveSource(ctx context.Context, source filtering.Source) (filter
 			return source, filtering.ErrNotFound
 		}
 	}
-	if _, err = tx.ExecContext(ctx, "DELETE FROM blocklist_domains WHERE source_id=?", source.ID); err != nil {
+	deleteSQL := fmt.Sprintf("DELETE FROM blocklist_domains WHERE source_id=%s", p(1))
+	if _, err = tx.ExecContext(ctx, deleteSQL, source.ID); err != nil {
 		return source, err
 	}
-	stmt, err := tx.PrepareContext(ctx, "INSERT INTO blocklist_domains(source_id,domain) VALUES(?,?)")
+	stmtSQL := fmt.Sprintf("INSERT INTO blocklist_domains(source_id,domain) VALUES(%s,%s)", p(1), p(2))
+	stmt, err := tx.PrepareContext(ctx, stmtSQL)
 	if err != nil {
 		return source, err
 	}
@@ -142,8 +161,11 @@ func (s *Store) SaveSource(ctx context.Context, source filtering.Source) (filter
 	}
 	return source, nil
 }
+
 func (s *Store) DeleteSource(ctx context.Context, id int64) error {
-	result, err := s.db.ExecContext(ctx, "DELETE FROM blocklist_sources WHERE id=?", id)
+	p := s.placeholder
+	query := fmt.Sprintf("DELETE FROM blocklist_sources WHERE id=%s", p(1))
+	result, err := s.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}
