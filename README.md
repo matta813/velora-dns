@@ -12,6 +12,12 @@ Velora DNS is an independent, self-hosted DNS server built in Go, with a clean R
 
 ![Velora DNS operational dashboard](docs/assets/overview.png)
 
+<p align="center">
+  <img src="docs/assets/mobile.png" alt="Mobile dashboard" width="280" />
+  &nbsp;&nbsp;
+  <img src="docs/assets/zones-mobile.png" alt="Mobile zone management" width="280" />
+</p>
+
 [Quick start](#quick-start) · [Documentation](docs/README.md) · [Roadmap](docs/roadmap.md) · [Discussions](https://github.com/matta813/velora-dns/discussions)
 
 > **Development foundation, not a production release.** Forwarding, cache, lifecycle, authenticated operational API, dashboard, SQLite/PostgreSQL persistence, local authoritative zones, secondary zones with AXFR/IXFR transfers, TSIG authentication, blocklists, opt-in query history, metrics, DNS-over-TLS, DNS-over-HTTPS, DNS-over-QUIC, DNSSEC validation, users/roles, API tokens, zone import/export, node membership, config replication, zone replication, central management and PostgreSQL cluster support are implemented. No releases or published images have been created.
