@@ -117,6 +117,8 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	var dotErrors <-chan error
 	var dohServer *http.Server
 	var dohErrors <-chan error
+	var doqServer *dns.QUICServer
+	var doqErrors <-chan error
 	if c.DNS.DoTListen != "" || c.DNS.DoHListen != "" {
 		tlsConfig, tlsErr := dns.TLSConfig(c.DNS.TLSCertFile, c.DNS.TLSKeyFile)
 		if tlsErr != nil {
@@ -150,6 +152,22 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 			}()
 		}
 	}
+	if c.DNS.DoQListen != "" {
+		tlsConfig, tlsErr := dns.TLSConfig(c.DNS.TLSCertFile, c.DNS.TLSKeyFile)
+		if tlsErr != nil {
+			return tlsErr
+		}
+		doqServer, err = dns.StartQUIC(c.DNS.DoQListen, dnsHandler, tlsConfig)
+		if err != nil {
+			return err
+		}
+		doqErrors = doqServer.Errors()
+		defer func() {
+			shutdown, done := context.WithTimeout(context.Background(), 5*time.Second)
+			defer done()
+			result = errors.Join(result, doqServer.Shutdown(shutdown))
+		}()
+	}
 	httpNetwork := "tcp6"
 	if address, parseErr := netip.ParseAddrPort(c.HTTP.Listen); parseErr == nil && address.Addr().Is4() {
 		httpNetwork = "tcp4"
@@ -172,6 +190,8 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 		if !errors.Is(err, http.ErrServerClosed) {
 			result = fmt.Errorf("DNS-over-HTTPS listener: %w", err)
 		}
+	case err = <-doqErrors:
+		result = fmt.Errorf("DNS-over-QUIC listener: %w", err)
 	case err = <-httpErrors:
 		if !errors.Is(err, http.ErrServerClosed) {
 			result = fmt.Errorf("HTTP listener: %w", err)
