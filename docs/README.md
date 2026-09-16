@@ -3,6 +3,7 @@
 - [Configuration reference](configuration.md)
 - [Deployment, LAN setup and backups](deployment.md)
 - [Production assessment, load testing and recovery drills](production-assessment.md)
+- [DNS-over-TLS and DNS-over-HTTPS](encrypted-dns.md)
 - [Development](development.md)
 - [Validation evidence](validation.md)
 - [REST API and metrics](api.md)

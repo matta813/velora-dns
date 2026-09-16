@@ -1,9 +1,16 @@
 package dns
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
+	"io"
+	"mime"
+	"net"
+	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	wire "github.com/miekg/dns"
@@ -17,6 +24,9 @@ type Forwarder struct {
 	Timeout   time.Duration
 	Retries   int
 	Observer  UpstreamObserver
+	TLSConfig *tls.Config
+	dohOnce   sync.Once
+	dohClient *http.Client
 }
 
 func (f *Forwarder) Resolve(ctx context.Context, q *wire.Msg) (*wire.Msg, string, error) {
@@ -34,11 +44,35 @@ func (f *Forwarder) Resolve(ctx context.Context, q *wire.Msg) (*wire.Msg, string
 			if opt := q.IsEdns0(); opt != nil {
 				request.SetEdns0(1232, opt.Do())
 			}
-			client := &wire.Client{Net: "udp", Timeout: f.Timeout, UDPSize: 1232}
-			m, _, err := client.ExchangeContext(attempt, request, upstream)
-			if err == nil && m.Truncated {
-				client.Net = "tcp"
-				m, _, err = client.ExchangeContext(attempt, request, upstream)
+			address := strings.TrimPrefix(upstream, "tls://")
+			var m *wire.Msg
+			var err error
+			if strings.HasPrefix(upstream, "https://") {
+				m, err = f.exchangeDoH(attempt, request, upstream)
+			} else {
+				client := &wire.Client{Net: "udp", Timeout: f.Timeout, UDPSize: 1232}
+				if address != upstream {
+					host, _, splitErr := net.SplitHostPort(address)
+					if splitErr != nil {
+						cancel()
+						return nil, "", splitErr
+					}
+					client.Net = "tcp-tls"
+					client.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12, ServerName: host}
+					if f.TLSConfig != nil {
+						client.TLSConfig = f.TLSConfig.Clone()
+						if client.TLSConfig.ServerName == "" {
+							client.TLSConfig.ServerName = host
+						}
+					}
+				}
+				m, _, err = client.ExchangeContext(attempt, request, address)
+				if err == nil && m.Truncated {
+					if address == upstream {
+						client.Net = "tcp"
+					}
+					m, _, err = client.ExchangeContext(attempt, request, address)
+				}
 			}
 			cancel()
 			if err == nil && (!m.Response || !sameQuestion(q, m)) {
@@ -69,6 +103,49 @@ func (f *Forwarder) Resolve(ctx context.Context, q *wire.Msg) (*wire.Msg, string
 		}
 	}
 	return nil, "", fmt.Errorf("all upstream attempts failed: %v", last)
+}
+
+func (f *Forwarder) exchangeDoH(ctx context.Context, query *wire.Msg, upstream string) (*wire.Msg, error) {
+	payload, err := query.Pack()
+	if err != nil {
+		return nil, err
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, upstream, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Content-Type", dnsMessageMediaType)
+	request.Header.Set("Accept", dnsMessageMediaType)
+	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+	if f.TLSConfig != nil {
+		tlsConfig = f.TLSConfig.Clone()
+	}
+	client := f.httpClient(tlsConfig)
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = response.Body.Close() }()
+	mediaType, _, mediaErr := mime.ParseMediaType(response.Header.Get("Content-Type"))
+	if response.StatusCode != http.StatusOK || mediaErr != nil || mediaType != dnsMessageMediaType {
+		return nil, fmt.Errorf("invalid DoH response")
+	}
+	body, err := io.ReadAll(io.LimitReader(response.Body, 65536))
+	if err != nil || len(body) > 65535 {
+		return nil, fmt.Errorf("invalid DoH response size")
+	}
+	message := new(wire.Msg)
+	if err = message.Unpack(body); err != nil {
+		return nil, err
+	}
+	return message, nil
+}
+
+func (f *Forwarder) httpClient(tlsConfig *tls.Config) *http.Client {
+	f.dohOnce.Do(func() {
+		f.dohClient = &http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig, ForceAttemptHTTP2: true, MaxIdleConns: 16, MaxIdleConnsPerHost: 8, MaxConnsPerHost: 32, IdleConnTimeout: 30 * time.Second, ResponseHeaderTimeout: f.Timeout}, Timeout: f.Timeout}
+	})
+	return f.dohClient
 }
 
 func withoutOPT(records []wire.RR) []wire.RR {
