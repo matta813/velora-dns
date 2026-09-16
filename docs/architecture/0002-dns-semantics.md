@@ -36,9 +36,10 @@ Forwarded CNAME answers must form an ordered, loop-free chain of at most 16 alia
 cannot contain unrelated answer records. Malformed chains fail over instead of entering
 the cache.
 
-There is no local DNSSEC validation. AD is cleared even if an upstream sets it, avoiding
-an unsupported validation assertion. Future validation, authoritative zones and blocking
-must be independent resolver stages with explicit response provenance and cache invalidation.
+With validation disabled, AD is cleared even if an upstream sets it, avoiding an
+unsupported validation assertion. Opt-in local DNSSEC validation builds a chain to
+operator-managed DS anchors and owns AD/CD/DO behavior. Authoritative zones and blocking
+remain independent resolver stages and do not claim authenticated data.
 
 SQLite schema migration is embedded under `internal/database/migrations`; there is only
 one migration location. Domain repositories will define operations at the owning package
