@@ -1,4 +1,4 @@
-.PHONY: dev backend frontend install go-tools test lint build check docker-build docker-up release-test
+.PHONY: dev backend frontend install go-tools test lint build check docker-build docker-up release-test screenshot
 
 install:
 	npm --prefix web ci
@@ -45,3 +45,8 @@ docker-build:
 
 docker-up:
 	docker compose up --build -d
+
+screenshot:
+	npm --prefix web install --save-dev playwright
+	npx --prefix web playwright install chromium
+	npm --prefix web run screenshot
