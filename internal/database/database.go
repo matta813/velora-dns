@@ -110,22 +110,6 @@ func (s *Store) placeholder(n int) string {
 	return "?"
 }
 
-// placeholders returns a comma-separated list of n placeholders.
-func (s *Store) placeholders(n int) string {
-	out := make([]string, n)
-	for i := range out {
-		out[i] = s.placeholder(i + 1)
-	}
-	result := ""
-	for i, p := range out {
-		if i > 0 {
-			result += ","
-		}
-		result += p
-	}
-	return result
-}
-
 // insertReturning returns the suffix to append to an INSERT statement to get the last insert id.
 // SQLite: no suffix (use LastInsertId).
 // PostgreSQL: " RETURNING id"

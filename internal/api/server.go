@@ -44,6 +44,7 @@ type Dependencies struct {
 	Config    config.Config
 	Version   Version
 	Started   time.Time
+	TSIG      TSIGStore
 }
 type Error struct {
 	Code    string `json:"code"`
@@ -70,7 +71,12 @@ func New(d Dependencies) http.Handler {
 	capabilities := []string{"forwarding", "cache", "metrics"}
 	if d.Zones != nil {
 		registerZones(mux, d.Zones)
+		registerSecondaryZones(mux, d.Zones)
 		capabilities = append(capabilities, "local_zones")
+	}
+	if d.TSIG != nil {
+		registerTSIG(mux, d.TSIG)
+		capabilities = append(capabilities, "tsig")
 	}
 	if d.Filtering != nil {
 		registerBlocklists(mux, d.Filtering)

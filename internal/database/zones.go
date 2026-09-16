@@ -22,10 +22,6 @@ func (s *Store) zoneError(err error) error {
 	return err
 }
 
-func (s *Store) constraintError(err error) error {
-	return s.zoneError(err)
-}
-
 func (s *Store) LoadZones(ctx context.Context) ([]zones.Zone, error) {
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
