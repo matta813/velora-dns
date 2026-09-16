@@ -28,10 +28,10 @@ type ConfigStore interface {
 
 // ConfigReplicator handles versioned configuration replication.
 type ConfigReplicator struct {
-	store       ConfigStore
-	currentVer  int
-	mu          sync.RWMutex
-	logger      Logger
+	store      ConfigStore
+	currentVer int
+	mu         sync.RWMutex
+	logger     Logger
 }
 
 // Logger is a simple logger interface.

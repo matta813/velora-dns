@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/quic-go/quic-go"
 	wire "github.com/miekg/dns"
+	"github.com/quic-go/quic-go"
 )
 
 // QUICServer implements DNS-over-QUIC (RFC 9250).
@@ -34,10 +34,10 @@ func StartQUIC(address string, handler wire.Handler, config *tls.Config) (*QUICS
 	}
 
 	listener, err := quic.ListenAddr(address, config, &quic.Config{
-		MaxIdleTimeout:       30 * time.Second,
+		MaxIdleTimeout:        30 * time.Second,
 		MaxIncomingStreams:    256,
 		MaxIncomingUniStreams: 256,
-		KeepAlivePeriod:      10 * time.Second,
+		KeepAlivePeriod:       10 * time.Second,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listen QUIC: %w", err)
@@ -110,8 +110,8 @@ func (s *QUICServer) handleStream(stream *quic.Stream, conn *quic.Conn) {
 }
 
 // QUICServer interface methods for the Server adapter.
-func (s *QUICServer) Ready() bool            { return s.listener != nil }
-func (s *QUICServer) Errors() <-chan error    { return s.errors }
+func (s *QUICServer) Ready() bool          { return s.listener != nil }
+func (s *QUICServer) Errors() <-chan error { return s.errors }
 func (s *QUICServer) Shutdown(ctx context.Context) error {
 	err := s.listener.Close()
 	s.wg.Wait()
