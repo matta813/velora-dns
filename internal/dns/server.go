@@ -64,7 +64,7 @@ func StartWithOptions(addresses []string, handler wire.Handler, options ServerOp
 			cleanup()
 			return nil, fmt.Errorf("bind UDP: %w", err)
 		}
-		var listener net.Listener = tcp
+		listener := net.Listener(tcp)
 		if options.MaxTCPConnections > 0 {
 			listener = newLimitedListener(tcp, options.MaxTCPConnections, options.Observer)
 		}
