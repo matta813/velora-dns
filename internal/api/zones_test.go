@@ -113,6 +113,28 @@ func TestZoneAndRecordCRUD(t *testing.T) {
 		t.Fatal("zone still exists")
 	}
 }
+
+func TestZoneImportAndExport(t *testing.T) {
+	h, _ := zoneAPI(t)
+	file := "$ORIGIN example.test.\n@ 3600 IN SOA ns.example.test. hostmaster.example.test. 1 3600 600 86400 300\n@ 300 IN NS ns.example.test.\nwww 60 IN A 192.0.2.8\n"
+	r := httptest.NewRequest("POST", "http://127.0.0.1/api/v1/zones/import", strings.NewReader(file))
+	r.Header.Set("Content-Type", "text/dns")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	z := decodeZone(t, w, 201)
+	export := httptest.NewRecorder()
+	h.ServeHTTP(export, httptest.NewRequest("GET", fmt.Sprintf("http://127.0.0.1/api/v1/zones/%d/export", z.ID), nil))
+	if export.Code != 200 || export.Header().Get("Content-Type") != "text/dns; charset=utf-8" || !strings.Contains(export.Body.String(), "192.0.2.8") {
+		t.Fatalf("export failed: %d %q %s", export.Code, export.Header().Get("Content-Type"), export.Body.String())
+	}
+	bad := httptest.NewRequest("POST", "http://127.0.0.1/api/v1/zones/import", strings.NewReader(file))
+	bad.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, bad)
+	if response.Code != 415 {
+		t.Fatalf("content type: %d", response.Code)
+	}
+}
 func TestZoneAPIValidationAndLostUpdateProtection(t *testing.T) {
 	h, _ := zoneAPI(t)
 	w := zoneRequest(h, "POST", "/api/v1/zones", `{"name":"home.test"}`, "")
