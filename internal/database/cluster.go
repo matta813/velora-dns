@@ -13,20 +13,20 @@ import (
 
 // ClusterConfig holds PostgreSQL cluster configuration.
 type ClusterConfig struct {
-	PrimaryDSN   string
-	ReplicaDSNs  []string
-	MaxOpenConns int
-	MaxIdleConns int
+	PrimaryDSN      string
+	ReplicaDSNs     []string
+	MaxOpenConns    int
+	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
 }
 
 // Cluster manages a PostgreSQL primary/replica setup.
 type Cluster struct {
-	primary *sql.DB
+	primary  *sql.DB
 	replicas []*sql.DB
-	config  ClusterConfig
-	mu      sync.RWMutex
-	logger  ClusterLogger
+	config   ClusterConfig
+	mu       sync.RWMutex
+	logger   ClusterLogger
 }
 
 // ClusterLogger is a logger for cluster operations.

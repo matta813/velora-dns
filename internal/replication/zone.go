@@ -12,19 +12,19 @@ import (
 
 // ZoneReplicator manages zone replication between nodes.
 type ZoneReplicator struct {
-	zones     zones.Repository
-	mu        sync.RWMutex
-	logger    Logger
-	replicas  map[int64]*ZoneReplica
+	zones    zones.Repository
+	mu       sync.RWMutex
+	logger   Logger
+	replicas map[int64]*ZoneReplica
 }
 
 // ZoneReplica tracks replication state for a zone.
 type ZoneReplica struct {
-	ZoneID          int64
-	PrimaryNode     string
-	LastSyncAt      time.Time
-	LastSyncSerial  uint32
-	Status          string
+	ZoneID         int64
+	PrimaryNode    string
+	LastSyncAt     time.Time
+	LastSyncSerial uint32
+	Status         string
 }
 
 // NewZoneReplicator creates a new zone replicator.
@@ -75,10 +75,10 @@ func (r *ZoneReplicator) ReplicateZone(ctx context.Context, zoneID int64, primar
 	defer r.mu.Unlock()
 
 	replica := &ZoneReplica{
-		ZoneID:         zoneID,
-		PrimaryNode:    primaryNode,
-		Status:         "syncing",
-		LastSyncAt:     time.Now(),
+		ZoneID:      zoneID,
+		PrimaryNode: primaryNode,
+		Status:      "syncing",
+		LastSyncAt:  time.Now(),
 	}
 	r.replicas[zoneID] = replica
 

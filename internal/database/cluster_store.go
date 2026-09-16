@@ -23,7 +23,7 @@ func NewClusterStore(cluster *Cluster, driver string) *ClusterStore {
 	return &ClusterStore{
 		cluster: cluster,
 		Store: &Store{
-			db:    cluster.Primary(),
+			db:     cluster.Primary(),
 			driver: driver,
 		},
 	}

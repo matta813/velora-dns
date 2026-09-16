@@ -85,9 +85,9 @@ type Cluster struct {
 }
 
 type Node struct {
-	ID           string `yaml:"id" json:"id"`
-	Name         string `yaml:"name" json:"name"`
-	Address      string `yaml:"address" json:"address"`
+	ID      string `yaml:"id" json:"id"`
+	Name    string `yaml:"name" json:"name"`
+	Address string `yaml:"address" json:"address"`
 }
 
 type Config struct {

@@ -19,12 +19,12 @@ type ClusterManager struct {
 
 // ManagedNode represents a node managed by the central manager.
 type ManagedNode struct {
-	ID             string
-	Name           string
-	Address        string
-	Status         string
-	LastHeartbeat  time.Time
-	ConfigVersion  int
+	ID            string
+	Name          string
+	Address       string
+	Status        string
+	LastHeartbeat time.Time
+	ConfigVersion int
 }
 
 // MembershipProvider is the interface for node membership.
@@ -85,8 +85,8 @@ func (m *ClusterManager) updateNodes(ctx context.Context) {
 		node, exists := m.nodes[peer.ID]
 		if !exists {
 			node = &ManagedNode{
-				ID:    peer.ID,
-				Name:  peer.Name,
+				ID:      peer.ID,
+				Name:    peer.Name,
 				Address: peer.Address,
 			}
 			m.nodes[peer.ID] = node
