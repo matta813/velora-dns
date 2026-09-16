@@ -30,6 +30,7 @@ type DNS struct {
 	MaxTCPConns    int           `yaml:"max_tcp_connections" json:"max_tcp_connections"`
 	DoTListen      string        `yaml:"dot_listen" json:"dot_listen"`
 	DoHListen      string        `yaml:"doh_listen" json:"doh_listen"`
+	DoQListen      string        `yaml:"doq_listen" json:"doq_listen"`
 	TLSCertFile    string        `yaml:"tls_cert_file" json:"tls_cert_file"`
 	TLSKeyFile     string        `yaml:"tls_key_file" json:"-"`
 	DNSSEC         bool          `yaml:"dnssec" json:"dnssec"`
@@ -214,7 +215,7 @@ func (c Config) Validate() error {
 			return fmt.Errorf("invalid DNSSEC DS trust anchor %q", anchor)
 		}
 	}
-	for name, value := range map[string]string{"dot": c.DNS.DoTListen, "doh": c.DNS.DoHListen} {
+	for name, value := range map[string]string{"dot": c.DNS.DoTListen, "doh": c.DNS.DoHListen, "doq": c.DNS.DoQListen} {
 		if value != "" {
 			if c.DNS.TLSCertFile == "" {
 				return fmt.Errorf("DNS-over-%s requires TLS certificate and key", name)
