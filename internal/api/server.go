@@ -4,6 +4,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -160,21 +161,30 @@ func New(d Dependencies) http.Handler {
 			}
 			r = authenticated
 			user := r.Context().Value(authContextKey{}).(database.User)
+			token, isToken := r.Context().Value(tokenContextKey{}).(database.APIToken)
+			tokenScopes := token.Scopes
 			unsafe := r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
-			if strings.HasPrefix(r.URL.Path, "/api/v1/users") && user.Role != "admin" {
+			if strings.HasPrefix(r.URL.Path, "/api/v1/users") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
 				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
 				return
 			}
-			if unsafe && user.Role == "viewer" {
+			if unsafe && (user.Role == "viewer" || (isToken && !hasScope(tokenScopes, "write") && !hasScope(tokenScopes, "admin"))) {
 				failure(w, http.StatusForbidden, "insufficient_role", "Viewer role is read-only")
 				return
 			}
-			if unsafe && !validCSRF(r.Header.Get("X-CSRF-Token"), csrf) {
+			if unsafe && !isToken && !validCSRF(r.Header.Get("X-CSRF-Token"), csrf) {
 				failure(w, http.StatusForbidden, "invalid_csrf", "Valid CSRF token required")
 				return
 			}
 			if unsafe {
-				defer func() { _ = d.Auth.Audit(context.Background(), &user.ID, r.Method, r.URL.Path) }()
+				detail := r.URL.Path
+				if isToken {
+					detail = fmt.Sprintf("token=%d path=%s", token.ID, r.URL.Path)
+				}
+				if err := d.Auth.Audit(r.Context(), &user.ID, r.Method, detail); err != nil {
+					failure(w, http.StatusServiceUnavailable, "audit_unavailable", "Audit event could not be recorded")
+					return
+				}
 			}
 		}
 		select {
@@ -186,4 +196,13 @@ func New(d Dependencies) http.Handler {
 		}
 		mux.ServeHTTP(w, r)
 	})
+}
+
+func hasScope(scopes, wanted string) bool {
+	for _, scope := range strings.Split(scopes, ",") {
+		if scope == wanted {
+			return true
+		}
+	}
+	return false
 }

@@ -25,6 +25,12 @@ type User struct {
 	Username string `json:"username"`
 	Role     string `json:"role"`
 }
+type APIToken struct {
+	ID        int64     `json:"id"`
+	Name      string    `json:"name"`
+	Scopes    string    `json:"scopes"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
 
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	rows, err := s.db.QueryContext(ctx, "SELECT id,username,role FROM users WHERE disabled=0 ORDER BY username")
@@ -109,6 +115,66 @@ func (s *Store) RevokeSession(ctx context.Context, token []byte) error {
 func (s *Store) Audit(ctx context.Context, userID *int64, action, detail string) error {
 	_, err := s.db.ExecContext(ctx, "INSERT INTO audit_events(user_id,action,detail) VALUES(?,?,?)", userID, action, detail)
 	return err
+}
+
+func (s *Store) CreateAPIToken(ctx context.Context, userID int64, name, scopes string, raw []byte, expires time.Time) (APIToken, error) {
+	name, scopes = strings.TrimSpace(name), strings.TrimSpace(scopes)
+	if name == "" || len(name) > 64 || !expires.After(time.Now()) || !validScopes(scopes) {
+		return APIToken{}, fmt.Errorf("invalid API token")
+	}
+	hash := sha256.Sum256(raw)
+	result, err := s.db.ExecContext(ctx, "INSERT INTO api_tokens(name,token_hash,scopes,expires_at,created_by) VALUES(?,?,?,?,?)", name, hash[:], scopes, expires.UTC().Format(time.RFC3339Nano), userID)
+	if err != nil {
+		return APIToken{}, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return APIToken{}, err
+	}
+	return APIToken{ID: id, Name: name, Scopes: scopes, ExpiresAt: expires.UTC()}, nil
+}
+
+func (s *Store) AuthenticateAPIToken(ctx context.Context, raw []byte) (User, APIToken, error) {
+	hash := sha256.Sum256(raw)
+	var user User
+	var token APIToken
+	var expires string
+	err := s.db.QueryRowContext(ctx, "SELECT u.id,u.username,u.role,t.id,t.name,t.scopes,t.expires_at FROM api_tokens t JOIN users u ON u.id=t.created_by WHERE t.token_hash=? AND t.revoked_at IS NULL AND u.disabled=0", hash[:]).Scan(&user.ID, &user.Username, &user.Role, &token.ID, &token.Name, &token.Scopes, &expires)
+	if err != nil {
+		return User{}, APIToken{}, ErrAuthentication
+	}
+	token.ExpiresAt, err = time.Parse(time.RFC3339Nano, expires)
+	if err != nil || !token.ExpiresAt.After(time.Now()) {
+		return User{}, APIToken{}, ErrAuthentication
+	}
+	return user, token, nil
+}
+
+func (s *Store) RevokeAPIToken(ctx context.Context, id int64, userID int64) error {
+	result, err := s.db.ExecContext(ctx, "UPDATE api_tokens SET revoked_at=CURRENT_TIMESTAMP WHERE id=? AND created_by=? AND revoked_at IS NULL", id, userID)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return ErrAuthentication
+	}
+	return nil
+}
+
+func validScopes(scopes string) bool {
+	if scopes == "" {
+		return false
+	}
+	for _, scope := range strings.Split(scopes, ",") {
+		if scope != "read" && scope != "write" && scope != "admin" {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Store) UserCount(ctx context.Context) (int, error) {

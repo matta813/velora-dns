@@ -1,13 +1,19 @@
 # Operational REST API
 
 Base path: `/api/v1`. Successful JSON responses contain `data`. Errors contain
-`error: {code, message}`. This unauthenticated development API belongs on a trusted
-management interface. One middleware boundary is reserved for future authentication.
+`error: {code, message}`. Health and readiness are public; management endpoints and
+metrics require an authenticated session or scoped API token.
 
 | Method | Path | Behavior |
 |---|---|---|
 | GET | /health | HTTP process liveness |
 | GET | /ready | 200 when SQLite and DNS are ready; otherwise 503 |
+| POST | /api/v1/auth/login | Create a 12-hour management session |
+| POST | /api/v1/auth/logout | Revoke the current session |
+| GET | /api/v1/auth/me | Current role and per-session CSRF token |
+| GET/POST | /api/v1/users | List/create users (admin only) |
+| POST | /api/v1/tokens | Create a scoped token; secret returned once |
+| DELETE | /api/v1/tokens/{id} | Revoke a token owned by the current user |
 | GET | /api/v1/status | Listener readiness, uptime, version and implemented capabilities |
 | GET | /api/v1/version | Build version, source commit and build timestamp |
 | GET | /api/v1/stats | Lifetime queries and rolling 60-second QPS; cache hit ratio |
@@ -27,6 +33,11 @@ curl http://127.0.0.1:8080/api/v1/status
 curl -X DELETE -H 'Content-Type: application/json' http://127.0.0.1:8080/api/v1/cache
 ```
 
+API tokens use `Authorization: Bearer velora_<secret>`. Valid scopes are `read`,
+`write` and `admin`; expiration is mandatory and limited to one year. Only a SHA-256
+token digest is stored, and the secret is returned only by the creation response.
+Cookie-authenticated mutations require `X-CSRF-Token`; bearer requests do not.
+
 Bodies are limited to 1 MiB, headers to 16 KiB, concurrent HTTP requests to 32, with read,
 write and idle timeouts. Cross-site browser requests and mismatched Origin are rejected.
 HTTP Host must match the configured allowlist to reject DNS rebinding.
@@ -38,7 +49,8 @@ Query history is available via [the query logging API](query-logging.md).
 Blocklist sources support add, enable/disable, manual content and refresh. Remote
 sources require public HTTP(S) URLs on ports 80/443 without credentials, fragments or
 redirects; downloads are bounded to 8 MiB with SSRF protection. A failed refresh retains
-the previous domains. Authentication is not implemented.
+the previous domains. Authorized mutations and authentication events are audited without
+request bodies, credentials or token secrets.
 Unknown API paths return 404. There is no wildcard route returning fabricated data.
 Config duration values serialize as nanoseconds. QPS is query count in the last 60
 seconds divided by 60; this includes the initial partial minute.

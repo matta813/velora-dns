@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -40,10 +41,44 @@ func TestManagementAuthenticationCSRFAndRoles(t *testing.T) {
 	if w := authRequest(h, "POST", "/api/v1/users", `{"username":"operator","password":"operator password long","role":"operator"}`, adminCookie, adminCSRF); w.Code != 201 {
 		t.Fatalf("create user: %d %s", w.Code, w.Body.String())
 	}
+	tokenResponse := authRequest(h, "POST", "/api/v1/tokens", `{"name":"monitor","scopes":["read"],"expires_in_hours":1}`, adminCookie, adminCSRF)
+	if tokenResponse.Code != 201 {
+		t.Fatalf("create token: %d %s", tokenResponse.Code, tokenResponse.Body.String())
+	}
+	var tokenBody struct {
+		Data struct {
+			ID    int64  `json:"id"`
+			Token string `json:"token"`
+		} `json:"data"`
+	}
+	if err = json.Unmarshal(tokenResponse.Body.Bytes(), &tokenBody); err != nil {
+		t.Fatal(err)
+	}
+	if w := bearerRequest(h, "GET", "/api/v1/status", tokenBody.Data.Token); w.Code != 200 {
+		t.Fatalf("token read: %d", w.Code)
+	}
+	if w := bearerRequest(h, "DELETE", "/api/v1/cache", tokenBody.Data.Token); w.Code != 403 {
+		t.Fatalf("read token mutated: %d", w.Code)
+	}
+	if w := authRequest(h, "DELETE", "/api/v1/tokens/"+strconv.FormatInt(tokenBody.Data.ID, 10), "", adminCookie, adminCSRF); w.Code != 200 {
+		t.Fatalf("revoke token: %d", w.Code)
+	}
+	if w := bearerRequest(h, "GET", "/api/v1/status", tokenBody.Data.Token); w.Code != 401 {
+		t.Fatalf("revoked token accepted: %d", w.Code)
+	}
 	viewerCookie, viewerCSRF := loginForTest(t, h, "viewer", "viewer password long")
 	if w := authRequest(h, "DELETE", "/api/v1/cache", "", viewerCookie, viewerCSRF); w.Code != 403 {
 		t.Fatalf("viewer mutation: %d", w.Code)
 	}
+}
+
+func bearerRequest(h http.Handler, method, path, token string) *httptest.ResponseRecorder {
+	r := httptest.NewRequest(method, "http://127.0.0.1"+path, nil)
+	r.Header.Set("Authorization", "Bearer "+token)
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	return w
 }
 
 func loginForTest(t *testing.T, h http.Handler, username, password string) (*http.Cookie, string) {
