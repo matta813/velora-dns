@@ -1,8 +1,8 @@
 # Local authoritative zones
 
 Local zones override forwarded/cache answers immediately after a successful management
-mutation. Zone configuration and records persist in SQLite; DNS queries use an immutable
-memory snapshot. Missing local names never go to public upstreams. See the
+mutation. Zone configuration and records persist in SQLite or PostgreSQL; DNS queries
+use an immutable memory snapshot. Missing local names never go to public upstreams. See the
 [architecture decision](architecture/0003-local-zones.md) for authoritative semantics.
 
 ## Dashboard
@@ -11,7 +11,7 @@ Open `/zones` from the **Local zones** navigation. Create a zone, then add A, AA
 CNAME, TXT, MX, NS or PTR records. The record table supports editing and confirmed
 deletion. Zone deletion requires confirmation and removes its records. Filter the
 zone list by name. Reload fetches the current revision; close an open editor first.
-Conflicts preserve the draft without overwriting another writer’s changes.
+Conflicts preserve the draft without overwriting another writer's changes.
 
 ## Create a zone
 
@@ -43,6 +43,48 @@ optional. Names use ASCII labels; enter IDNs as punycode. TXT values are literal
 without DNS zone-file quoting. MX uses a separate numeric `priority` (0–65535). TTL is
 0–86400 seconds; records in the same RRset must share a TTL.
 
+## Secondary zones
+
+Secondary zones pull zone data from a primary DNS server via AXFR or IXFR transfers.
+They are configured with a primary address and optional TSIG key for authenticated transfers.
+
+### Create a secondary zone
+
+```bash
+curl -i -X POST http://127.0.0.1:8080/api/v1/zones/secondary \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "example.com",
+    "primary_address": "192.168.1.1:53",
+    "transfer_tsig_key": "transfer-key",
+    "transfer_interval": 3600
+  }'
+```
+
+### TSIG keys
+
+TSIG keys authenticate zone transfers using HMAC algorithms:
+
+```bash
+# Create a TSIG key
+curl -X POST http://127.0.0.1:8080/api/v1/tsig-keys \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"transfer-key","algorithm":"hmac-sha256","secret":"base64-secret"}'
+
+# List TSIG keys (secrets are never returned)
+curl http://127.0.0.1:8080/api/v1/tsig-keys
+```
+
+### Transfer status
+
+Check the transfer status of a secondary zone:
+
+```bash
+curl http://127.0.0.1:8080/api/v1/zones/{id}/transfer-status
+```
+
+The response includes `last_transfer_serial`, `last_transfer_at` and `next_refresh_at`.
+
 ## Endpoint contract
 
 | Method | Path | Response |
@@ -59,6 +101,8 @@ without DNS zone-file quoting. MX uses a separate numeric `priority` (0–65535)
 | POST | /api/v1/zones/:id/records | 201, updated **zone**, record Location and new ETag |
 | PUT | /api/v1/zones/:id/records/:recordID | Updated zone and new ETag |
 | DELETE | /api/v1/zones/:id/records/:recordID | Updated zone and new ETag |
+| POST | /api/v1/zones/secondary | 201, created secondary zone |
+| GET | /api/v1/zones/:id/transfer-status | Transfer status and serial |
 
 PUT zone replaces the entire record list; omitting `records` removes all explicit records.
 Use record endpoints for single-record edits. Zone ID/revision cannot be supplied in zone
@@ -77,8 +121,9 @@ and 10000 records total. Existing client-side DNS caches retain their advertised
 
 ## Operations
 
-Migration from the foundation creates zone tables transactionally at startup. Back up the
-volume before upgrading. An older binary cannot manage the new zone state; keep the backup
-for rollback. Never modify live SQLite tables manually: management changes publish snapshots
-and invalidate forwarding cache, whereas out-of-band SQL cannot notify the running resolver.
-Management remains unauthenticated and must stay on trusted interfaces.
+Migration creates zone, TSIG, secondary zone, node and config version tables transactionally
+at startup. Back up the volume before upgrading. An older binary cannot manage the new zone
+state; keep the backup for rollback. Never modify live SQLite tables manually: management
+changes publish snapshots and invalidate forwarding cache, whereas out-of-band SQL cannot
+notify the running resolver. PostgreSQL deployments should use the cluster configuration
+for primary/replica routing.

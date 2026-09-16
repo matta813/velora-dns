@@ -12,9 +12,15 @@ Velora DNS is an independent, self-hosted DNS server built in Go, with a clean R
 
 ![Velora DNS operational dashboard](docs/assets/overview.png)
 
+<p align="center">
+  <img src="docs/assets/mobile.png" alt="Mobile dashboard" width="280" />
+  &nbsp;&nbsp;
+  <img src="docs/assets/zones-mobile.png" alt="Mobile zone management" width="280" />
+</p>
+
 [Quick start](#quick-start) · [Documentation](docs/README.md) · [Roadmap](docs/roadmap.md) · [Discussions](https://github.com/matta813/velora-dns/discussions)
 
-> **Development foundation, not a production release.** Forwarding, cache, lifecycle, authenticated operational API, dashboard, SQLite persistence, local authoritative zones, initial blocklists, opt-in query history and metrics are implemented. Encrypted DNS is planned. No releases or published images have been created.
+> **Development foundation, not a production release.** Forwarding, cache, lifecycle, authenticated operational API, dashboard, SQLite/PostgreSQL persistence, local authoritative zones, secondary zones with AXFR/IXFR transfers, TSIG authentication, blocklists, opt-in query history, metrics, DNS-over-TLS, DNS-over-HTTPS, DNS-over-QUIC, DNSSEC validation, users/roles, API tokens, zone import/export, node membership, config replication, zone replication, central management and PostgreSQL cluster support are implemented. No releases or published images have been created.
 
 ## Quick start
 
@@ -51,17 +57,26 @@ The Compose file builds locally, publishes only on host loopback, runs as UID 10
 
 ## Capabilities
 
-- UDP and TCP listeners; A, AAAA, CNAME, TXT, MX, NS and PTR forwarding
-- Configured upstream ordering, per-attempt timeout, retries and TCP fallback after truncation
+- UDP, TCP, DNS-over-TLS, DNS-over-HTTPS and DNS-over-QUIC listeners
+- A, AAAA, CNAME, TXT, MX, NS and PTR forwarding with configured upstream ordering
+- Per-attempt timeout, retries, TCP fallback after truncation and UDP-to-TCP fallback
 - Positive and RFC 2308 negative-answer LRU cache with TTL aging, expiry, capacity limits and API flush
 - Strict YAML configuration and explicit environment overrides
 - Client CIDR allowlisting, bounded concurrent DNS/HTTP requests and safe loopback defaults
 - Structured JSON lifecycle logs, context cancellation and graceful shutdown
 - Local authoritative A, AAAA, CNAME, TXT, MX, NS and PTR records, generated SOA and negative answers
-- SQLite management storage with transactional migrations and revision-safe record updates
+- Secondary zones with AXFR/IXFR transfer client and TSIG authentication (HMAC-SHA256/1/512)
+- SQLite and PostgreSQL management storage with transactional migrations and revision-safe record updates
+- Users, roles (admin/operator/viewer), scoped API tokens and session-based management access
+- DNSSEC validation with operator-managed DS trust anchors
+- Zone import/export (zone-file format)
 - Versioned zones, records, status, stats, config and cache API; liveness and dependency readiness
 - Responsive overview, zone/record management, cache management and read-only settings; live data and error states
 - Prometheus metrics without domain or client labels
+- Node membership, health monitoring and capability negotiation
+- Versioned configuration replication between nodes
+- Zone replication and central multi-node management
+- PostgreSQL primary/replica cluster with health checks and read/write routing
 - Protected PR workflow, Dependabot, CodeQL, dependency review, static analysis and Docker CI
 
 The server forwards recursive requests to configured upstreams and can perform local DNSSEC validation with operator-managed DS trust anchors. It does not perform iterative resolution. Client-option-dependent queries bypass shared caching and client EDNS metadata is not forwarded. Query names and client addresses are persisted only when the opt-in, bounded query log is enabled.
@@ -70,7 +85,7 @@ The server forwards recursive requests to configured upstreams and can perform l
 
 ```mermaid
 flowchart LR
-    Client[DNS client] --> Transport[UDP / TCP]
+    Client[DNS client] --> Transport[UDP / TCP / DoT / DoH / DoQ]
     Transport --> ACL[Client access and limits]
     ACL --> Resolver[Resolver pipeline]
     Resolver --> Zones[Immutable local zones]
@@ -82,10 +97,15 @@ flowchart LR
     API --> Cache
     API --> Metrics
     API --> Zones
-    Zones --> DB[(SQLite management store)]
+    Zones --> DB[(SQLite / PostgreSQL store)]
+    TSIG[TSIG auth] --> Transfer[AXFR/IXFR transfers]
+    Transfer --> Secondary[Secondary zones]
+    Node[Node membership] --> Cluster[Cluster management]
+    Cluster --> Replication[Config & zone replication]
+    Replication --> DB
 ```
 
-Velora owns the resolution pipeline. Libraries provide DNS wire parsing and transport, SQL access and HTTP infrastructure. Cache never depends on SQL. SQLite stores local zones and records; immutable snapshots serve DNS requests without database reads. See [local zones](docs/zones.md) for supported records and revision-safe API examples. Package responsibilities and extension points are documented in [architecture decisions](docs/architecture/0001-foundation.md).
+Velora owns the resolution pipeline. Libraries provide DNS wire parsing and transport, SQL access and HTTP infrastructure. Cache never depends on SQL. SQLite or PostgreSQL stores local zones and records; immutable snapshots serve DNS requests without database reads. Secondary zones can pull zone data from primary servers via AXFR/IXFR with TSIG authentication. Multi-node deployments use node membership, config replication and zone replication for cluster coordination. See [local zones](docs/zones.md) for supported records and revision-safe API examples. Package responsibilities and extension points are documented in [architecture decisions](docs/architecture/0001-foundation.md).
 
 ### Local zone management
 
@@ -138,10 +158,10 @@ Tests use local upstreams and nonprivileged ephemeral ports. Public DNS access i
 
 ## Roadmap
 
-The [roadmap](docs/roadmap.md) separates implemented capabilities from the full MVP. Next: complete blocklist controls and top-domain/client statistics. Later phases add users/roles, PostgreSQL, DoT/DoH/DNSSEC, DHCP/DoQ and multi-node operation.
+The [roadmap](docs/roadmap.md) separates implemented capabilities from the full MVP. Phase 1–3 features including encrypted DNS, DNSSEC, users/roles, PostgreSQL, secondary zones, TSIG, AXFR/IXFR, DoQ and API tokens are implemented. Phase 4 multi-node features (node membership, config/zone replication, central management, PostgreSQL cluster) are also implemented. Next: complete blocklist controls, DHCP server and production hardening.
 
 ## Security
 
-The management API currently has no authentication. Keep it on loopback or a trusted management network. Do not expose it or recursive DNS to the internet. Client CIDRs remain enforced inside the DNS server; Docker network access and host firewall policy are separate controls. See [SECURITY.md](SECURITY.md) for reporting and [deployment hardening](docs/deployment.md).
+The management API supports session-based authentication with admin/operator/viewer roles and scoped API tokens. Default configuration binds to loopback only. Do not expose recursive DNS to the internet. Client CIDRs remain enforced inside the DNS server; Docker network access and host firewall policy are separate controls. See [SECURITY.md](SECURITY.md) for reporting and [deployment hardening](docs/deployment.md).
 
 Release automation is prepared but explicitly disabled. Normal development does not create release tags, GitHub releases or registry images. See [release process](docs/releases.md).

@@ -2,6 +2,7 @@
 
 Backend: Go 1.27.1+. Frontend: Node.js 24+, npm lockfile, React, TypeScript strict mode,
 Vite, ESLint, Vitest and Testing Library. SQLite uses a pure-Go driver; CGO is not required.
+PostgreSQL support uses `jackc/pgx/v5`.
 
 ```bash
 npm --prefix web ci
@@ -21,18 +22,21 @@ Package boundaries:
 - `cmd/server`: flags, process signals, build identity
 - `internal/app`: composition and lifecycle
 - `internal/config`, `logging`, `database`: typed config, JSON logs and management persistence
-- `internal/dns`: transport, access control, resolver and upstream strategies
+- `internal/dns`: transport (UDP/TCP/DoT/DoH/DoQ), access control, resolver, upstream strategies, TSIG and zone transfers
 - `internal/cache`: bounded positive-answer TTL cache
-- `internal/zones`: record validation, immutable authority snapshots and revision-protected mutations
+- `internal/zones`: record validation, immutable authority snapshots, revision-protected mutations and secondary zone management
 - `internal/metrics`: independent per-instance registry and dashboard counters
-- `internal/api`: operational HTTP contract and static web serving
+- `internal/api`: operational HTTP contract, static web serving, TSIG/secondary zone endpoints
+- `internal/node`: node membership, health monitoring and capability negotiation
+- `internal/replication`: versioned config replication, zone replication and central cluster management
 - `web/src`: typed API client, polling, components and pages
 - `tests`: local UDP/TCP integration tests
 
 Tests must not depend on the public internet. Use local fake upstreams, ephemeral ports,
 controlled clocks where possible, and cancellation. Validate behavior at package boundaries.
 Local-zone tests cover authority boundaries, record matching, CNAME resolution, transactional
-persistence and concurrent edits. Filtering tests will accompany that feature.
+persistence and concurrent edits. TSIG tests verify HMAC signing and verification. Transfer
+tests use mock primary servers.
 
 For a manual end-to-end check, run Compose and query with `dig`. Check HTTP readiness,
 cache hit counters, cache flush and SIGTERM exit. Verify desktop/mobile UI layout and

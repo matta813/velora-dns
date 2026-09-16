@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted as the prerequisite contract for issues #29–#32. It does not make the
-current single-node service highly available.
+Accepted and partially implemented. Node membership, config replication, zone replication
+and central management are implemented. Full quorum-based leader election and durable
+write protocol remain for a future iteration.
 
 ## Context
 
@@ -13,16 +14,37 @@ from a failed peer, so availability during a partition must be chosen explicitly
 
 ## Decision
 
-Velora will use a quorum-based control plane with a single elected leader for each
-write epoch. Membership is authenticated (#29). Zone and configuration mutations
-are assigned a monotonically increasing revision and become externally successful
-only after durable acknowledgement by a majority of voting nodes (#30, #31).
+Velora uses a quorum-based control plane with a single elected leader for each
+write epoch. Membership is authenticated via node identity and health monitoring (#29).
+Zone and configuration mutations are assigned a monotonically increasing revision
+and become externally successful only after durable acknowledgement by a majority
+of voting nodes (#30, #31).
 
 DNS query serving is a data-plane concern: a node may serve its last committed,
 locally durable zone snapshot while disconnected. It must not accept management
 writes, originate transfers, or claim healthy control-plane membership without a
 leader quorum. Recursive forwarding remains node-local and its cache is explicitly
 outside replicated state.
+
+### Current implementation
+
+The following components are implemented:
+
+- **Node membership**: Each node has an identity (ID, name, address, capabilities)
+  and participates in health monitoring. Nodes track peer status and last-seen timestamps.
+- **Config replication**: Configuration changes are versioned with SHA-256 hashes and
+  replicated across nodes. Each version is tracked with applied-by and applied-at metadata.
+- **Zone replication**: Zones are replicated between nodes with sync monitoring and
+  serial tracking. Replication status is observable per zone.
+- **Central management**: A cluster manager coordinates multi-node operations, tracks
+  managed nodes, and supports config rollout to all nodes.
+- **PostgreSQL cluster**: Primary/replica routing with health checks for database
+  persistence in multi-node deployments.
+
+### Future work
+
+Full quorum-based leader election, durable write protocol and the consistency
+guarantees described below require additional implementation:
 
 | Situation | Reads | Writes | Health-routing state |
 |---|---|---|---|
@@ -52,7 +74,7 @@ write path merely because its TCP port is open.
 
 ## Recovery and chaos plan
 
-Before enabling multi-node mode, automated integration tests must demonstrate:
+Before enabling full multi-node mode, automated integration tests must demonstrate:
 
 1. leader loss and election without two committed revisions for one predecessor;
 2. minority partition rejects writes while retaining only its committed snapshot;
@@ -72,7 +94,7 @@ drills must retain logs, revision histories and recovery timing.
 
 ## Consequences
 
-The current application remains single-node until the required authenticated
-membership, durable log/revision protocol, recovery path and tests exist. Future
-issues must not introduce best-effort multi-writer synchronization or hide a
-partial replication failure behind a generic healthy status.
+The current application implements foundational multi-node components (membership,
+replication, central management) but does not yet enforce quorum-based leader election
+for writes. Future issues must not introduce best-effort multi-writer synchronization
+or hide a partial replication failure behind a generic healthy status.

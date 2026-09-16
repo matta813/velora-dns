@@ -1,8 +1,10 @@
 # Encrypted DNS
 
-Velora supports DNS-over-TLS (DoT) listeners/upstreams and DNS-over-HTTPS (DoH)
-GET/POST endpoints/upstreams. Both listeners reuse the normal ACL, rate limits,
-resolver, cache, filtering and query-log policy.
+Velora supports DNS-over-TLS (DoT), DNS-over-HTTPS (DoH) and DNS-over-QUIC (DoQ).
+All encrypted listeners reuse the normal ACL, rate limits, resolver, cache, filtering
+and query-log policy.
+
+## DNS-over-TLS and DNS-over-HTTPS
 
 ```yaml
 dns:
@@ -23,13 +25,39 @@ DoH is served only at `/dns-query`. GET uses unpadded base64url in the `dns` que
 parameter; POST requires `application/dns-message`. Requests and responses are bounded
 to the DNS wire maximum. The endpoint deliberately does not enable CORS.
 
-Interoperability smoke tests:
+## DNS-over-QUIC
 
-```bash
-dig +tls @127.0.0.1 -p 853 example.org A
-curl --http2 --data-binary @query.bin -H 'Content-Type: application/dns-message' \
-  https://127.0.0.1:8443/dns-query --output response.bin
+```yaml
+dns:
+  doq_listen: '0.0.0.0:853'
 ```
 
-Upstream URLs require IP literals to avoid an implicit bootstrap-DNS dependency.
-The upstream certificate therefore needs a matching IP subject alternative name.
+DNS-over-QUIC implements [RFC 9250](https://www.rfc-editor.org/rfc/rfc9250). Each DNS
+query is carried over a QUIC stream, providing encryption and multiplexing without the
+head-of-line blocking issues of TCP. DoQ uses the `doq` ALPN identifier and requires
+TLS 1.3.
+
+DoQ does not require separate TLS certificate files; the QUIC transport handles its own
+TLS handshake. The listener accepts connections and processes DNS queries on individual
+streams, using the same resolver pipeline as UDP/TCP listeners.
+
+## Upstream configuration
+
+Encrypted upstreams use `tls://IP:port` or `https://IP:port/dns-query`. QUIC upstreams
+use `quic://IP:port`. All upstream URLs require IP literals to avoid an implicit
+bootstrap-DNS dependency. The upstream certificate therefore needs a matching IP
+subject alternative name.
+
+## Smoke tests
+
+```bash
+# DNS-over-TLS
+dig +tls @127.0.0.1 -p 853 example.org A
+
+# DNS-over-HTTPS
+curl --http2 --data-binary @query.bin -H 'Content-Type: application/dns-message' \
+  https://127.0.0.1:8443/dns-query --output response.bin
+
+# DNS-over-QUIC
+dig +quic @127.0.0.1 -p 853 example.org A
+```

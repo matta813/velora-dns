@@ -9,12 +9,12 @@ the stated drills are performed in the target environment.
 
 | Area | Status | Evidence and action |
 |---|---|---|
-| Management access | Blocked | Issue #19 is open: the HTTP API has no users, sessions or roles. Keep it loopback-only and use an authenticated administrative tunnel. |
-| Resolver transport | Conditional | UDP/TCP DNS works; DoT and DoH remain open (#16, #17). Use a trusted private network and firewall until encrypted transports are delivered. |
-| DNS correctness | Conditional | Local integration tests cover supported record types, TCP fallback, EDNS, cookies, cache semantics and opt-in DNSSEC validation. Production anchor lifecycle exercises remain an operator responsibility. |
+| Management access | Conditional | Users, roles (admin/operator/viewer), session auth and scoped API tokens are implemented. Ensure management HTTP binds only to loopback or an authenticated tunnel. |
+| Resolver transport | Conditional | UDP/TCP/DoT/DoH/DoQ DNS transports are implemented. Use a trusted private network and firewall; validate encrypted transport configuration. |
+| DNS correctness | Conditional | Local integration tests cover supported record types, TCP fallback, EDNS, cookies, cache semantics, DNSSEC validation and TSIG-signed transfers. Production anchor lifecycle exercises remain an operator responsibility. |
 | Abuse resistance | Conditional | Global/client query limits, concurrent-work and TCP-connection caps are configured. Size them with the procedure below and monitor rejection metrics. |
-| Data durability | Conditional | SQLite persistence, migrations and WAL checkpointing are tested. Operators must complete a backup/restore drill before use. |
-| Availability | Blocked | The service is a single-node deployment. HA, node membership and replication are tracked by #28–#32. |
+| Data durability | Conditional | SQLite and PostgreSQL persistence, migrations and WAL checkpointing are tested. Operators must complete a backup/restore drill before use. |
+| Availability | Conditional | Node membership, config/zone replication and central management are implemented. HA quorum-based writes remain a longer-term track. |
 
 ## Security review checklist
 
@@ -23,8 +23,7 @@ Before deployment, record the reviewer, date and result for each control:
 - Run `go test ./...`, `go vet ./...`, frontend tests/lint/typecheck and the Compose
   configuration test from `docs/validation.md` on the release candidate.
 - Ensure management HTTP binds only to loopback; permit remote access only through
-  an authenticated tunnel or a separately authenticated reverse proxy. Never expose
-  the current unauthenticated API directly to a LAN or the Internet.
+  an authenticated tunnel or a separately authenticated reverse proxy.
 - Restrict `dns.allowed_clients` to actual internal CIDRs. Do not operate this
   recursive resolver publicly.
 - Set global and per-client QPS, burst, concurrent-work and TCP-connection limits
@@ -34,6 +33,10 @@ Before deployment, record the reviewer, date and result for each control:
   client addresses and queried names; set retention to the minimum operational need.
 - Verify the image digest and SBOM/dependency scan results in CI. Do not enable
   release publication while `RELEASE_ENABLED` remains disabled.
+- For PostgreSQL deployments, restrict network access to the database and use TLS
+  connections. Validate cluster health checks and replica routing.
+- For multi-node deployments, ensure node membership is authenticated and
+  config/zone replication uses verified hashes.
 
 ## DNS compliance regression suite
 
@@ -44,11 +47,10 @@ DNS interoperability. Run it before every candidate:
 go test ./internal/dns ./tests
 ```
 
-It covers UDP and TCP listener behavior, supported IN record classes, local-zone
+It covers UDP/TCP/DoT/DoH/DoQ listener behavior, supported IN record classes, local-zone
 SOA/NXDOMAIN/NODATA behavior, upstream failover/retries, response/question and
-CNAME-chain validation, EDNS size and privacy policy, DNS Cookies, and cache TTL
-semantics. Track unsupported standards as explicit issues: DoQ (#23), AXFR/IXFR (#25)
-and TSIG (#26).
+CNAME-chain validation, EDNS size and privacy policy, DNS Cookies, cache TTL
+semantics, DNSSEC validation, TSIG authentication and AXFR/IXFR zone transfers.
 
 ## Sustained-load procedure and resource sizing
 
@@ -59,7 +61,7 @@ query mix, packet loss and results alongside the deployment record.
 1. Start with `global_qps` at 60% of the measured sustainable QPS and `client_qps`
    at the largest justified client share; make `rate_limit_burst` no larger than one
    second of that client allowance.
-2. Hold mixed UDP/TCP traffic for at least 30 minutes at 50%, 75% and 100% of the
+2. Hold mixed UDP/TCP/DoT/DoH traffic for at least 30 minutes at 50%, 75% and 100% of the
    proposed global limit. Include cache hits, cache misses, blocked names and large
    answers that trigger TCP fallback.
 3. Pass only if DNS latency remains within the deployment SLO, memory reaches a
@@ -69,7 +71,7 @@ query mix, packet loss and results alongside the deployment record.
    memory and connections plus increasing rejection counters, not unbounded latency.
 
 The initial container limit of 256 MiB is a development baseline, not a sizing
-recommendation. Reserve headroom for SQLite, query logging, cache entries, TCP
+recommendation. Reserve headroom for SQLite/PostgreSQL, query logging, cache entries, TCP
 connections and the operating system; choose final limits from observed peak usage.
 
 ## Upgrade, backup and restore drill
@@ -89,7 +91,8 @@ upgrade, then retain the command transcript and a checksum of the backup.
    a verified restore path.
 
 SQLite migration compatibility is forward-only. Keep the verified backup until the
-new version has passed its observation window.
+new version has passed its observation window. PostgreSQL migrations are also
+forward-only; ensure backups exist before applying schema changes.
 
 ## Failure and chaos plan
 
@@ -101,5 +104,5 @@ Before declaring availability readiness, exercise and document these scenarios:
 - restart during sustained DNS/HTTP traffic; confirm clean shutdown and recovery;
 - rate-limit exhaustion and TCP connection exhaustion; confirm only bounded metrics
   and error responses, with no high-cardinality labels;
-- network partition and node loss once the HA issues are implemented. The required
-  consistency and split-brain contract belongs to #28 before replication work starts.
+- network partition and node loss in multi-node deployments; confirm config/zone
+  replication handles degraded state and recovers after healing.
