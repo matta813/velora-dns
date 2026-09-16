@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/matta813/velora-dns/internal/node"
@@ -199,16 +198,4 @@ func (cs *ClusterStore) Migrate(ctx context.Context, migrations []string) error 
 // HealthCheck checks cluster health.
 func (cs *ClusterStore) HealthCheck(ctx context.Context) error {
 	return cs.cluster.HealthCheck(ctx)
-}
-
-// splitMigrations is a helper to split SQL by semicolons for cluster migration.
-func splitMigrations(sqlStr string) []string {
-	var out []string
-	for _, s := range strings.Split(sqlStr, ";") {
-		s = strings.TrimSpace(s)
-		if s != "" {
-			out = append(out, s)
-		}
-	}
-	return out
 }
