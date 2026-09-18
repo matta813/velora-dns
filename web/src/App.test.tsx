@@ -58,6 +58,9 @@ it("renders server counters from the operational API", async () => {
   expect(await screen.findByText("42")).toBeInTheDocument();
   expect(screen.getByText("50.0%")).toBeInTheDocument();
   expect(screen.getByText("Resolver online")).toBeInTheDocument();
+  expect(document.querySelector(".mobile-signout")).toHaveTextContent(
+    "Sign out",
+  );
 });
 it("updates the document title for the current route", async () => {
   const responses: Record<string, unknown> = {
