@@ -134,7 +134,7 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 			return c, fmt.Errorf("config must contain one YAML document")
 		}
 	}
-	for key, target := range map[string]*string{"HTTP_LISTEN": &c.HTTP.Listen, "WEB_DIR": &c.HTTP.WebDir, "DATABASE_PATH": &c.DatabasePath, "DATABASE_DRIVER": &c.DatabaseDriver, "DATABASE_URL": &c.DatabaseURL, "LOG_LEVEL": &c.LogLevel, "FILTERING_BLOCK_MODE": &c.Filtering.BlockMode, "DNS_DOT_LISTEN": &c.DNS.DoTListen, "DNS_DOH_LISTEN": &c.DNS.DoHListen, "DNS_TLS_CERT_FILE": &c.DNS.TLSCertFile, "DNS_TLS_KEY_FILE": &c.DNS.TLSKeyFile} {
+	for key, target := range map[string]*string{"HTTP_LISTEN": &c.HTTP.Listen, "WEB_DIR": &c.HTTP.WebDir, "DATABASE_PATH": &c.DatabasePath, "DATABASE_DRIVER": &c.DatabaseDriver, "DATABASE_URL": &c.DatabaseURL, "LOG_LEVEL": &c.LogLevel, "FILTERING_BLOCK_MODE": &c.Filtering.BlockMode, "DNS_DOT_LISTEN": &c.DNS.DoTListen, "DNS_DOH_LISTEN": &c.DNS.DoHListen, "DNS_DOQ_LISTEN": &c.DNS.DoQListen, "DNS_TLS_CERT_FILE": &c.DNS.TLSCertFile, "DNS_TLS_KEY_FILE": &c.DNS.TLSKeyFile} {
 		if v, ok := lookup("VELORA_" + key); ok {
 			*target = v
 		}
