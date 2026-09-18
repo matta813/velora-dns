@@ -10,6 +10,7 @@ import {
   ShieldBan,
   ScrollText,
 } from "lucide-react";
+import { useEffect } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useSnapshot } from "./useSnapshot";
 import { Dashboard } from "./pages/Dashboard";
@@ -34,6 +35,9 @@ export default function App() {
             : pathname === "/settings"
               ? "Settings"
               : "Network overview";
+  useEffect(() => {
+    document.title = `Velora DNS · ${title}`;
+  }, [title]);
   return (
     <div className="app">
       <a className="skip-link" href="#main">
