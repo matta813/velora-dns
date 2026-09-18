@@ -78,9 +78,10 @@ transfers:
     interval: 3600
 ```
 
-## Cluster and node
+## Reserved cluster and node configuration
 
-Configure multi-node clustering:
+These fields are parsed for forward compatibility but are not connected to the
+production runtime. Setting them does not enable a multi-node deployment.
 
 ```yaml
 cluster:
@@ -153,4 +154,4 @@ through the API and dashboard, not this configuration.
 
 PostgreSQL is used when `database_driver` is set to `postgres` and `database_url` contains
 a valid connection URL. Migrations run automatically on startup. The `cluster` section
-configures primary/replica routing for multi-node deployments.
+is reserved for future primary/replica routing and currently has no runtime effect.

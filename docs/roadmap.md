@@ -40,12 +40,12 @@ Only checked items are implemented. Milestones describe targets, not release pro
 
 ## Phase 4
 
-- [x] High availability (foundation)
-- [x] Multiple DNS nodes
-- [x] Configuration replication
-- [x] Zone replication
-- [x] Central management
-- [x] PostgreSQL cluster support
+- [ ] High availability (foundation packages exist; runtime integration is incomplete)
+- [ ] Multiple DNS nodes
+- [ ] Configuration replication
+- [ ] Zone replication
+- [ ] Central management
+- [ ] PostgreSQL cluster support
 
 ## Milestones
 
