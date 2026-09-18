@@ -10,6 +10,7 @@ import {
   ShieldBan,
   ScrollText,
 } from "lucide-react";
+import { useEffect } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useSnapshot } from "./useSnapshot";
 import { Dashboard } from "./pages/Dashboard";
@@ -19,9 +20,13 @@ import { Zones } from "./pages/Zones";
 import { QueryLog } from "./pages/QueryLog";
 import { Blocklists } from "./pages/Blocklists";
 import { logout } from "./api";
+import { useAuthUser } from "./auth-context";
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
+  const user = useAuthUser();
+  const readOnly = user?.role === "viewer";
   const { pathname } = useLocation();
+  const signOut = () => void logout().then(() => window.location.reload());
   const title =
     pathname === "/zones"
       ? "Local zones"
@@ -34,6 +39,9 @@ export default function App() {
             : pathname === "/settings"
               ? "Settings"
               : "Network overview";
+  useEffect(() => {
+    document.title = `Velora DNS · ${title}`;
+  }, [title]);
   return (
     <div className="app">
       <a className="skip-link" href="#main">
@@ -82,6 +90,9 @@ export default function App() {
             Settings
           </NavLink>
         </nav>
+        <button className="button secondary mobile-signout" onClick={signOut}>
+          Sign out
+        </button>
         <div className="sidebar-bottom">
           <div className="privacy">
             <ShieldCheck size={18} />
@@ -97,7 +108,7 @@ export default function App() {
           <a href="https://github.com/matta813/velora-dns">
             GitHub repository <ArrowUpRight size={15} />
           </a>
-          <button className="button secondary" onClick={() => void logout().then(() => window.location.reload())}>Sign out</button>
+          <button className="button secondary" onClick={signOut}>Sign out</button>
           <small>{data?.status.version.version ?? "Connecting…"}</small>
         </div>
       </aside>
@@ -141,6 +152,11 @@ export default function App() {
                 : "Check that the Velora server is running."}
             </div>
           )}
+          {readOnly && ["/zones", "/blocklists", "/cache"].includes(pathname) && (
+            <div className="notice" role="status">
+              You are signed in as a viewer. Management actions are read-only.
+            </div>
+          )}
           {!data && !error && (
             <div className="panel padded" role="status">
               Connecting to your resolver…
@@ -160,16 +176,16 @@ export default function App() {
               />
               <Route
                 path="/cache"
-                element={<CachePage data={data} refresh={refresh} />}
+                element={<CachePage data={data} refresh={refresh} readOnly={readOnly} />}
               />
-              <Route path="/zones" element={<Zones />} />
+              <Route path="/zones" element={<Zones readOnly={readOnly} />} />
               <Route
                 path="/queries"
                 element={
                   <QueryLog enabled={data.config.query_log?.enabled ?? false} />
                 }
               />
-              <Route path="/blocklists" element={<Blocklists />} />
+              <Route path="/blocklists" element={<Blocklists readOnly={readOnly} />} />
               <Route path="/settings" element={<Settings data={data} />} />
               <Route path="*" element={<p>Page not found.</p>} />
             </Routes>

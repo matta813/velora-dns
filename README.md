@@ -20,7 +20,7 @@ Velora DNS is an independent, self-hosted DNS server built in Go, with a clean R
 
 [Quick start](#quick-start) · [Documentation](docs/README.md) · [Roadmap](docs/roadmap.md) · [Discussions](https://github.com/matta813/velora-dns/discussions)
 
-> **Development foundation, not a production release.** Forwarding, cache, lifecycle, authenticated operational API, dashboard, SQLite/PostgreSQL persistence, local authoritative zones, secondary zones with AXFR/IXFR transfers, TSIG authentication, blocklists, opt-in query history, metrics, DNS-over-TLS, DNS-over-HTTPS, DNS-over-QUIC, DNSSEC validation, users/roles, API tokens, zone import/export, node membership, config replication, zone replication, central management and PostgreSQL cluster support are implemented. No releases or published images have been created.
+> **Development foundation, not a production release.** Forwarding, cache, lifecycle, authenticated operational API, dashboard, SQLite/PostgreSQL persistence, local authoritative zones, secondary zones with AXFR/IXFR transfers, TSIG authentication, blocklists, opt-in query history, metrics, DNS-over-TLS, DNS-over-HTTPS, DNS-over-QUIC, DNSSEC validation, users/roles, API tokens and zone import/export are implemented. Multi-node and PostgreSQL primary/replica cluster packages are experimental scaffolding and are not connected to the production runtime. No releases or published images have been created.
 
 ## Quick start
 
@@ -73,10 +73,7 @@ The Compose file builds locally, publishes only on host loopback, runs as UID 10
 - Versioned zones, records, status, stats, config and cache API; liveness and dependency readiness
 - Responsive overview, zone/record management, cache management and read-only settings; live data and error states
 - Prometheus metrics without domain or client labels
-- Node membership, health monitoring and capability negotiation
-- Versioned configuration replication between nodes
-- Zone replication and central multi-node management
-- PostgreSQL primary/replica cluster with health checks and read/write routing
+- Experimental, non-runtime scaffolding for future node membership, replication and PostgreSQL primary/replica routing
 - Protected PR workflow, Dependabot, CodeQL, dependency review, static analysis and Docker CI
 
 The server forwards recursive requests to configured upstreams and can perform local DNSSEC validation with operator-managed DS trust anchors. It does not perform iterative resolution. Client-option-dependent queries bypass shared caching and client EDNS metadata is not forwarded. Query names and client addresses are persisted only when the opt-in, bounded query log is enabled.
@@ -100,12 +97,10 @@ flowchart LR
     Zones --> DB[(SQLite / PostgreSQL store)]
     TSIG[TSIG auth] --> Transfer[AXFR/IXFR transfers]
     Transfer --> Secondary[Secondary zones]
-    Node[Node membership] --> Cluster[Cluster management]
-    Cluster --> Replication[Config & zone replication]
-    Replication --> DB
+    Future[Future multi-node control plane] -. not runtime-enabled .-> DB
 ```
 
-Velora owns the resolution pipeline. Libraries provide DNS wire parsing and transport, SQL access and HTTP infrastructure. Cache never depends on SQL. SQLite or PostgreSQL stores local zones and records; immutable snapshots serve DNS requests without database reads. Secondary zones can pull zone data from primary servers via AXFR/IXFR with TSIG authentication. Multi-node deployments use node membership, config replication and zone replication for cluster coordination. See [local zones](docs/zones.md) for supported records and revision-safe API examples. Package responsibilities and extension points are documented in [architecture decisions](docs/architecture/0001-foundation.md).
+Velora owns the resolution pipeline. Libraries provide DNS wire parsing and transport, SQL access and HTTP infrastructure. Cache never depends on SQL. SQLite or PostgreSQL stores local zones and records; immutable snapshots serve DNS requests without database reads. Secondary zones can pull zone data from primary servers via AXFR/IXFR with TSIG authentication. The production runtime is currently single-node. See [local zones](docs/zones.md) for supported records and revision-safe API examples. Package responsibilities and extension points are documented in [architecture decisions](docs/architecture/0001-foundation.md).
 
 ### Local zone management
 
@@ -158,7 +153,7 @@ Tests use local upstreams and nonprivileged ephemeral ports. Public DNS access i
 
 ## Roadmap
 
-The [roadmap](docs/roadmap.md) separates implemented capabilities from the full MVP. Phase 1–3 features including encrypted DNS, DNSSEC, users/roles, PostgreSQL, secondary zones, TSIG, AXFR/IXFR, DoQ and API tokens are implemented. Phase 4 multi-node features (node membership, config/zone replication, central management, PostgreSQL cluster) are also implemented. Next: complete blocklist controls, DHCP server and production hardening.
+The [roadmap](docs/roadmap.md) separates implemented capabilities from the full MVP. Phase 1–3 features including encrypted DNS, DNSSEC, users/roles, PostgreSQL, secondary zones, TSIG, AXFR/IXFR, DoQ and API tokens are implemented. Phase 4 multi-node integration remains future work. Next: complete blocklist controls, DHCP server, multi-node runtime integration and production hardening.
 
 ## Security
 

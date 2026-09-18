@@ -65,6 +65,7 @@ func (c *TransferClient) AXFR(ctx context.Context, zone, primaryAddr, tsigKeyNam
 		return result, nil
 	}
 	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(c.Timeout))
 
 	msg := new(wire.Msg)
 	msg.SetQuestion(zone, wire.TypeSOA)
@@ -119,6 +120,7 @@ func (c *TransferClient) AXFR(ctx context.Context, zone, primaryAddr, tsigKeyNam
 		return result, nil
 	}
 
+	soaCount := 0
 	for {
 		if ctx.Err() != nil {
 			result.Errors = append(result.Errors, ctx.Err())
@@ -139,14 +141,16 @@ func (c *TransferClient) AXFR(ctx context.Context, zone, primaryAddr, tsigKeyNam
 		for _, rr := range response.Answer {
 			if rr.Header().Rrtype != wire.TypeOPT {
 				result.Records = append(result.Records, rr)
+				if soa, ok := rr.(*wire.SOA); ok {
+					result.SOA = soa
+					soaCount++
+				}
 			}
 		}
 
-		if response.Truncated {
-			continue
+		if soaCount >= 2 {
+			break
 		}
-
-		break
 	}
 
 	return result, nil
@@ -171,6 +175,7 @@ func (c *TransferClient) IXFR(ctx context.Context, zone, primaryAddr string, ser
 		return result, nil
 	}
 	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(c.Timeout))
 
 	msg := new(wire.Msg)
 	msg.SetQuestion(zone, wire.TypeIXFR)
@@ -217,6 +222,9 @@ func (c *TransferClient) IXFR(ctx context.Context, zone, primaryAddr string, ser
 		for _, rr := range response.Answer {
 			if rr.Header().Rrtype != wire.TypeOPT {
 				result.Records = append(result.Records, rr)
+				if soa, ok := rr.(*wire.SOA); ok && result.SOA == nil {
+					result.SOA = soa
+				}
 			}
 		}
 

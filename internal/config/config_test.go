@@ -86,13 +86,17 @@ func TestBlockModeValidation(t *testing.T) {
 }
 
 func TestEncryptedDNSConfiguration(t *testing.T) {
-	env := map[string]string{"VELORA_DNS_DOT_LISTEN": "127.0.0.1:853", "VELORA_DNS_DOH_LISTEN": "127.0.0.1:8443", "VELORA_DNS_TLS_CERT_FILE": "/cert.pem", "VELORA_DNS_TLS_KEY_FILE": "/key.pem", "VELORA_DNS_UPSTREAMS": "tls://1.1.1.1:853,https://1.1.1.1:443/dns-query"}
+	env := map[string]string{"VELORA_DNS_DOT_LISTEN": "127.0.0.1:853", "VELORA_DNS_DOH_LISTEN": "127.0.0.1:8443", "VELORA_DNS_DOQ_LISTEN": "127.0.0.1:8853", "VELORA_DNS_TLS_CERT_FILE": "/cert.pem", "VELORA_DNS_TLS_KEY_FILE": "/key.pem", "VELORA_DNS_UPSTREAMS": "tls://1.1.1.1:853,https://1.1.1.1:443/dns-query"}
 	c, err := Parse(nil, func(key string) (string, bool) { value, ok := env[key]; return value, ok })
-	if err != nil || c.DNS.DoTListen == "" || c.DNS.DoHListen == "" || len(c.DNS.Upstreams) != 2 {
+	if err != nil || c.DNS.DoTListen == "" || c.DNS.DoHListen == "" || c.DNS.DoQListen != "127.0.0.1:8853" || len(c.DNS.Upstreams) != 2 {
 		t.Fatalf("encrypted DNS config: %+v %v", c.DNS, err)
 	}
 	if _, err = Parse([]byte("dns:\n  dot_listen: 127.0.0.1:853\n"), func(string) (string, bool) { return "", false }); err == nil {
 		t.Fatal("DoT without certificate accepted")
+	}
+	env["VELORA_DNS_DOQ_LISTEN"] = "not-an-address"
+	if _, err = Parse(nil, func(key string) (string, bool) { value, ok := env[key]; return value, ok }); err == nil {
+		t.Fatal("invalid DoQ environment listener accepted")
 	}
 }
 

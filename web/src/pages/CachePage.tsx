@@ -5,9 +5,11 @@ import { Stat } from "../components/Stat";
 export function CachePage({
   data,
   refresh,
+  readOnly = false,
 }: {
   data: Snapshot;
   refresh: () => void;
+  readOnly?: boolean;
 }) {
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
@@ -61,7 +63,7 @@ export function CachePage({
         </p>
         <button
           className="button danger"
-          disabled={busy}
+          disabled={busy || readOnly}
           onClick={() => void flush()}
         >
           <Eraser size={16} />

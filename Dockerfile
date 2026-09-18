@@ -6,7 +6,7 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build
 
-FROM golang:1.27.1-alpine@sha256:cf6fca6641884b8433441b2b0652976f975e1d0fdd26d177eaaf8596087f3125 AS backend
+FROM golang:1.27.1-alpine@sha256:e9bbdf282b51ac8b34c46e5f31d2d56e7bad60366c35f08d2f295b921b13388b AS backend
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -17,7 +17,7 @@ ARG COMMIT_SHA=unknown
 ARG BUILD_TIME=unknown
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT_SHA} -X main.built=${BUILD_TIME}" -o /out/velora-dns ./cmd/server
 
-FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+FROM alpine:3.24@sha256:e7c4abb69531cb09e2a2bbb56fad3367ab694865c49df898c1c683185cc4376c
 RUN addgroup -g 10001 velora && adduser -D -H -u 10001 -G velora velora && mkdir /data && chown velora:velora /data
 WORKDIR /app
 COPY --from=backend /out/velora-dns /usr/local/bin/velora-dns

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, RefreshCw, ShieldBan } from "lucide-react";
 import { request, type BlocklistSource } from "../api";
 
-export function Blocklists() {
+export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
   const [sources, setSources] = useState<BlocklistSource[] | null>(null);
   const [name, setName] = useState("");
   const [url, setURL] = useState("");
@@ -69,7 +69,7 @@ export function Blocklists() {
           <button
             className="button primary"
             onClick={() => setAdding(true)}
-            disabled={busy !== null}
+            disabled={busy !== null || readOnly}
           >
             <Plus size={15} />
             Add source
@@ -184,7 +184,7 @@ export function Blocklists() {
                     <td>
                       <button
                         className="button"
-                        disabled={busy !== null}
+                        disabled={busy !== null || readOnly}
                         onClick={() => void refresh(source.id)}
                       >
                         <RefreshCw size={14} />

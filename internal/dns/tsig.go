@@ -32,9 +32,18 @@ func NewTSIGStore() *TSIGStore {
 
 // AddKey adds or updates a TSIG key.
 func (s *TSIGStore) AddKey(name, algorithm, secretB64 string) error {
+	if wire.CanonicalName(name) == "." {
+		return fmt.Errorf("TSIG key name is required")
+	}
+	if _, err := tsigAlgorithm(algorithm); err != nil {
+		return err
+	}
 	secret, err := base64.StdEncoding.DecodeString(secretB64)
 	if err != nil {
 		return fmt.Errorf("decode TSIG secret: %w", err)
+	}
+	if len(secret) == 0 {
+		return fmt.Errorf("TSIG secret is required")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -58,7 +67,11 @@ func (s *TSIGStore) GetKey(name string) (*TSIGKey, bool) {
 func (s *TSIGStore) RemoveKey(name string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.keys, wire.CanonicalName(name))
+	canonical := wire.CanonicalName(name)
+	if _, ok := s.keys[canonical]; !ok {
+		return false
+	}
+	delete(s.keys, canonical)
 	return true
 }
 

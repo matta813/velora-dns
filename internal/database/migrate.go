@@ -66,6 +66,8 @@ func (s *Store) adaptMigration(sql string) string {
 	sql = strings.ReplaceAll(sql, "INSERT OR IGNORE", "INSERT")
 	// Replace COLLATE NOCASE with case-insensitive comparison (PostgreSQL uses citext or LOWER)
 	sql = strings.ReplaceAll(sql, " COLLATE NOCASE", "")
+	// PostgreSQL uses BYTEA for arbitrary binary values such as token hashes.
+	sql = strings.ReplaceAll(sql, "BLOB", "BYTEA")
 	// Replace CHECK constraints that use boolean literals (SQLite allows 0/1, PostgreSQL prefers true/false)
 	// CHECK(enabled IN (0,1)) -> CHECK(enabled IN (false,true)) -- but this is column-specific
 	// We leave CHECK constraints as-is since PostgreSQL accepts integer comparisons too

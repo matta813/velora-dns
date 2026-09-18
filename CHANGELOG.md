@@ -59,17 +59,14 @@ All notable changes are documented here. This project uses Semantic Versioning.
 
 ### Multi-node and cluster management
 
-- Node identity, membership and health monitoring with capability negotiation.
-- Versioned configuration replication with SHA-256 hash verification.
-- Zone replication between nodes with sync monitoring.
-- Central cluster manager for multi-node management and config rollout.
+- Internal scaffolding for node identity, membership, versioned configuration,
+  zone replication and central management. These packages are not yet connected
+  to the production runtime and are not an available deployment mode.
 
 ### PostgreSQL cluster support
 
-- PostgreSQL primary/replica cluster with configurable connection pooling.
-- Cluster-aware read/write routing (writes to primary, reads from replica).
-- Health checks for primary and replica connections.
-- Node and config version persistence in cluster metadata tables.
+- Internal scaffolding for primary/replica connection pooling, routing and health
+  checks. Production PostgreSQL currently uses the single configured database URL.
 
 ### Zone import/export
 

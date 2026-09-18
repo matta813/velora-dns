@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { APIError, AuthUser, authenticate, currentUser } from "./api";
+import { AuthUserContext } from "./auth-context";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -21,5 +22,5 @@ export function AuthGate({ children }: { children: ReactNode }) {
     <label>Password<input name="password" type="password" autoComplete="current-password" required /></label>
     <button className="button" type="submit">Sign in</button>
   </form></main>;
-  return children;
+  return <AuthUserContext.Provider value={user}>{children}</AuthUserContext.Provider>;
 }

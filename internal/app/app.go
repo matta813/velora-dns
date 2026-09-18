@@ -23,9 +23,33 @@ import (
 	"github.com/matta813/velora-dns/internal/zones"
 )
 
+type transferClientAdapter struct{ client *dns.TransferClient }
+
+func (a transferClientAdapter) AXFR(ctx context.Context, zone, primaryAddr, tsigKeyName string) (*zones.TransferResult, error) {
+	result, err := a.client.AXFR(ctx, zone, dns.ParseTransferAddress(primaryAddr), tsigKeyName)
+	if result == nil {
+		return nil, err
+	}
+	return &zones.TransferResult{Records: result.Records, SOA: result.SOA, Errors: result.Errors}, err
+}
+
+func (a transferClientAdapter) IXFR(ctx context.Context, zone, primaryAddr string, serial uint32, tsigKeyName string) (*zones.TransferResult, error) {
+	result, err := a.client.IXFR(ctx, zone, dns.ParseTransferAddress(primaryAddr), serial, tsigKeyName)
+	if result == nil {
+		return nil, err
+	}
+	return &zones.TransferResult{Records: result.Records, SOA: result.SOA, Errors: result.Errors}, err
+}
+
 func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.Version) (result error) {
 	if err := c.Validate(); err != nil {
 		return err
+	}
+	tsigStore := dns.NewTSIGStore()
+	for _, key := range c.TSIG.Keys {
+		if err := tsigStore.AddKey(key.Name, key.Algorithm, key.Secret); err != nil {
+			return fmt.Errorf("load TSIG key %q: %w", key.Name, err)
+		}
 	}
 	started := time.Now()
 	initCtx, initCancel := context.WithTimeout(ctx, 5*time.Second)
@@ -60,6 +84,12 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	if err != nil {
 		return fmt.Errorf("load local zones: %w", err)
 	}
+	secondary := zones.NewSecondaryManager(local, transferClientAdapter{client: dns.NewTransferClient(tsigStore, 30*time.Second)}, logger)
+	secondary.Start(runCtx)
+	defer func() {
+		cancel()
+		secondary.Stop()
+	}()
 	rules := make([]filtering.Rule, 0, len(c.Filtering.Blocklist)+len(c.Filtering.Allowlist))
 	for _, domain := range c.Filtering.Blocklist {
 		rules = append(rules, filtering.Rule{Domain: domain, Wildcard: true, Action: filtering.Block})
@@ -176,7 +206,7 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, Version: version, Started: started}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, Version: version, Started: started, TSIG: tsigStore}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)
