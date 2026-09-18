@@ -29,8 +29,9 @@ export function Settings({ data }: { data: Snapshot }) {
         ))}
       </dl>
       <div className="notice">
-        Management authentication is planned. Keep this interface on a trusted
-        local network.
+        Management access requires an authenticated user or scoped API token.
+        Keep this interface on a trusted local network or behind an
+        authenticated tunnel.
       </div>
     </section>
   );
