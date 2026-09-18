@@ -28,7 +28,7 @@ Package boundaries:
 - `internal/metrics`: independent per-instance registry and dashboard counters
 - `internal/api`: operational HTTP contract, static web serving, TSIG/secondary zone endpoints
 - `internal/node`: node membership, health monitoring and capability negotiation
-- `internal/replication`: versioned config replication, zone replication and central cluster management
+- `internal/replication`: experimental, non-runtime scaffolding for future multi-node management
 - `web/src`: typed API client, polling, components and pages
 - `tests`: local UDP/TCP integration tests
 

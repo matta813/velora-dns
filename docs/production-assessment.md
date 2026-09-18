@@ -14,7 +14,7 @@ the stated drills are performed in the target environment.
 | DNS correctness | Conditional | Local integration tests cover supported record types, TCP fallback, EDNS, cookies, cache semantics, DNSSEC validation and TSIG-signed transfers. Production anchor lifecycle exercises remain an operator responsibility. |
 | Abuse resistance | Conditional | Global/client query limits, concurrent-work and TCP-connection caps are configured. Size them with the procedure below and monitor rejection metrics. |
 | Data durability | Conditional | SQLite and PostgreSQL persistence, migrations and WAL checkpointing are tested. Operators must complete a backup/restore drill before use. |
-| Availability | Conditional | Node membership, config/zone replication and central management are implemented. HA quorum-based writes remain a longer-term track. |
+| Availability | Not implemented | Multi-node membership, replication, central management and PostgreSQL primary/replica routing are not connected to the production runtime. Deploy a single node only. |
 
 ## Security review checklist
 
@@ -35,8 +35,8 @@ Before deployment, record the reviewer, date and result for each control:
   release publication while `RELEASE_ENABLED` remains disabled.
 - For PostgreSQL deployments, restrict network access to the database and use TLS
   connections. Validate cluster health checks and replica routing.
-- For multi-node deployments, ensure node membership is authenticated and
-  config/zone replication uses verified hashes.
+- Do not deploy Velora in a multi-node topology until membership, authenticated
+  replication, health reporting and consistency semantics are implemented and tested.
 
 ## DNS compliance regression suite
 
@@ -104,5 +104,5 @@ Before declaring availability readiness, exercise and document these scenarios:
 - restart during sustained DNS/HTTP traffic; confirm clean shutdown and recovery;
 - rate-limit exhaustion and TCP connection exhaustion; confirm only bounded metrics
   and error responses, with no high-cardinality labels;
-- network partition and node loss in multi-node deployments; confirm config/zone
-  replication handles degraded state and recovers after healing.
+- once multi-node support exists, network partition and node loss; confirm replication
+  handles degraded state and recovers after healing before enabling that mode.

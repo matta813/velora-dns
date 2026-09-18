@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted and partially implemented. Node membership, config replication, zone replication
-and central management are implemented. Full quorum-based leader election and durable
-write protocol remain for a future iteration.
+Accepted design; not implemented in the production runtime. Experimental packages exist
+for membership, replication and cluster routing, but app startup, management APIs,
+health/readiness and deployment configuration do not use them.
 
 ## Context
 
@@ -26,20 +26,19 @@ writes, originate transfers, or claim healthy control-plane membership without a
 leader quorum. Recursive forwarding remains node-local and its cache is explicitly
 outside replicated state.
 
-### Current implementation
+### Current scaffolding
 
-The following components are implemented:
+The repository contains preliminary packages for:
 
-- **Node membership**: Each node has an identity (ID, name, address, capabilities)
-  and participates in health monitoring. Nodes track peer status and last-seen timestamps.
-- **Config replication**: Configuration changes are versioned with SHA-256 hashes and
-  replicated across nodes. Each version is tracked with applied-by and applied-at metadata.
-- **Zone replication**: Zones are replicated between nodes with sync monitoring and
-  serial tracking. Replication status is observable per zone.
-- **Central management**: A cluster manager coordinates multi-node operations, tracks
-  managed nodes, and supports config rollout to all nodes.
-- **PostgreSQL cluster**: Primary/replica routing with health checks for database
-  persistence in multi-node deployments.
+- **Node membership**: identity and in-process peer-state models.
+- **Config replication**: version and SHA-256 hash models.
+- **Zone replication**: local sync-state bookkeeping.
+- **Central management**: in-process managed-node models.
+- **PostgreSQL cluster**: connection-pool and routing prototypes.
+
+None of these packages currently provides a network replication protocol, is constructed
+by `app.Run`, exposes management routes, or contributes to readiness. They must not be
+treated as an available feature.
 
 ### Future work
 
@@ -94,7 +93,6 @@ drills must retain logs, revision histories and recovery timing.
 
 ## Consequences
 
-The current application implements foundational multi-node components (membership,
-replication, central management) but does not yet enforce quorum-based leader election
-for writes. Future issues must not introduce best-effort multi-writer synchronization
+The current application is single-node. Future work must not introduce best-effort
+multi-writer synchronization
 or hide a partial replication failure behind a generic healthy status.
