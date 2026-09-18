@@ -6,7 +6,7 @@ import { RecordForm } from "../zones/RecordForm";
 import { RecordTable } from "../zones/RecordTable";
 import type { Zone, ZoneRecord } from "../zones/types";
 import "../zones/zones.css";
-export function Zones() {
+export function Zones({ readOnly = false }: { readOnly?: boolean }) {
   const state = useZones();
   const [selectedID, setSelectedID] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
@@ -23,7 +23,7 @@ export function Zones() {
   const [actionError, setActionError] = useState("");
   const selected =
     state.zones?.find((z) => z.id === selectedID) ?? state.zones?.[0];
-  const disabled = state.busy || state.loading || Boolean(state.error);
+  const disabled = readOnly || state.busy || state.loading || Boolean(state.error);
   function select(zone: Zone) {
     setSelectedID(zone.id);
     setEditor(null);
