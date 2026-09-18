@@ -3,8 +3,17 @@ package database
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestPostgresMigrationAdaptationUsesBinaryType(t *testing.T) {
+	s := &Store{driver: "postgres"}
+	adapted := s.adaptMigration("token_hash BLOB PRIMARY KEY, csrf_token BLOB NOT NULL")
+	if strings.Contains(adapted, "BLOB") || !strings.Contains(adapted, "token_hash BYTEA PRIMARY KEY") || !strings.Contains(adapted, "csrf_token BYTEA NOT NULL") {
+		t.Fatalf("unexpected PostgreSQL migration: %s", adapted)
+	}
+}
 
 func TestOpenReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "data", "test.db")

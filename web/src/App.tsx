@@ -10,6 +10,7 @@ import {
   ShieldBan,
   ScrollText,
 } from "lucide-react";
+import { useEffect } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useSnapshot } from "./useSnapshot";
 import { Dashboard } from "./pages/Dashboard";
@@ -22,6 +23,7 @@ import { logout } from "./api";
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
   const { pathname } = useLocation();
+  const signOut = () => void logout().then(() => window.location.reload());
   const title =
     pathname === "/zones"
       ? "Local zones"
@@ -34,6 +36,9 @@ export default function App() {
             : pathname === "/settings"
               ? "Settings"
               : "Network overview";
+  useEffect(() => {
+    document.title = `Velora DNS · ${title}`;
+  }, [title]);
   return (
     <div className="app">
       <a className="skip-link" href="#main">
@@ -82,6 +87,9 @@ export default function App() {
             Settings
           </NavLink>
         </nav>
+        <button className="button secondary mobile-signout" onClick={signOut}>
+          Sign out
+        </button>
         <div className="sidebar-bottom">
           <div className="privacy">
             <ShieldCheck size={18} />
@@ -97,7 +105,7 @@ export default function App() {
           <a href="https://github.com/matta813/velora-dns">
             GitHub repository <ArrowUpRight size={15} />
           </a>
-          <button className="button secondary" onClick={() => void logout().then(() => window.location.reload())}>Sign out</button>
+          <button className="button secondary" onClick={signOut}>Sign out</button>
           <small>{data?.status.version.version ?? "Connecting…"}</small>
         </div>
       </aside>
