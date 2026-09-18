@@ -23,6 +23,24 @@ import (
 	"github.com/matta813/velora-dns/internal/zones"
 )
 
+type transferClientAdapter struct{ client *dns.TransferClient }
+
+func (a transferClientAdapter) AXFR(ctx context.Context, zone, primaryAddr, tsigKeyName string) (*zones.TransferResult, error) {
+	result, err := a.client.AXFR(ctx, zone, dns.ParseTransferAddress(primaryAddr), tsigKeyName)
+	if result == nil {
+		return nil, err
+	}
+	return &zones.TransferResult{Records: result.Records, SOA: result.SOA, Errors: result.Errors}, err
+}
+
+func (a transferClientAdapter) IXFR(ctx context.Context, zone, primaryAddr string, serial uint32, tsigKeyName string) (*zones.TransferResult, error) {
+	result, err := a.client.IXFR(ctx, zone, dns.ParseTransferAddress(primaryAddr), serial, tsigKeyName)
+	if result == nil {
+		return nil, err
+	}
+	return &zones.TransferResult{Records: result.Records, SOA: result.SOA, Errors: result.Errors}, err
+}
+
 func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.Version) (result error) {
 	if err := c.Validate(); err != nil {
 		return err
@@ -66,6 +84,12 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	if err != nil {
 		return fmt.Errorf("load local zones: %w", err)
 	}
+	secondary := zones.NewSecondaryManager(local, transferClientAdapter{client: dns.NewTransferClient(tsigStore, 30*time.Second)}, logger)
+	secondary.Start(runCtx)
+	defer func() {
+		cancel()
+		secondary.Stop()
+	}()
 	rules := make([]filtering.Rule, 0, len(c.Filtering.Blocklist)+len(c.Filtering.Allowlist))
 	for _, domain := range c.Filtering.Blocklist {
 		rules = append(rules, filtering.Rule{Domain: domain, Wildcard: true, Action: filtering.Block})
