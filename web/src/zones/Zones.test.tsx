@@ -36,6 +36,13 @@ it("shows load failures without pretending the zone list is empty", async () => 
     screen.queryByText("Give your network familiar names"),
   ).not.toBeInTheDocument();
 });
+it("keeps viewer zone mutations disabled", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mock([])));
+  render(<Zones readOnly />);
+  expect(await screen.findByText("Create your first zone")).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Add zone" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Reload zones" })).toBeEnabled();
+});
 it("creates a zone and confirms deletion with its current revision", async () => {
   const fetch = vi
     .fn()
