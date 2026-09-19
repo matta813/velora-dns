@@ -1,0 +1,19 @@
+[Unit]
+Description=Velora DNS Update Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/velora/velora-updater
+Restart=on-failure
+RestartSec=10s
+NoNewPrivileges=false
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/velora /run
+SupplementaryGroups=velora
+
+[Install]
+WantedBy=multi-user.target
