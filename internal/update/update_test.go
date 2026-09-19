@@ -63,7 +63,7 @@ func TestManagerConcurrentUpdateRejected(t *testing.T) {
 		t.Fatalf("Begin: %v", err)
 	}
 
-	_, err = 	m.Begin("0.2.0", "0.3.0", "systemd", "stable")
+	_, err = m.Begin("0.2.0", "0.3.0", "systemd", "stable")
 	if err == nil {
 		t.Fatal("expected concurrent update to be rejected")
 	}
