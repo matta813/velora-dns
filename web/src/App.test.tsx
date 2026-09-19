@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
+import { withI18n } from "./test-i18n";
 afterEach(() => {
   vi.unstubAllGlobals();
   document.title = "";
@@ -13,7 +14,7 @@ it("shows connection errors without fabricated dashboard numbers", async () => {
   );
   render(
     <MemoryRouter>
-      <App />
+      {withI18n(<App />)}
     </MemoryRouter>,
   );
   expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -52,7 +53,7 @@ it("renders server counters from the operational API", async () => {
   );
   render(
     <MemoryRouter>
-      <App />
+      {withI18n(<App />)}
     </MemoryRouter>,
   );
   expect(await screen.findByText("42")).toBeInTheDocument();
@@ -104,7 +105,7 @@ it("updates the document title for the current route", async () => {
   );
   render(
     <MemoryRouter initialEntries={["/settings"]}>
-      <App />
+      {withI18n(<App />)}
     </MemoryRouter>,
   );
   expect(await screen.findByText("Server configuration")).toBeInTheDocument();

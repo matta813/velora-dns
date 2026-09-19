@@ -65,3 +65,30 @@ func TestRejectsWeakUsersAndExpiredSessions(t *testing.T) {
 		t.Fatal("expired session accepted")
 	}
 }
+
+func TestLanguagePreferenceRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(ctx, "sqlite", filepath.Join(t.TempDir(), "auth.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	user, err := store.CreateUser(ctx, "admin", "correct horse battery staple", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	language, err := store.GetLanguage(ctx, user.ID)
+	if err != nil || language != "en" {
+		t.Fatalf("default language: %v %v", language, err)
+	}
+	if err = store.SetLanguage(ctx, user.ID, "de"); err != nil {
+		t.Fatal(err)
+	}
+	language, err = store.GetLanguage(ctx, user.ID)
+	if err != nil || language != "de" {
+		t.Fatalf("updated language: %v %v", language, err)
+	}
+	if err = store.SetLanguage(ctx, user.ID, "fr"); err == nil {
+		t.Fatal("unsupported language accepted")
+	}
+}

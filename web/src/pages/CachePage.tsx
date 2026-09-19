@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Database, Eraser, Search, Zap } from "lucide-react";
 import { request, type Snapshot } from "../api";
 import { Stat } from "../components/Stat";
+import { useI18n } from "../i18n-context";
 export function CachePage({
   data,
   refresh,
@@ -11,6 +12,7 @@ export function CachePage({
   refresh: () => void;
   readOnly?: boolean;
 }) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
   async function flush() {
@@ -18,12 +20,10 @@ export function CachePage({
     setMessage("");
     try {
       await request("/api/v1/cache", undefined, "DELETE");
-      setMessage(
-        "Cache cleared. Local zones remain active; other queries will use upstream resolvers.",
-      );
+      setMessage(t("cache.cleared"));
       refresh();
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Cache flush failed");
+      setMessage(e instanceof Error ? e.message : t("cache.flush_failed"));
     } finally {
       setBusy(false);
     }
@@ -32,34 +32,31 @@ export function CachePage({
     <>
       <div className="stats">
         <Stat
-          label="Live entries"
+          label={t("cache.live_entries")}
           value={String(data.cache.entries)}
-          note={`Capacity: ${data.cache.capacity}`}
+          note={`${t("cache.capacity")}: ${data.cache.capacity}`}
           icon={<Database size={17} />}
         />
         <Stat
-          label="Cache hits"
+          label={t("cache.hits")}
           value={String(data.cache.hits)}
-          note="Since process startup"
+          note={t("cache.since_startup")}
           icon={<Zap size={17} />}
         />
         <Stat
-          label="Cache misses"
+          label={t("cache.misses")}
           value={String(data.cache.misses)}
-          note="Includes uncacheable requests"
+          note={t("cache.includes_uncacheable")}
           icon={<Search size={17} />}
         />
       </div>
       <section className="panel padded">
-        <h2>Memory cache</h2>
+        <h2>{t("cache.memory_cache")}</h2>
         <p>
-          Answers expire according to their DNS TTL. Least recently used entries
-          are removed when capacity is reached. Cache contents are never stored
-          in SQLite.
+          {t("cache.description")}
         </p>
         <p>
-          Clearing the cache removes all current answers. Lifetime hit and miss
-          counters are retained.
+          {t("cache.clear_description")}
         </p>
         <button
           className="button danger"
@@ -67,7 +64,7 @@ export function CachePage({
           onClick={() => void flush()}
         >
           <Eraser size={16} />
-          {busy ? "Clearing…" : "Clear cache"}
+          {busy ? t("cache.clearing") : t("cache.clear")}
         </button>
         {message && <p role="status">{message}</p>}
       </section>

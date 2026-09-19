@@ -1,6 +1,7 @@
 import { Database, CheckCircle, XCircle, AlertTriangle, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { request } from "../api";
+import { useI18n } from "../i18n-context";
 
 interface BackupStatus {
   last_backup_time?: string;
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function BackupAssistant({ readOnly }: Props) {
+  const { t } = useI18n();
   const [status, setStatus] = useState<BackupStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,14 +41,14 @@ export function BackupAssistant({ readOnly }: Props) {
         setError(null);
       } catch (e) {
         if (!controller.signal.aborted)
-          setError(e instanceof Error ? e.message : "Failed to load backup status");
+          setError(e instanceof Error ? e.message : t("backup.load_failed"));
       } finally {
         setLoading(false);
       }
     }
     void load();
     return () => controller.abort();
-  }, []);
+  }, [t]);
 
   const handleVerify = async () => {
     if (!verifyPath.trim()) return;
@@ -62,7 +64,7 @@ export function BackupAssistant({ readOnly }: Props) {
         valid: false,
         schema_version: 0,
         record_count: 0,
-        error: e instanceof Error ? e.message : "Verification failed",
+        error: e instanceof Error ? e.message : t("backup.verify_failed"),
       });
     } finally {
       setVerifying(false);
@@ -70,13 +72,13 @@ export function BackupAssistant({ readOnly }: Props) {
   };
 
   if (loading) {
-    return <div className="panel padded">Loading backup status...</div>;
+    return <div className="panel padded">{t("backup.loading")}</div>;
   }
 
   return (
     <div>
       <div className="panel padded">
-        <h2>Backup Status</h2>
+        <h2>{t("backup.status_title")}</h2>
         {error && (
           <div className="notice error" role="alert">
             {error}
@@ -86,38 +88,38 @@ export function BackupAssistant({ readOnly }: Props) {
           <div style={{ display: "grid", gap: "1rem" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <Database size={18} />
-              <strong>Database: {status.database_path}</strong>
+              <strong>{t("backup.database")} {status.database_path}</strong>
             </div>
             {status.last_backup_time ? (
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <CheckCircle size={18} style={{ color: "var(--success, #22c55e)" }} />
                 <span>
-                  Last backup: {new Date(status.last_backup_time).toLocaleString()}
+                  {t("backup.last_backup")} {new Date(status.last_backup_time).toLocaleString()}
                   {status.backup_age && ` (${status.backup_age})`}
                 </span>
               </div>
             ) : (
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <AlertTriangle size={18} style={{ color: "var(--warning, #f59e0b)" }} />
-                <span>No backup recorded yet</span>
+                <span>{t("backup.no_backup")}</span>
               </div>
             )}
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <Clock size={18} />
-              <span>Verification state: {status.verification_state}</span>
+              <span>{t("backup.verification_state")} {status.verification_state}</span>
             </div>
           </div>
         )}
       </div>
 
       <div className="panel padded" style={{ marginTop: "1rem" }}>
-        <h2>Verify Backup</h2>
+        <h2>{t("backup.verify_title")}</h2>
         <p style={{ opacity: 0.7, marginBottom: "1rem" }}>
-          Restore a backup into an isolated temporary location and verify its integrity.
+          {t("backup.verify_text")}
         </p>
         {readOnly ? (
           <div className="notice" role="status">
-            You are signed in as a viewer. Backup verification is read-only.
+            {t("backup.viewer_readonly")}
           </div>
         ) : (
           <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -133,7 +135,7 @@ export function BackupAssistant({ readOnly }: Props) {
               onClick={handleVerify}
               disabled={verifying || !verifyPath.trim()}
             >
-              {verifying ? "Verifying..." : "Verify"}
+              {verifying ? t("backup.verifying") : t("backup.verify")}
             </button>
           </div>
         )}
@@ -154,11 +156,11 @@ export function BackupAssistant({ readOnly }: Props) {
               ) : (
                 <XCircle size={18} style={{ color: "var(--error, #ef4444)" }} />
               )}
-              <strong>{verificationResult.valid ? "Backup is valid" : "Backup is invalid"}</strong>
+              <strong>{verificationResult.valid ? t("backup.valid") : t("backup.invalid")}</strong>
             </div>
             {verificationResult.valid ? (
               <div style={{ marginTop: "0.5rem", fontSize: "0.85rem", opacity: 0.7 }}>
-                Schema version: {verificationResult.schema_version} | Records:{" "}
+                {t("backup.schema_version")} {verificationResult.schema_version} | {t("backup.records")}{" "}
                 {verificationResult.record_count}
               </div>
             ) : (
@@ -171,10 +173,10 @@ export function BackupAssistant({ readOnly }: Props) {
       </div>
 
       <div className="panel padded" style={{ marginTop: "1rem" }}>
-        <h2>Backup Instructions</h2>
+        <h2>{t("backup.instructions")}</h2>
         <div style={{ display: "grid", gap: "1rem", fontSize: "0.9rem" }}>
           <div>
-            <h3 style={{ marginBottom: "0.5rem" }}>Native Installation</h3>
+            <h3 style={{ marginBottom: "0.5rem" }}>{t("backup.native")}</h3>
             <pre style={{ padding: "1rem", borderRadius: "6px", backgroundColor: "var(--code-bg, #111827)", overflow: "auto" }}>
 {`# Stop the service
 sudo systemctl stop velora-dns
@@ -187,7 +189,7 @@ sudo systemctl start velora-dns`}
             </pre>
           </div>
           <div>
-            <h3 style={{ marginBottom: "0.5rem" }}>Docker Compose</h3>
+            <h3 style={{ marginBottom: "0.5rem" }}>{t("backup.docker")}</h3>
             <pre style={{ padding: "1rem", borderRadius: "6px", backgroundColor: "var(--code-bg, #111827)", overflow: "auto" }}>
 {`# Stop the container
 docker compose stop velora
@@ -201,7 +203,7 @@ docker compose start velora`}
             </pre>
           </div>
           <div>
-            <h3 style={{ marginBottom: "0.5rem" }}>Online Backup (SQLite)</h3>
+            <h3 style={{ marginBottom: "0.5rem" }}>{t("backup.online")}</h3>
             <pre style={{ padding: "1rem", borderRadius: "6px", backgroundColor: "var(--code-bg, #111827)", overflow: "auto" }}>
 {`# Use SQLite backup API for consistent online backup
 sqlite3 /var/lib/velora/velora.db \\
