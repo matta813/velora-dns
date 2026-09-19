@@ -40,6 +40,7 @@ type AgentConfig struct {
 	WebDir       string
 	Repository   string
 	ReadinessURL string
+	Channel      string
 	Timeout      time.Duration
 	Logger       *slog.Logger
 }
@@ -54,6 +55,7 @@ func main() {
 		WebDir:       envOrDefault("VELORA_WEB_DIR", defaultWebDir),
 		Repository:   envOrDefault("VELORA_REPOSITORY", "matta813/velora-dns"),
 		ReadinessURL: envOrDefault("VELORA_READINESS_URL", "http://127.0.0.1:8080/ready"),
+		Channel:      envOrDefault("VELORA_CHANNEL", "stable"),
 		Timeout:      10 * time.Minute,
 		Logger:       logger,
 	}

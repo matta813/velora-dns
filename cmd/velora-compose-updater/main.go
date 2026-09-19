@@ -28,6 +28,7 @@ type AgentConfig struct {
 	Repository     string
 	ReadinessURL   string
 	StateFile      string
+	Channel        string
 	Timeout        time.Duration
 	Logger         *slog.Logger
 }
@@ -43,6 +44,7 @@ func main() {
 		Repository:     envOrDefault("VELORA_REPOSITORY", "matta813/velora-dns"),
 		ReadinessURL:   envOrDefault("VELORA_READINESS_URL", defaultReadinessURL),
 		StateFile:      envOrDefault("VELORA_UPDATE_STATE_FILE", defaultStateFile),
+		Channel:        envOrDefault("VELORA_CHANNEL", "stable"),
 		Timeout:        10 * time.Minute,
 		Logger:         logger,
 	}

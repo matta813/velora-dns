@@ -96,7 +96,7 @@ func (a *Agent) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentVersion := a.readCurrentVersion()
-	entry, err := a.manager.Begin(currentVersion, "latest", "compose")
+	entry, err := a.manager.Begin(currentVersion, "latest", "compose", a.config.Channel)
 	if err != nil {
 		a.writeJSON(w, 409, updateResponse{Status: "busy", Error: err.Error()})
 		return
