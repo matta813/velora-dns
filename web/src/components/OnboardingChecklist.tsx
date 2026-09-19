@@ -19,34 +19,38 @@ interface ChecklistItem {
 export function OnboardingChecklist() {
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(
+    () => localStorage.getItem("velora_onboarding_dismissed") === "true",
+  );
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
-    try {
-      const [s, snap] = await Promise.all([
-        fetch("/api/v1/onboarding/status").then((r) => r.json()).then((d: { data: OnboardingStatus }) => d.data),
-        loadSnapshot(new AbortController().signal),
-      ]);
-      setStatus(s);
-      setSnapshot(snap);
-    } catch {
-      // Silently handle errors for onboarding
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const refresh = useCallback(() => setLoading((v) => v), []);
 
   useEffect(() => {
-    refresh();
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      try {
+        const [s, snap] = await Promise.all([
+          fetch("/api/v1/onboarding/status").then((r) => r.json()).then((d: { data: OnboardingStatus }) => d.data),
+          loadSnapshot(controller.signal),
+        ]);
+        if (controller.signal.aborted) return;
+        setStatus(s);
+        setSnapshot(snap);
+      } catch {
+        // Silently handle errors for onboarding
+      } finally {
+        setLoading(false);
+        if (!controller.signal.aborted) timer = setTimeout(poll, 30000);
+      }
+    }
+    void poll();
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
   }, [refresh]);
-
-  useEffect(() => {
-    const dismissedKey = "velora_onboarding_dismissed";
-    if (localStorage.getItem(dismissedKey) === "true") {
-      setDismissed(true);
-    }
-  }, []);
 
   const handleDismiss = () => {
     localStorage.setItem("velora_onboarding_dismissed", "true");

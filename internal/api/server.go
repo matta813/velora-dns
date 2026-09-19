@@ -33,20 +33,20 @@ type Version struct {
 	Built   string `json:"built"`
 }
 type Dependencies struct {
-	Database    Database
-	Zones       ZoneStore
-	Filtering   BlocklistStore
-	Queries     QueryStore
-	Auth        AuthStore
-	DNS         DNS
-	Cache       *cache.Cache
-	Metrics     *metrics.Metrics
-	Config      config.Config
-	Version     Version
-	Started     time.Time
-	TSIG        TSIGStore
-	Update      UpdateStore
-	Onboarding  OnboardingStore
+	Database   Database
+	Zones      ZoneStore
+	Filtering  BlocklistStore
+	Queries    QueryStore
+	Auth       AuthStore
+	DNS        DNS
+	Cache      *cache.Cache
+	Metrics    *metrics.Metrics
+	Config     config.Config
+	Version    Version
+	Started    time.Time
+	TSIG       TSIGStore
+	Update     UpdateStore
+	Onboarding OnboardingStore
 }
 type Error struct {
 	Code    string `json:"code"`
