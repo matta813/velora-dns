@@ -28,7 +28,9 @@ curl -fsSL https://raw.githubusercontent.com/matta813/velora-dns/main/scripts/in
 
 The checkout is stored in `/opt/velora/compose`; set `VELORA_INSTALL_DIR` before the
 command to use a different empty directory. To review or customize the source first,
-clone the repository and run `./scripts/install-compose.sh` from its root.
+clone the repository and run `./scripts/install-compose.sh` from its root. The installer
+asks for an update channel plus whether the Web UI and DNS should remain local or be
+available on the LAN.
 
 ### Direct system installation (systemd Linux)
 
@@ -42,7 +44,9 @@ curl -fsSL https://raw.githubusercontent.com/matta813/velora-dns/main/scripts/in
 
 The source checkout is stored in `/opt/velora/source`; set `VELORA_INSTALL_DIR` before
 the command to use a different empty directory. For a manually prepared development
-environment, run `./scripts/install-system.sh` from a local checkout instead.
+environment, run `./scripts/install-system.sh` from a local checkout instead. The
+installer asks for an update channel plus whether the Web UI and DNS should remain local
+or be available on the LAN.
 
 Both paths bind DNS and the management UI to loopback by default. Open
 [localhost:8080](http://localhost:8080). For the direct system install, verify DNS and
