@@ -1,9 +1,12 @@
 import type { Snapshot } from "../api";
 import { SUPPORTED_LANGUAGES, languageName, type Language } from "../i18n";
 import { useI18n } from "../i18n-context";
+import { themeLabel, SUPPORTED_THEMES, type Theme } from "../theme";
+import { useTheme } from "../theme-context";
 
 export function Settings({ data }: { data: Snapshot }) {
   const { t, language, setLanguage } = useI18n();
+  const { theme, setTheme } = useTheme();
   const rows: [string, string][] = [
     [t("settings.dns_listeners"), data.status.dns_listen.join(", ")],
     [t("settings.allowed_clients"), data.config.dns.allowed_clients.join(", ")],
@@ -35,7 +38,21 @@ export function Settings({ data }: { data: Snapshot }) {
             ))}
           </select>
         </label>
+        <label>
+          {t("settings.theme")}
+          <select
+            value={theme}
+            onChange={(e) => setTheme(e.target.value as Theme)}
+          >
+            {SUPPORTED_THEMES.map((code) => (
+              <option key={code} value={code}>
+                {themeLabel(code)}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
+      <p className="panel-footnote">{t("settings.theme_hint")}</p>
       <dl className="settings-list">
         {rows.map(([label, value]) => (
           <div key={label}>
