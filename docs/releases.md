@@ -129,3 +129,93 @@ Or build both architectures:
 ./scripts/verify-release-checksums.sh dist-bundles
 ./scripts/generate-checksums-manifest.sh dist-bundles dist-bundles/CHECKSUMS.sha256
 ```
+
+## Transactional updates
+
+All update mechanisms (systemd agent, Compose agent) follow a shared transactional contract
+defined in `internal/update/update.go`. This ensures consistent behavior regardless of the
+deployment mode.
+
+### Update states
+
+```
+idle → downloading → verifying → installing → readiness → completed
+                      ↓            ↓            ↓
+                     failed       failed      rolled_back
+                                              (→ completed after rollback)
+```
+
+### State transitions
+
+| From          | Allowed transitions                |
+|---------------|-------------------------------------|
+| `idle`        | `downloading`                       |
+| `downloading` | `verifying`, `failed`               |
+| `verifying`   | `installing`, `failed`              |
+| `installiness`| `readiness`, `failed`               |
+| `readiness`   | `completed`, `rolled_back`, `failed`|
+
+### Readiness gates
+
+After installation, the updater waits for the service to become ready before declaring
+success. The readiness check interval and timeout are configurable:
+
+- **ReadinessTimeout**: Maximum wait time (default: 5 minutes)
+- **ReadinessInterval**: Check interval (default: 5 seconds)
+
+If readiness fails or times out, the updater automatically rolls back to the previous
+version.
+
+### Durable state
+
+Update state is persisted to disk (default: `/var/lib/velora/update-state.json`) so that
+in-progress updates can be recovered after a process restart. The state file includes:
+
+- Current update entry (if in progress)
+- Update history (bounded to `MaxHistory` entries)
+
+### Update history
+
+Every update attempt is recorded in the history with:
+
+- Timestamps (started, completed)
+- Version transition (from → to)
+- Final state and any error messages
+- Whether rollback was used
+- Deployment mode (systemd, compose)
+
+### CLI tool
+
+The `updatectl` command provides a CLI for interacting with the update manager:
+
+```bash
+# Check current status
+updatectl status
+
+# Begin an update
+updatectl begin 0.1.0 0.2.0 systemd
+
+# Transition state
+updatectl transition <ID> verifying
+updatectl transition <ID> installing
+
+# Mark completion or failure
+updatectl complete <ID>
+updatectl fail <ID> "checksum mismatch"
+updatectl rollback <ID>
+
+# View history
+updatectl history
+```
+
+### Integration tests
+
+The update manager includes comprehensive tests covering:
+
+- Successful update flow (all states)
+- Concurrent update rejection
+- Invalid state transitions
+- Failure and rollback
+- History pruning with MaxHistory
+- State persistence and recovery
+- Readiness configuration
