@@ -47,6 +47,7 @@ type Dependencies struct {
 	TSIG       TSIGStore
 	Update     UpdateStore
 	Onboarding OnboardingStore
+	Backup     BackupStore
 }
 type Error struct {
 	Code    string `json:"code"`
@@ -94,6 +95,9 @@ func New(d Dependencies) http.Handler {
 	}
 	if d.Onboarding != nil {
 		registerOnboarding(mux, d.Onboarding, d.Config)
+	}
+	if d.Backup != nil {
+		registerBackup(mux, d.Backup)
 	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
