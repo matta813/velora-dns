@@ -19,25 +19,37 @@ export function UpdateCenter({ readOnly }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [requesting, setRequesting] = useState(false);
   const [requestMessage, setRequestMessage] = useState<string | null>(null);
+  const [revision, setRevision] = useState(0);
 
-  const refresh = useCallback(async () => {
-    try {
-      const [s, h] = await Promise.all([loadUpdateStatus(), loadUpdateHistory()]);
-      setStatus(s);
-      setHistory(h);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load update status");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const refresh = useCallback(() => setRevision((v) => v + 1), []);
 
   useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, 10000);
-    return () => clearInterval(interval);
-  }, [refresh]);
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      try {
+        const [s, h] = await Promise.all([
+          loadUpdateStatus(controller.signal),
+          loadUpdateHistory(controller.signal),
+        ]);
+        if (controller.signal.aborted) return;
+        setStatus(s);
+        setHistory(h);
+        setError(null);
+      } catch (e) {
+        if (!controller.signal.aborted)
+          setError(e instanceof Error ? e.message : "Failed to load update status");
+      } finally {
+        setLoading(false);
+        if (!controller.signal.aborted) timer = setTimeout(poll, 10000);
+      }
+    }
+    void poll();
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [revision]);
 
   const handleRequestUpdate = async () => {
     if (!confirm("Are you sure you want to request an update?")) return;
@@ -46,7 +58,7 @@ export function UpdateCenter({ readOnly }: Props) {
     try {
       const result = await requestUpdate();
       setRequestMessage(result.message);
-      await refresh();
+      refresh();
     } catch (e) {
       setRequestMessage(e instanceof Error ? e.message : "Failed to request update");
     } finally {
