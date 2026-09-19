@@ -82,17 +82,24 @@ CGO_ENABLED=0 go build -trimpath -o bin/velora-dns ./cmd/server
 
 bootstrap_user=${VELORA_BOOTSTRAP_USERNAME:-admin}
 bootstrap_password=${VELORA_BOOTSTRAP_PASSWORD:-}
-if [ -z "$bootstrap_password" ]; then
+if sudo test -f /etc/velora/velora.env; then
+  existing_bootstrap_env=true
+  generated_password=false
+elif [ -z "$bootstrap_password" ]; then
+  existing_bootstrap_env=false
   command -v openssl >/dev/null 2>&1 || die "openssl is required to generate a bootstrap password (or set VELORA_BOOTSTRAP_PASSWORD)"
   bootstrap_password=$(openssl rand -base64 24)
   generated_password=true
 else
+  existing_bootstrap_env=false
   generated_password=false
 fi
-[ "${#bootstrap_password}" -ge 12 ] || die "VELORA_BOOTSTRAP_PASSWORD must be at least 12 characters"
-case "$bootstrap_user:$bootstrap_password" in
-  *[!A-Za-z0-9._+/@=:-]*) die "bootstrap credentials may contain only letters, numbers, . _ + / @ = : and -" ;;
-esac
+if [ "$existing_bootstrap_env" = false ]; then
+  [ "${#bootstrap_password}" -ge 12 ] || die "VELORA_BOOTSTRAP_PASSWORD must be at least 12 characters"
+  case "$bootstrap_user:$bootstrap_password" in
+    *[!A-Za-z0-9._+/@=:-]*) die "bootstrap credentials may contain only letters, numbers, . _ + / @ = : and -" ;;
+  esac
+fi
 
 sudo install -d -o root -g root -m 0755 /opt/velora
 if ! getent group velora >/dev/null; then
@@ -208,7 +215,9 @@ fi
 sudo systemctl --no-pager --full status velora-dns
 
 printf '%s\n' "Velora DNS is running. Open http://${http_host}:8080"
-if [ "$generated_password" = true ]; then
+if [ "$existing_bootstrap_env" = true ]; then
+  printf '%s\n' 'Existing bootstrap credentials were retained; no password was changed or displayed.'
+elif [ "$generated_password" = true ]; then
   printf '%s\n' "Bootstrap username: $bootstrap_user"
   printf '%s\n' "Bootstrap password: $bootstrap_password"
   printf '%s\n' 'Store this password now; it is saved in /etc/velora/velora.env for the first start only.'
