@@ -128,6 +128,11 @@ http:
 database_path: /var/lib/velora/velora.db
 log_level: info
 EOF
+else
+  sudo sed -i "/listen:.*53/s|listen: .*|listen: ['$dns_host:53']|" /etc/velora/config.yaml
+  sudo sed -i "/listen:.*8080/s|listen: .*|listen: '$http_host:8080'|" /etc/velora/config.yaml
+  sudo sed -i "s|allowed_hosts: .*|allowed_hosts: $http_allowed_hosts|" /etc/velora/config.yaml
+  printf '%s\n' 'Existing config.yaml updated with new listen addresses.'
 fi
 sudo chown root:velora /etc/velora/config.yaml
 sudo chmod 0640 /etc/velora/config.yaml
