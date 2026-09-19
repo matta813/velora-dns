@@ -12,32 +12,37 @@ Velora DNS is an independent, self-hosted DNS server built in Go, with a clean R
 
 ## Quick start
 
-Clone the repository, then choose one installation path. Both installers create the
-initial `admin` account with a generated password unless you provide
+Choose one installation path. Both installers create the initial `admin` account with a
+generated password unless you provide
 `VELORA_BOOTSTRAP_PASSWORD`; save the printed password immediately.
-
-```bash
-git clone https://github.com/matta813/velora-dns.git
-cd velora-dns
-```
 
 ### Docker Compose (Debian or Ubuntu)
 
-Installs Docker Engine and its Compose plugin from Docker's official APT repository when
-needed, then builds and starts Velora in the hardened local Compose configuration:
+On Debian or Ubuntu, this single command downloads Velora DNS, installs Docker Engine and
+its Compose plugin when needed, then builds and starts the hardened local Compose
+configuration:
 
 ```bash
-./scripts/install-compose.sh
+curl -fsSL https://raw.githubusercontent.com/matta813/velora-dns/main/scripts/install-compose.sh | sh
 ```
+
+The checkout is stored in `/opt/velora/compose`; set `VELORA_INSTALL_DIR` before the
+command to use a different empty directory. To review or customize the source first,
+clone the repository and run `./scripts/install-compose.sh` from its root.
 
 ### Direct system installation (systemd Linux)
 
-Requires Go 1.27.1+, Node.js 24+, npm and `sudo`. It builds the application, installs a
-dedicated `velora` service account, and starts a hardened systemd service on DNS port 53:
+On Debian or Ubuntu, this single command downloads Velora DNS and installs Go 1.27.1+,
+Node.js 24+, npm and the systemd service. It then builds the application, creates a
+dedicated `velora` service account, and starts DNS on port 53:
 
 ```bash
-./scripts/install-system.sh
+curl -fsSL https://raw.githubusercontent.com/matta813/velora-dns/main/scripts/install-system-bootstrap.sh | sh
 ```
+
+The source checkout is stored in `/opt/velora/source`; set `VELORA_INSTALL_DIR` before
+the command to use a different empty directory. For a manually prepared development
+environment, run `./scripts/install-system.sh` from a local checkout instead.
 
 Both paths bind DNS and the management UI to loopback by default. Open
 [localhost:8080](http://localhost:8080). For the direct system install, verify DNS and

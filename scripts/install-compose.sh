@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Install Docker Engine with the Compose plugin, then start this checkout.
+# Install Docker Engine with the Compose plugin, then start Velora DNS.
 set -eu
 
 die() {
@@ -15,7 +15,21 @@ case "${ID:-}" in
   *) die "only Debian and Ubuntu are supported by this installer" ;;
 esac
 
-repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -f "$script_dir/../docker-compose.yml" ]; then
+  repo_dir=$(CDPATH= cd -- "$script_dir/.." && pwd)
+else
+  # The script may be run directly from GitHub with curl. Fetch a checkout so
+  # Compose has the Dockerfile, configuration, and application sources to build.
+  repo_dir=${VELORA_INSTALL_DIR:-/opt/velora/compose}
+  if [ ! -e "$repo_dir" ]; then
+    printf '%s\n' "Downloading Velora DNS into $repo_dir…"
+    sudo apt-get update
+    sudo apt-get install -y git
+    sudo git clone --depth 1 https://github.com/matta813/velora-dns.git "$repo_dir"
+  fi
+  [ -f "$repo_dir/docker-compose.yml" ] || die "$repo_dir is not a Velora DNS checkout; set VELORA_INSTALL_DIR to an empty directory or a checkout"
+fi
 cd "$repo_dir"
 
 if ! docker compose version >/dev/null 2>&1; then
