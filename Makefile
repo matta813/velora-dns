@@ -34,11 +34,15 @@ check: lint test build release-test
 release-test:
 	SKIP_REMOTE_CHECK=true ./scripts/validate-release.sh RELEASE
 	./scripts/test-release.sh
+	./scripts/test-release-channel.sh
 	./scripts/test-release-notes.sh
 	./scripts/test-release-announcement.sh
 	python3 scripts/test-weekly-growth-report.py
 	./scripts/test-github-workflows.sh
 	python3 scripts/check-markdown-links.py
+
+release-bundle:
+	./scripts/build-release-bundle.sh $(VERSION) $(ARCH) dist-bundles
 
 docker-build:
 	docker build -t velora-dns:local .

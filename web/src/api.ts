@@ -147,3 +147,42 @@ export async function loadSnapshot(signal: AbortSignal): Promise<Snapshot> {
   ]);
   return { status, stats, cache, config, checked: new Date() };
 }
+
+export interface UpdateStatus {
+  state: string;
+  installed: string;
+  from_version?: string;
+  to_version?: string;
+  channel?: string;
+  started_at?: string;
+  last_completed?: string;
+  updating: boolean;
+}
+
+export interface UpdateEntry {
+  id: string;
+  started_at: string;
+  completed_at?: string;
+  from_version: string;
+  to_version: string;
+  channel?: string;
+  state: string;
+  error?: string;
+  readiness_ok: boolean;
+  rollback_used: boolean;
+  deployment_mode: string;
+}
+
+export async function loadUpdateStatus(signal?: AbortSignal): Promise<UpdateStatus> {
+  return request<UpdateStatus>("/api/v1/update/status", signal);
+}
+
+export async function loadUpdateHistory(signal?: AbortSignal): Promise<UpdateEntry[]> {
+  return request<UpdateEntry[]>("/api/v1/update/history", signal);
+}
+
+export async function requestUpdate(signal?: AbortSignal): Promise<{ status: string; message: string }> {
+  return request<{ status: string; message: string }>("/api/v1/update/request", signal, "POST", {
+    body: { action: "update" },
+  });
+}

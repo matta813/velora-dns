@@ -10,6 +10,55 @@ Velora DNS is an independent, self-hosted DNS server built in Go, with a clean R
 [![CodeQL](https://github.com/matta813/velora-dns/actions/workflows/codeql.yml/badge.svg)](https://github.com/matta813/velora-dns/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+## Quick start
+
+Choose one installation path. Both installers create the initial `admin` account with a
+generated password unless you provide
+`VELORA_BOOTSTRAP_PASSWORD`; save the printed password immediately.
+
+### Docker Compose (Debian or Ubuntu)
+
+On Debian or Ubuntu, this single command downloads Velora DNS, installs Docker Engine and
+its Compose plugin when needed, then builds and starts the hardened local Compose
+configuration:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/matta813/velora-dns/main/scripts/install-compose.sh | sh
+```
+
+The checkout is stored in `/opt/velora/compose`; set `VELORA_INSTALL_DIR` before the
+command to use a different empty directory. To review or customize the source first,
+clone the repository and run `./scripts/install-compose.sh` from its root.
+
+### Direct system installation (systemd Linux)
+
+On Debian or Ubuntu, this single command downloads Velora DNS and installs Go 1.27.1+,
+Node.js 24+, npm and the systemd service. It then builds the application, creates a
+dedicated `velora` service account, and starts DNS on port 53:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/matta813/velora-dns/main/scripts/install-system-bootstrap.sh | sh
+```
+
+The source checkout is stored in `/opt/velora/source`; set `VELORA_INSTALL_DIR` before
+the command to use a different empty directory. For a manually prepared development
+environment, run `./scripts/install-system.sh` from a local checkout instead.
+
+Both paths bind DNS and the management UI to loopback by default. Open
+[localhost:8080](http://localhost:8080). For the direct system install, verify DNS and
+readiness with:
+
+```bash
+dig @127.0.0.1 -p 53 google.com A
+dig @127.0.0.1 -p 53 google.com A +tcp
+curl http://127.0.0.1:8080/ready
+```
+
+The Compose service uses host port `5353`, so use `dig @127.0.0.1 -p 5353 google.com A`
+instead. For LAN access, standard ports with Compose, upgrades and backups, read the
+[deployment guide](docs/deployment.md). Never expose a recursive resolver before
+restricting its client CIDRs and host firewall.
+
 ![Velora DNS operational dashboard](docs/assets/overview.png)
 
 <p align="center">
@@ -22,38 +71,7 @@ Velora DNS is an independent, self-hosted DNS server built in Go, with a clean R
 
 > **Development foundation, not a production release.** Forwarding, cache, lifecycle, authenticated operational API, dashboard, SQLite/PostgreSQL persistence, local authoritative zones, secondary zones with AXFR/IXFR transfers, TSIG authentication, blocklists, opt-in query history, metrics, DNS-over-TLS, DNS-over-HTTPS, DNS-over-QUIC, DNSSEC validation, users/roles, API tokens and zone import/export are implemented. Multi-node and PostgreSQL primary/replica cluster packages are experimental scaffolding and are not connected to the production runtime. No releases or published images have been created.
 
-## Quick start
-
-Requires Docker Engine and Compose v2:
-
-```bash
-git clone https://github.com/matta813/velora-dns.git
-cd velora-dns
-VELORA_BOOTSTRAP_USERNAME=admin \
-VELORA_BOOTSTRAP_PASSWORD='replace-with-a-long-unique-password' \
-docker compose up --build -d
-```
-
-Open [localhost:8080](http://localhost:8080). Test both DNS transports:
-
-```bash
-dig @127.0.0.1 -p 5353 google.com A
-dig @127.0.0.1 -p 5353 google.com A +tcp
-curl http://127.0.0.1:8080/ready
-```
-
-The bootstrap credentials are consumed only when the database has no users. Without
-them the resolver starts with management locked, allowing health-only container checks.
-They are never returned by the configuration API; remove them from the environment after
-the first successful start and sign in through the UI.
-
-For a cache demonstration, send the same query twice with `+nocookie`; requests carrying client-specific EDNS options intentionally bypass the shared cache.
-
-Optional [query history](docs/query-logging.md) is available in the dashboard. Start Compose
-with `VELORA_QUERY_LOG_ENABLED=true docker compose up --build -d` to retain future queries
-with bounded age and row count.
-
-The Compose file builds locally, publishes only on host loopback, runs as UID 10001, drops capabilities and mounts a persistent data volume. Nothing is pulled from an unpublished project registry. See [deployment](docs/deployment.md) for LAN access, standard port 53, upgrades and backup.
+For a cache demonstration, send the same query twice with `+nocookie`; requests carrying client-specific EDNS options intentionally bypass the shared cache. Optional [query history](docs/query-logging.md) is available in the dashboard; set `VELORA_QUERY_LOG_ENABLED=true` before a Compose start to retain future queries with bounded age and row count.
 
 ## Capabilities
 

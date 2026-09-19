@@ -9,6 +9,8 @@ import {
   ShieldCheck,
   ShieldBan,
   ScrollText,
+  Download,
+  HardDrive,
 } from "lucide-react";
 import { useEffect } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
@@ -19,6 +21,8 @@ import { Settings } from "./pages/Settings";
 import { Zones } from "./pages/Zones";
 import { QueryLog } from "./pages/QueryLog";
 import { Blocklists } from "./pages/Blocklists";
+import { UpdateCenter } from "./pages/UpdateCenter";
+import { BackupAssistant } from "./pages/BackupAssistant";
 import { logout } from "./api";
 import { useAuthUser } from "./auth-context";
 export default function App() {
@@ -38,7 +42,11 @@ export default function App() {
             ? "DNS cache"
             : pathname === "/settings"
               ? "Settings"
-              : "Network overview";
+              : pathname === "/updates"
+                ? "Updates"
+                : pathname === "/backup"
+                  ? "Backup & Restore"
+                  : "Network overview";
   useEffect(() => {
     document.title = `Velora DNS · ${title}`;
   }, [title]);
@@ -88,6 +96,14 @@ export default function App() {
           <NavLink to="/settings">
             <Settings2 size={18} />
             Settings
+          </NavLink>
+          <NavLink to="/updates">
+            <Download size={18} />
+            Updates
+          </NavLink>
+          <NavLink to="/backup">
+            <HardDrive size={18} />
+            Backup
           </NavLink>
         </nav>
         <button className="button secondary mobile-signout" onClick={signOut}>
@@ -187,6 +203,8 @@ export default function App() {
               />
               <Route path="/blocklists" element={<Blocklists readOnly={readOnly} />} />
               <Route path="/settings" element={<Settings data={data} />} />
+              <Route path="/updates" element={<UpdateCenter readOnly={readOnly} />} />
+              <Route path="/backup" element={<BackupAssistant readOnly={readOnly} />} />
               <Route path="*" element={<p>Page not found.</p>} />
             </Routes>
           )}
