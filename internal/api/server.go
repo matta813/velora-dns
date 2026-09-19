@@ -45,6 +45,7 @@ type Dependencies struct {
 	Version   Version
 	Started   time.Time
 	TSIG      TSIGStore
+	Update    UpdateStore
 }
 type Error struct {
 	Code    string `json:"code"`
@@ -85,6 +86,10 @@ func New(d Dependencies) http.Handler {
 	if d.Queries != nil {
 		registerQueries(mux, d.Queries, d.Config.QueryLog.Enabled)
 		capabilities = append(capabilities, "query_logging")
+	}
+	if d.Update != nil {
+		registerUpdate(mux, d.Update, d.Version)
+		capabilities = append(capabilities, "updates")
 	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
