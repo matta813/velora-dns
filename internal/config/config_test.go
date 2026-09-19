@@ -60,6 +60,13 @@ func TestRejectInvalid(t *testing.T) {
 		t.Fatal("accepted invalid environment")
 	}
 }
+
+func TestWildcardHTTPHostIsAccepted(t *testing.T) {
+	c, err := Parse([]byte("http:\n  listen: 0.0.0.0:8080\n  allowed_hosts: ['*']\n"), func(string) (string, bool) { return "", false })
+	if err != nil || len(c.HTTP.AllowedHosts) != 1 || c.HTTP.AllowedHosts[0] != "*" {
+		t.Fatalf("wildcard HTTP host: %+v, %v", c.HTTP, err)
+	}
+}
 func TestFilteringListsFromYAMLAndEnvironment(t *testing.T) {
 	lookup := func(k string) (string, bool) {
 		return "ads.example, telemetry.example", k == "VELORA_FILTERING_BLOCKLIST"

@@ -7,6 +7,17 @@ die() {
   exit 1
 }
 
+prompt_choice() {
+  prompt=$1
+  default=$2
+  answer=
+  if [ -e /dev/tty ]; then
+    printf '%s' "$prompt" > /dev/tty 2>/dev/null || true
+    read -r answer < /dev/tty 2>/dev/null || true
+  fi
+  printf '%s\n' "${answer:-$default}"
+}
+
 command -v go >/dev/null 2>&1 || die "Go 1.27.1+ is required (https://go.dev/dl/)"
 command -v npm >/dev/null 2>&1 || die "Node.js 24+ and npm are required (https://nodejs.org/)"
 command -v systemctl >/dev/null 2>&1 || die "this installer requires a systemd-based Linux host"
@@ -14,6 +25,41 @@ command -v sudo >/dev/null 2>&1 || die "sudo is required to install the service"
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_dir"
+
+channel=${VELORA_CHANNEL:-}
+if [ -z "$channel" ]; then
+  channel=$(prompt_choice 'Release channel [stable/beta/alpha] (stable): ' stable)
+fi
+case "$channel" in
+  stable|beta|alpha) ;;
+  *) die 'VELORA_CHANNEL must be stable, beta, or alpha' ;;
+esac
+
+http_host=${VELORA_HTTP_HOST:-}
+if [ -z "$http_host" ]; then
+  expose_web=$(prompt_choice 'Expose the Web UI on all network interfaces? [y/N]: ' N)
+  case "$expose_web" in
+    y|Y|yes|YES) http_host=0.0.0.0; printf '%s\n' 'Web UI will be reachable on every interface; restrict network access with a firewall.' ;;
+    *) http_host=127.0.0.1 ;;
+  esac
+fi
+case "$http_host" in
+  127.0.0.1|0.0.0.0) ;;
+  *) die 'VELORA_HTTP_HOST must be 127.0.0.1 or 0.0.0.0' ;;
+esac
+
+dns_host=${VELORA_DNS_HOST:-}
+if [ -z "$dns_host" ]; then
+  expose_dns=$(prompt_choice 'Expose DNS to your local network? [y/N]: ' N)
+  case "$expose_dns" in
+    y|Y|yes|YES) dns_host=0.0.0.0; printf '%s\n' 'DNS will accept private-network clients; confirm your firewall permits only trusted clients.' ;;
+    *) dns_host=127.0.0.1 ;;
+  esac
+fi
+case "$dns_host" in
+  127.0.0.1|0.0.0.0) ;;
+  *) die 'VELORA_DNS_HOST must be 127.0.0.1 or 0.0.0.0' ;;
+esac
 
 go_version=$(go env GOVERSION | sed 's/^go//')
 if [ "$(printf '%s\n%s\n' '1.27.1' "$go_version" | sort -V | head -n 1)" != '1.27.1' ]; then
@@ -56,10 +102,15 @@ sudo cp -R web/dist /opt/velora/web/dist
 sudo chown -R root:root /opt/velora/web
 
 if ! sudo test -f /etc/velora/config.yaml; then
-  sudo tee /etc/velora/config.yaml >/dev/null <<'EOF'
-# Local-only, standard DNS installation. Adjust listener and client CIDRs before LAN use.
+  if [ "$http_host" = 0.0.0.0 ]; then
+    http_allowed_hosts="['*']"
+  else
+    http_allowed_hosts="['localhost', '127.0.0.1', '::1']"
+  fi
+  sudo tee /etc/velora/config.yaml >/dev/null <<EOF
+# Standard DNS installation. Restrict listener and client CIDRs before untrusted-network use.
 dns:
-  listen: ['127.0.0.1:53']
+  listen: ['$dns_host:53']
   upstreams: ['1.1.1.1:53', '9.9.9.9:53']
   allowed_clients: ['127.0.0.0/8', '::1/128']
   timeout: 2s
@@ -72,9 +123,9 @@ dns:
 cache:
   max_entries: 10000
 http:
-  listen: '127.0.0.1:8080'
+  listen: '$http_host:8080'
   web_dir: /opt/velora/web/dist
-  allowed_hosts: ['localhost', '127.0.0.1', '::1']
+  allowed_hosts: $http_allowed_hosts
 database_path: /var/lib/velora/velora.db
 log_level: info
 EOF
@@ -82,9 +133,7 @@ EOF
 fi
 
 if ! sudo test -f /etc/velora/updater.env; then
-  sudo tee /etc/velora/updater.env >/dev/null <<'EOF'
-VELORA_CHANNEL=stable
-EOF
+  printf 'VELORA_CHANNEL=%s\n' "$channel" | sudo tee /etc/velora/updater.env >/dev/null
   sudo chown root:root /etc/velora/updater.env
   sudo chmod 0640 /etc/velora/updater.env
 fi

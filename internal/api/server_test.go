@@ -83,3 +83,15 @@ func TestHostAndRequestLimits(t *testing.T) {
 		}
 	}
 }
+
+func TestWildcardHostAllowsRemoteWebUI(t *testing.T) {
+	c := cache.New(10)
+	cfg := config.Default()
+	cfg.HTTP.AllowedHosts = []string{"*"}
+	h := New(Dependencies{Database: fakeDB{}, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: cfg, Started: time.Now()})
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://remote.example/api/v1/status", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("wildcard host status = %d", w.Code)
+	}
+}
