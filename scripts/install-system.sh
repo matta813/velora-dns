@@ -61,6 +61,15 @@ case "$dns_host" in
   *) die 'VELORA_DNS_HOST must be 127.0.0.1 or 0.0.0.0' ;;
 esac
 
+# Binding to all interfaces also claims loopback addresses. Ubuntu's
+# systemd-resolved normally owns 127.0.0.53:53, so detect that conflict before
+# downloading and building the application.
+if [ "$dns_host" = 0.0.0.0 ] && command -v ss >/dev/null 2>&1; then
+  if ss -H -ltn 'sport = :53' | grep -q . || ss -H -lun 'sport = :53' | grep -q .; then
+    die 'DNS port 53 is already in use. Stop or reconfigure the service using it (commonly systemd-resolved) before exposing Velora DNS on the LAN. Use VELORA_DNS_HOST=127.0.0.1 for a local-only install.'
+  fi
+fi
+
 go_version=$(go env GOVERSION | sed 's/^go//')
 if [ "$(printf '%s\n%s\n' '1.27.1' "$go_version" | sort -V | head -n 1)" != '1.27.1' ]; then
   die "Go 1.27.1+ is required; found $go_version"
