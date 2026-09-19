@@ -19,10 +19,10 @@ type BackupStatus struct {
 }
 
 type BackupVerification struct {
-	Valid          bool   `json:"valid"`
-	SchemaVersion  int    `json:"schema_version"`
-	RecordCount    int    `json:"record_count"`
-	Error          string `json:"error,omitempty"`
+	Valid         bool   `json:"valid"`
+	SchemaVersion int    `json:"schema_version"`
+	RecordCount   int    `json:"record_count"`
+	Error         string `json:"error,omitempty"`
 }
 
 func registerBackup(mux *http.ServeMux, store BackupStore) {

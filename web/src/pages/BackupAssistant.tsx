@@ -1,5 +1,5 @@
 import { Database, CheckCircle, XCircle, AlertTriangle, Clock } from "lucide-react";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { request } from "../api";
 
 interface BackupStatus {
@@ -29,21 +29,24 @@ export function BackupAssistant({ readOnly }: Props) {
   const [verifying, setVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<BackupVerification | null>(null);
 
-  const refresh = useCallback(async () => {
-    try {
-      const s = await request<BackupStatus>("/api/v1/backup/status");
-      setStatus(s);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load backup status");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const s = await request<BackupStatus>("/api/v1/backup/status", controller.signal);
+        if (controller.signal.aborted) return;
+        setStatus(s);
+        setError(null);
+      } catch (e) {
+        if (!controller.signal.aborted)
+          setError(e instanceof Error ? e.message : "Failed to load backup status");
+      } finally {
+        setLoading(false);
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, []);
 
   const handleVerify = async () => {
     if (!verifyPath.trim()) return;
