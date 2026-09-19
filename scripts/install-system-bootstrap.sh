@@ -28,6 +28,11 @@ if [ ! -e "$repo_dir" ]; then
   sudo apt-get update
   sudo apt-get install -y ca-certificates curl git xz-utils
   sudo git clone --depth 1 https://github.com/matta813/velora-dns.git "$repo_dir"
+elif [ -d "$repo_dir/.git" ]; then
+  printf '%s\n' "Updating the Velora DNS checkout in $repo_dir…"
+  sudo git -C "$repo_dir" fetch origin --depth 1
+  sudo git -C "$repo_dir" reset --hard origin/main
+  sudo git -C "$repo_dir" clean -fd
 fi
 [ -f "$repo_dir/scripts/install-system.sh" ] || die "$repo_dir is not a Velora DNS checkout; set VELORA_INSTALL_DIR to an empty directory or a checkout"
 
