@@ -83,3 +83,49 @@ An optional `release-metadata.json` file provides structured metadata alongside 
 See `release-metadata.json.example` for a reference file. The `validate-release-channel.sh`
 script validates metadata consistency, and `test-release-channel.sh` covers the eligibility
 rules and channel detection logic.
+
+## Release assets
+
+Each release publishes native installation bundles for Linux amd64 and arm64. The bundles
+contain:
+
+- **velora-dns** – Statically linked binary (CGO_ENABLED=0)
+- **web-dist/** – Compiled React dashboard
+- **velora-dns.service** – Hardened systemd unit template
+- **install.sh** – Quick installer script
+- **release-metadata.json** – Channel and architecture metadata (if present)
+
+### Bundle naming
+
+```
+velora-dns-VERSION-linux-ARCH.tar.gz
+```
+
+Example: `velora-dns-1.0.0-linux-amd64.tar.gz`
+
+### Checksum verification
+
+Every bundle has a corresponding `.sha256sum` file. A unified `CHECKSUMS.sha256` manifest
+is published alongside the bundles. Verify before installing:
+
+```bash
+sha256sum -c CHECKSUMS.sha256 --ignore-missing
+```
+
+The release workflow verifies all checksums before publishing. Each bundle is uploaded as a
+GitHub Release asset with provenance attestation.
+
+### Building bundles locally
+
+```bash
+make release-bundle VERSION=1.0.0 ARCH=amd64
+```
+
+Or build both architectures:
+
+```bash
+./scripts/build-release-bundle.sh 1.0.0 amd64 dist-bundles
+./scripts/build-release-bundle.sh 1.0.0 arm64 dist-bundles
+./scripts/verify-release-checksums.sh dist-bundles
+./scripts/generate-checksums-manifest.sh dist-bundles dist-bundles/CHECKSUMS.sha256
+```
