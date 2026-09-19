@@ -139,7 +139,7 @@ func New(d Dependencies) http.Handler {
 		}
 		allowed := false
 		for _, candidate := range d.Config.HTTP.AllowedHosts {
-			if strings.EqualFold(host, candidate) {
+			if candidate == "*" || strings.EqualFold(host, candidate) {
 				allowed = true
 				break
 			}
