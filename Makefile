@@ -34,6 +34,7 @@ check: lint test build release-test
 release-test:
 	SKIP_REMOTE_CHECK=true ./scripts/validate-release.sh RELEASE
 	./scripts/test-release.sh
+	./scripts/test-release-channel.sh
 	./scripts/test-release-notes.sh
 	./scripts/test-release-announcement.sh
 	python3 scripts/test-weekly-growth-report.py
