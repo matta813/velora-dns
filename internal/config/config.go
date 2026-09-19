@@ -343,6 +343,9 @@ func address(a string, listen bool) error {
 }
 
 func validHost(host string) bool {
+	if host == "*" {
+		return true
+	}
 	if _, err := netip.ParseAddr(host); err == nil {
 		return true
 	}

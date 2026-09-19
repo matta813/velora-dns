@@ -7,6 +7,40 @@ die() {
   exit 1
 }
 
+prompt_choice() {
+  prompt=$1
+  default=$2
+  answer=
+  if [ -e /dev/tty ]; then
+    printf '%s' "$prompt" > /dev/tty 2>/dev/null || true
+    read -r answer < /dev/tty 2>/dev/null || true
+  fi
+  printf '%s\n' "${answer:-$default}"
+}
+
+channel=${VELORA_CHANNEL:-}
+if [ -z "$channel" ]; then
+  channel=$(prompt_choice 'Release channel [stable/beta/alpha] (stable): ' stable)
+fi
+case "$channel" in
+  stable|beta|alpha) ;;
+  *) die 'VELORA_CHANNEL must be stable, beta, or alpha' ;;
+esac
+
+http_host=${VELORA_HTTP_HOST:-}
+if [ -z "$http_host" ]; then
+  expose_web=$(prompt_choice 'Expose the Web UI on all network interfaces? [y/N]: ' N)
+  case "$expose_web" in
+    y|Y|yes|YES) http_host=0.0.0.0; printf '%s\n' 'Web UI will be reachable on every interface; restrict network access with a firewall.' ;;
+    *) http_host=127.0.0.1 ;;
+  esac
+fi
+case "$http_host" in
+  127.0.0.1|0.0.0.0) ;;
+  *) die 'VELORA_HTTP_HOST must be 127.0.0.1 or 0.0.0.0' ;;
+esac
+export VELORA_CHANNEL="$channel" VELORA_HTTP_HOST="$http_host"
+
 command -v sudo >/dev/null 2>&1 || die "sudo is required to install Docker"
 [ -r /etc/os-release ] || die "only Debian and Ubuntu are supported by this installer"
 . /etc/os-release
@@ -62,7 +96,13 @@ case "$bootstrap_user:$bootstrap_password" in
   *[!A-Za-z0-9._+/@=:-]*) die "bootstrap credentials may contain only letters, numbers, . _ + / @ = : and -" ;;
 esac
 
-sudo env VELORA_BOOTSTRAP_USERNAME="$bootstrap_user" VELORA_BOOTSTRAP_PASSWORD="$bootstrap_password" docker compose up --build -d
+sudo install -d -m 0755 /etc/velora
+if ! sudo test -f /etc/velora/updater.env; then
+  printf 'VELORA_CHANNEL=%s\n' "$channel" | sudo tee /etc/velora/updater.env >/dev/null
+  sudo chmod 0644 /etc/velora/updater.env
+fi
+
+sudo env VELORA_BOOTSTRAP_USERNAME="$bootstrap_user" VELORA_BOOTSTRAP_PASSWORD="$bootstrap_password" VELORA_CHANNEL="$channel" VELORA_HTTP_HOST="$http_host" docker compose up --build -d
 sudo docker compose ps
 
 if ! id -nG "$USER" | tr ' ' '\n' | grep -qx docker; then
