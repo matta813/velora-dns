@@ -1,0 +1,18 @@
+[Unit]
+Description=Velora DNS Compose Update Agent
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/velora/velora-compose-updater
+Restart=on-failure
+RestartSec=10s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/run /var/lib/velora
+SupplementaryGroups=docker
+
+[Install]
+WantedBy=multi-user.target
