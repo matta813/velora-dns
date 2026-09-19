@@ -160,6 +160,7 @@ Type=simple
 User=velora
 Group=velora
 EnvironmentFile=/etc/velora/velora.env
+ExecStartPre=/opt/velora/velora-dns-check.sh
 ExecStart=/opt/velora/velora-dns -config /etc/velora/config.yaml
 Restart=on-failure
 RestartSec=5s
@@ -170,10 +171,24 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/velora
+LogsDirectory=velora-dns
 
 [Install]
 WantedBy=multi-user.target
 EOF
+
+sudo tee /opt/velora/velora-dns-check.sh >/dev/null <<'SCRIPT'
+#!/bin/sh
+echo "velora-dns pre-start check:"
+echo "  running as: $(id)"
+echo "  config:     $(ls -la /etc/velora/config.yaml 2>&1)"
+echo "  env:        $(ls -la /etc/velora/velora.env 2>&1)"
+echo "  db dir:     $(ls -la /var/lib/velora 2>&1)"
+test -r /etc/velora/config.yaml || { echo "  ERROR: config.yaml not readable"; exit 1; }
+test -r /etc/velora/velora.env  || { echo "  ERROR: velora.env not readable"; exit 1; }
+echo "  all checks passed"
+SCRIPT
+sudo chmod 0755 /opt/velora/velora-dns-check.sh
 
 sudo systemctl daemon-reload
 if systemctl is-active --quiet velora-dns; then
