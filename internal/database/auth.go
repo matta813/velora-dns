@@ -215,4 +215,39 @@ func (s *Store) UserCount(ctx context.Context) (int, error) {
 	return count, err
 }
 
+func (s *Store) GetLanguage(ctx context.Context, userID int64) (string, error) {
+	var language string
+	p := s.placeholder
+	query := fmt.Sprintf("SELECT language FROM users WHERE id=%s", p(1))
+	if err := s.db.QueryRowContext(ctx, query, userID).Scan(&language); err != nil {
+		return "", err
+	}
+	if language == "" {
+		language = "en"
+	}
+	return language, nil
+}
+
+func (s *Store) SetLanguage(ctx context.Context, userID int64, language string) error {
+	if !validLanguage(language) {
+		return fmt.Errorf("invalid language")
+	}
+	p := s.placeholder
+	query := fmt.Sprintf("UPDATE users SET language=%s WHERE id=%s", p(1), p(2))
+	result, err := s.db.ExecContext(ctx, query, language, userID)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return ErrAuthentication
+	}
+	return nil
+}
+
+func validLanguage(language string) bool { return language == "en" || language == "de" }
+
 func validRole(role string) bool { return role == "admin" || role == "operator" || role == "viewer" }

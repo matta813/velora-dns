@@ -26,7 +26,7 @@ func TestOpenReopen(t *testing.T) {
 			t.Fatal(err)
 		}
 		var n int
-		if err = s.db.QueryRow("SELECT count(*) FROM schema_migrations").Scan(&n); err != nil || n != 8 {
+		if err = s.db.QueryRow("SELECT count(*) FROM schema_migrations").Scan(&n); err != nil || n != 9 {
 			t.Fatalf("migration: %d %v", n, err)
 		}
 		if err = s.Close(); err != nil {

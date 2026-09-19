@@ -26,6 +26,8 @@ type AuthStore interface {
 	CreateAPIToken(context.Context, int64, string, string, []byte, time.Time) (database.APIToken, error)
 	AuthenticateAPIToken(context.Context, []byte) (database.User, database.APIToken, error)
 	RevokeAPIToken(context.Context, int64, int64) error
+	GetLanguage(context.Context, int64) (string, error)
+	SetLanguage(context.Context, int64, string) error
 }
 
 type authContextKey struct{}
@@ -125,12 +127,20 @@ func registerAuth(mux *http.ServeMux, store AuthStore) {
 		}
 		http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: base64.RawURLEncoding.EncodeToString(token), Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteStrictMode, MaxAge: 12 * 60 * 60})
 		_ = store.Audit(r.Context(), &user.ID, "login", "")
-		respond(w, 200, map[string]any{"username": user.Username, "role": user.Role, "csrf_token": base64.RawURLEncoding.EncodeToString(csrf)})
+		language, langErr := store.GetLanguage(r.Context(), user.ID)
+		if langErr != nil {
+			language = "en"
+		}
+		respond(w, 200, map[string]any{"username": user.Username, "role": user.Role, "csrf_token": base64.RawURLEncoding.EncodeToString(csrf), "language": language})
 	})
 	mux.HandleFunc("GET /api/v1/auth/me", func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value(authContextKey{}).(database.User)
 		csrf, _ := r.Context().Value(csrfContextKey{}).([]byte)
-		respond(w, 200, map[string]any{"username": user.Username, "role": user.Role, "csrf_token": base64.RawURLEncoding.EncodeToString(csrf)})
+		language, langErr := store.GetLanguage(r.Context(), user.ID)
+		if langErr != nil {
+			language = "en"
+		}
+		respond(w, 200, map[string]any{"username": user.Username, "role": user.Role, "csrf_token": base64.RawURLEncoding.EncodeToString(csrf), "language": language})
 	})
 	mux.HandleFunc("POST /api/v1/auth/logout", func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(sessionCookie)
@@ -142,6 +152,29 @@ func registerAuth(mux *http.ServeMux, store AuthStore) {
 		_ = store.RevokeSession(r.Context(), token)
 		http.SetCookie(w, &http.Cookie{Name: sessionCookie, Path: "/", MaxAge: -1, HttpOnly: true, Secure: true, SameSite: http.SameSiteStrictMode})
 		respond(w, 200, map[string]bool{"logged_out": true})
+	})
+	mux.HandleFunc("GET /api/v1/preferences", func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value(authContextKey{}).(database.User)
+		language, err := store.GetLanguage(r.Context(), user.ID)
+		if err != nil {
+			failure(w, 503, "storage_unavailable", "Preferences unavailable")
+			return
+		}
+		respond(w, 200, map[string]string{"language": language})
+	})
+	mux.HandleFunc("PUT /api/v1/preferences", func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			Language string `json:"language"`
+		}
+		if !readJSON(w, r, &input) {
+			return
+		}
+		user := r.Context().Value(authContextKey{}).(database.User)
+		if err := store.SetLanguage(r.Context(), user.ID, input.Language); err != nil {
+			failure(w, 400, "invalid_language", "Language must be en or de")
+			return
+		}
+		respond(w, 200, map[string]string{"language": input.Language})
 	})
 }
 

@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { QueryLog } from "./QueryLog";
+import { withI18n } from "../test-i18n";
 afterEach(() => vi.unstubAllGlobals());
 it("renders real API fields and submits all four filters only on apply", async () => {
   const fetch = vi
@@ -24,7 +25,7 @@ it("renders real API fields and submits all four filters only on apply", async (
       }),
     });
   vi.stubGlobal("fetch", fetch);
-  render(<QueryLog enabled />);
+  render(withI18n(<QueryLog enabled />));
   await screen.findByText("example.test.");
   expect(screen.getByText("1.23 ms")).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("Domain"), {
@@ -54,7 +55,7 @@ it("renders real API fields and submits all four filters only on apply", async (
 it("shows an unavailable state without fetching when logging is disabled", async () => {
   const fetch = vi.fn();
   vi.stubGlobal("fetch", fetch);
-  render(<QueryLog enabled={false} />);
+  render(withI18n(<QueryLog enabled={false} />));
   expect(await screen.findByRole("status")).toHaveTextContent(
     "Query history unavailable",
   );
@@ -65,7 +66,7 @@ it("shows an unavailable state without fetching when logging is disabled", async
 it("opens the blocked-query view", async () => {
   const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: [] }) });
   vi.stubGlobal("fetch", fetch);
-  render(<QueryLog enabled />);
+  render(withI18n(<QueryLog enabled />));
   await screen.findByText("No matching queries");
   fireEvent.click(screen.getByText("Show blocked queries"));
   await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));

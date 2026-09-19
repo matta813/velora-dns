@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { Settings } from "./Settings";
+import { withI18n } from "../test-i18n";
 import type { Snapshot } from "../api";
 
 it("describes the active management authentication model", () => {
@@ -36,7 +37,7 @@ it("describes the active management authentication model", () => {
     checked: new Date(),
   } satisfies Snapshot;
 
-  render(<Settings data={data} />);
+  render(withI18n(<Settings data={data} />));
 
   expect(
     screen.getByText(/requires an authenticated user or scoped API token/i),
