@@ -219,3 +219,81 @@ The update manager includes comprehensive tests covering:
 - History pruning with MaxHistory
 - State persistence and recovery
 - Readiness configuration
+
+## Systemd updater agent
+
+The `velora-updater` binary is a root-owned systemd update agent for native installations.
+It runs as a separate privileged service and accepts update requests from the unprivileged
+Velora DNS process over a Unix socket.
+
+### Security model
+
+- The agent runs as **root** with `CAP_NET_BIND_SERVICE` only
+- Socket ownership: root:velora with permissions `0660`
+- The Velora DNS service (running as user `velora`) is the only client
+- No arbitrary commands, URLs, paths, or environment variables from HTTP clients
+- Only release assets from the configured GitHub repository are downloaded
+- SHA-256 checksums are verified before installation
+
+### Installation
+
+The updater agent is included in native release bundles and installed by the installer script:
+
+```bash
+# Install the updater agent
+sudo install -o root -g root -m 0755 velora-updater /opt/velora/velora-updater
+sudo install -o root -g root -m 0644 velora-updater.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now velora-updater
+```
+
+### Configuration
+
+The agent is configured via environment variables:
+
+| Variable                  | Default                              | Description                        |
+|---------------------------|--------------------------------------|------------------------------------|
+| `VELORA_UPDATER_SOCKET`   | `/run/velora-updater.sock`           | Unix socket path                   |
+| `VELORA_UPDATE_STATE_FILE`| `/var/lib/velora/update-state.json`  | Durable state file                 |
+| `VELORA_BINARY_PATH`      | `/opt/velora/velora-dns`             | Velora DNS binary path              |
+| `VELORA_WEB_DIR`          | `/opt/velora/web`                    | Web assets directory                |
+| `VELORA_REPOSITORY`       | `matta813/velora-dns`                | GitHub repository for releases      |
+| `VELORA_READINESS_URL`    | `http://127.0.0.1:8080/ready`        | Readiness check endpoint            |
+
+### Systemd unit hardening
+
+```ini
+[Service]
+ExecStart=/opt/velora/velora-updater
+NoNewPrivileges=false
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/velora /run
+SupplementaryGroups=velora
+```
+
+### Update flow
+
+1. Velora DNS sends `POST /update` with `{"action":"update"}` to the Unix socket
+2. Agent validates the request and begins a transaction
+3. Agent resolves the latest release from GitHub Releases
+4. Agent verifies the SHA-256 checksum of the downloaded bundle
+5. Agent backs up current binary and web assets (`.prev` suffix)
+6. Agent installs the new binary and web assets
+7. Agent waits for readiness (up to 5 minutes)
+8. On success: agent restarts `velora-dns` service
+9. On failure: agent restores from backup and rolls back
+
+### Status endpoint
+
+```bash
+# Check agent status
+curl --unix-socket /run/velora-updater.sock http://localhost/status
+
+# Trigger an update
+curl -X POST --unix-socket /run/velora-updater.sock \
+  -H "Content-Type: application/json" \
+  -d '{"action":"update"}' \
+  http://localhost/update
+```
