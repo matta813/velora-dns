@@ -89,7 +89,7 @@ func (a *Agent) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentVersion := a.readCurrentVersion()
-	entry, err := a.manager.Begin(currentVersion, "latest", "systemd")
+	entry, err := a.manager.Begin(currentVersion, "latest", "systemd", a.config.Channel)
 	if err != nil {
 		a.writeJSON(w, 409, UpdateResponse{Status: "busy", Error: err.Error()})
 		return

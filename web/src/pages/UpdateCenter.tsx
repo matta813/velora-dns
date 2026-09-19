@@ -146,6 +146,7 @@ export function UpdateCenter({ readOnly }: Props) {
               <tr>
                 <th style={{ textAlign: "left", padding: "0.5rem" }}>From</th>
                 <th style={{ textAlign: "left", padding: "0.5rem" }}>To</th>
+                <th style={{ textAlign: "left", padding: "0.5rem" }}>Channel</th>
                 <th style={{ textAlign: "left", padding: "0.5rem" }}>State</th>
                 <th style={{ textAlign: "left", padding: "0.5rem" }}>Mode</th>
                 <th style={{ textAlign: "left", padding: "0.5rem" }}>Started</th>
@@ -157,6 +158,21 @@ export function UpdateCenter({ readOnly }: Props) {
                 <tr key={entry.id}>
                   <td style={{ padding: "0.5rem" }}>{entry.from_version}</td>
                   <td style={{ padding: "0.5rem" }}>{entry.to_version}</td>
+                  <td style={{ padding: "0.5rem" }}>
+                    <span
+                      className={`badge ${
+                        entry.channel === "stable"
+                          ? "badge-success"
+                          : entry.channel === "beta"
+                            ? "badge-info"
+                            : entry.channel === "alpha"
+                              ? "badge-warning"
+                              : ""
+                      }`}
+                    >
+                      {entry.channel || "stable"}
+                    </span>
+                  </td>
                   <td style={{ padding: "0.5rem" }}>
                     <span
                       className={`badge ${

@@ -259,6 +259,7 @@ The agent is configured via environment variables:
 | `VELORA_WEB_DIR`          | `/opt/velora/web`                    | Web assets directory                |
 | `VELORA_REPOSITORY`       | `matta813/velora-dns`                | GitHub repository for releases      |
 | `VELORA_READINESS_URL`    | `http://127.0.0.1:8080/ready`        | Readiness check endpoint            |
+| `VELORA_CHANNEL`          | `stable`                             | Release channel (`stable`, `beta`, `alpha`) |
 
 ### Systemd unit hardening
 

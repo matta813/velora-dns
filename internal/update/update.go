@@ -41,6 +41,7 @@ type Entry struct {
 	CompletedAt    time.Time `json:"completed_at,omitempty"`
 	FromVersion    string    `json:"from_version"`
 	ToVersion      string    `json:"to_version"`
+	Channel        string    `json:"channel"`
 	State          State     `json:"state"`
 	Error          string    `json:"error,omitempty"`
 	ReadinessOK    bool      `json:"readiness_ok"`
@@ -156,7 +157,7 @@ func (m *Manager) SaveState() error {
 }
 
 // Begin starts a new update transaction. It rejects concurrent updates.
-func (m *Manager) Begin(fromVersion, toVersion, deploymentMode string) (*Entry, error) {
+func (m *Manager) Begin(fromVersion, toVersion, deploymentMode, channel string) (*Entry, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -169,6 +170,7 @@ func (m *Manager) Begin(fromVersion, toVersion, deploymentMode string) (*Entry, 
 		StartedAt:      time.Now(),
 		FromVersion:    fromVersion,
 		ToVersion:      toVersion,
+		Channel:        channel,
 		State:          StateDownloading,
 		DeploymentMode: deploymentMode,
 	}

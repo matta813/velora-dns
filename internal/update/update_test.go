@@ -14,7 +14,7 @@ func TestManagerBeginTransitionComplete(t *testing.T) {
 		MaxHistory:        5,
 	})
 
-	entry, err := m.Begin("0.1.0", "0.2.0", "systemd")
+	entry, err := m.Begin("0.1.0", "0.2.0", "systemd", "stable")
 	if err != nil {
 		t.Fatalf("Begin: %v", err)
 	}
@@ -58,12 +58,12 @@ func TestManagerBeginTransitionComplete(t *testing.T) {
 func TestManagerConcurrentUpdateRejected(t *testing.T) {
 	m := NewManager(Config{})
 
-	entry, err := m.Begin("0.1.0", "0.2.0", "systemd")
+	entry, err := m.Begin("0.1.0", "0.2.0", "systemd", "stable")
 	if err != nil {
 		t.Fatalf("Begin: %v", err)
 	}
 
-	_, err = m.Begin("0.2.0", "0.3.0", "systemd")
+	_, err = m.Begin("0.2.0", "0.3.0", "systemd", "stable")
 	if err == nil {
 		t.Fatal("expected concurrent update to be rejected")
 	}
@@ -74,7 +74,7 @@ func TestManagerConcurrentUpdateRejected(t *testing.T) {
 func TestManagerInvalidTransition(t *testing.T) {
 	m := NewManager(Config{})
 
-	entry, err := m.Begin("0.1.0", "0.2.0", "systemd")
+	entry, err := m.Begin("0.1.0", "0.2.0", "systemd", "stable")
 	if err != nil {
 		t.Fatalf("Begin: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestManagerInvalidTransition(t *testing.T) {
 func TestManagerFailAndRollback(t *testing.T) {
 	m := NewManager(Config{MaxHistory: 3})
 
-	entry, err := m.Begin("0.1.0", "0.2.0", "compose")
+	entry, err := m.Begin("0.1.0", "0.2.0", "compose", "stable")
 	if err != nil {
 		t.Fatalf("Begin: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestManagerFailAndRollback(t *testing.T) {
 		t.Fatalf("expected history state failed, got %s", m.History()[0].State)
 	}
 
-	entry2, err := m.Begin("0.1.0", "0.3.0", "compose")
+	entry2, err := m.Begin("0.1.0", "0.3.0", "compose", "stable")
 	if err != nil {
 		t.Fatalf("Begin: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestManagerMaxHistory(t *testing.T) {
 	m := NewManager(Config{MaxHistory: 3})
 
 	for i := 0; i < 5; i++ {
-		entry, err := m.Begin("0.1.0", "0.2.0", "systemd")
+		entry, err := m.Begin("0.1.0", "0.2.0", "systemd", "stable")
 		if err != nil {
 			t.Fatalf("Begin %d: %v", i, err)
 		}
@@ -151,7 +151,7 @@ func TestManagerPersistAndLoad(t *testing.T) {
 		StateFile:  stateFile,
 	})
 
-	entry, err := m1.Begin("0.1.0", "0.2.0", "systemd")
+	entry, err := m1.Begin("0.1.0", "0.2.0", "systemd", "stable")
 	if err != nil {
 		t.Fatalf("Begin: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestManagerReadinessConfig(t *testing.T) {
 func TestManagerNoMatchingID(t *testing.T) {
 	m := NewManager(Config{})
 
-	_, err := m.Begin("0.1.0", "0.2.0", "systemd")
+	_, err := m.Begin("0.1.0", "0.2.0", "systemd", "stable")
 	if err != nil {
 		t.Fatalf("Begin: %v", err)
 	}
@@ -222,7 +222,7 @@ func TestManagerMultipleHistories(t *testing.T) {
 	m := NewManager(Config{MaxHistory: 10})
 
 	for i := 0; i < 5; i++ {
-		entry, err := m.Begin("0.1.0", "0.2.0", "systemd")
+		entry, err := m.Begin("0.1.0", "0.2.0", "systemd", "stable")
 		if err != nil {
 			t.Fatalf("Begin %d: %v", i, err)
 		}
@@ -269,7 +269,7 @@ func TestStateConstants(t *testing.T) {
 func TestManagerHistoryCopy(t *testing.T) {
 	m := NewManager(Config{MaxHistory: 10})
 
-	entry, err := m.Begin("0.1.0", "0.2.0", "systemd")
+	entry, err := m.Begin("0.1.0", "0.2.0", "systemd", "stable")
 	if err != nil {
 		t.Fatalf("Begin: %v", err)
 	}
@@ -292,7 +292,7 @@ func TestStateFilePermissions(t *testing.T) {
 		StateFile: stateFile,
 	})
 
-	entry, err := m.Begin("0.1.0", "0.2.0", "systemd")
+	entry, err := m.Begin("0.1.0", "0.2.0", "systemd", "stable")
 	if err != nil {
 		t.Fatalf("Begin: %v", err)
 	}

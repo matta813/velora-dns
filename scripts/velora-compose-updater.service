@@ -6,6 +6,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 ExecStart=/opt/velora/velora-compose-updater
+EnvironmentFile=-/etc/velora/updater.env
 Restart=on-failure
 RestartSec=10s
 NoNewPrivileges=true

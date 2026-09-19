@@ -153,6 +153,7 @@ export interface UpdateStatus {
   installed: string;
   from_version?: string;
   to_version?: string;
+  channel?: string;
   started_at?: string;
   last_completed?: string;
   updating: boolean;
@@ -164,6 +165,7 @@ export interface UpdateEntry {
   completed_at?: string;
   from_version: string;
   to_version: string;
+  channel?: string;
   state: string;
   error?: string;
   readiness_ok: boolean;

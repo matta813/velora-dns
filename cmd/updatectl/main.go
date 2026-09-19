@@ -62,10 +62,14 @@ func cmdStatus(m *update.Manager) {
 
 func cmdBegin(m *update.Manager, args []string) {
 	if len(args) < 3 {
-		fmt.Fprintf(os.Stderr, "usage: updatectl begin FROM_VERSION TO_VERSION DEPLOYMENT_MODE\n")
+		fmt.Fprintf(os.Stderr, "usage: updatectl begin FROM_VERSION TO_VERSION DEPLOYMENT_MODE [CHANNEL]\n")
 		os.Exit(2)
 	}
-	entry, err := m.Begin(args[0], args[1], args[2])
+	channel := "stable"
+	if len(args) >= 4 {
+		channel = args[3]
+	}
+	entry, err := m.Begin(args[0], args[1], args[2], channel)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "begin: %v\n", err)
 		os.Exit(1)
