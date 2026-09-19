@@ -41,6 +41,9 @@ release-test:
 	./scripts/test-github-workflows.sh
 	python3 scripts/check-markdown-links.py
 
+release-bundle:
+	./scripts/build-release-bundle.sh $(VERSION) $(ARCH) dist-bundles
+
 docker-build:
 	docker build -t velora-dns:local .
 

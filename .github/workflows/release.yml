@@ -225,8 +225,66 @@ jobs:
           case "$digest" in sha256:*) ;; *) echo "invalid image digest: $digest" >&2; exit 1 ;; esac
           echo "image_digest=$digest" >> "$GITHUB_OUTPUT"
 
+  build-release-bundles:
+    needs: [validate, anchor-release-tag]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      bundles: ${{ steps.bundles.outputs.bundles }}
+      checksums: ${{ steps.checksums.outputs.checksums }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.validate.outputs.source_sha }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build amd64 bundle
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: ./scripts/build-release-bundle.sh "$VERSION" amd64 dist-bundles
+      - name: Build arm64 bundle
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: ./scripts/build-release-bundle.sh "$VERSION" arm64 dist-bundles
+      - name: Verify all checksums
+        run: ./scripts/verify-release-checksums.sh dist-bundles
+      - name: Generate checksums manifest
+        run: ./scripts/generate-checksums-manifest.sh dist-bundles dist-bundles/CHECKSUMS.sha256
+      - id: bundles
+        name: Collect bundle artifacts
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          bundles=""
+          for dir in dist-bundles/velora-dns-${VERSION}-linux-*; do
+            [ -d "$dir" ] || continue
+            name=$(basename "$dir")
+            tar -czf "dist-bundles/${name}.tar.gz" -C dist-bundles "$name"
+            bundles="${bundles}${bundles:+, }dist-bundles/${name}.tar.gz"
+          done
+          echo "bundles=$bundles" >> "$GITHUB_OUTPUT"
+      - id: checksums
+        name: Collect checksums
+        run: echo "checksums=dist-bundles/CHECKSUMS.sha256" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-bundles
+          path: |
+            dist-bundles/*.tar.gz
+            dist-bundles/CHECKSUMS.sha256
+          if-no-files-found: error
+          retention-days: 30
+
   create-or-repair-github-release:
-    needs: [validate, publish-version-image]
+    needs: [validate, publish-version-image, build-release-bundles]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -273,6 +331,19 @@ jobs:
             echo "excluded_prs=${excluded:-none}"
             echo "changelog_count=$count"
           } >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-bundles
+          path: dist-bundles
+      - name: Upload release bundles to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.validate.outputs.tag }}
+        run: |
+          for asset in dist-bundles/*.tar.gz dist-bundles/CHECKSUMS.sha256; do
+            [ -f "$asset" ] || continue
+            gh release upload "$TAG" "$asset" --clobber
+          done
 
   promote-latest:
     if: needs.validate.outputs.stable == 'true'
