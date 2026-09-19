@@ -85,13 +85,14 @@ case "$bootstrap_user:$bootstrap_password" in
   *[!A-Za-z0-9._+/@=:-]*) die "bootstrap credentials may contain only letters, numbers, . _ + / @ = : and -" ;;
 esac
 
-sudo install -d -o root -g root -m 0755 /opt/velora /etc/velora
+sudo install -d -o root -g root -m 0755 /opt/velora
 if ! getent group velora >/dev/null; then
   sudo groupadd --system velora
 fi
 if ! id -u velora >/dev/null 2>&1; then
   sudo useradd --system --home-dir /var/lib/velora --shell /usr/sbin/nologin --gid velora velora
 fi
+sudo install -d -o root -g velora -m 0750 /etc/velora
 sudo install -d -o velora -g velora -m 0750 /var/lib/velora
 sudo install -o root -g root -m 0755 bin/velora-dns /opt/velora/velora-dns
 sudo rm -rf /opt/velora/web
@@ -127,23 +128,21 @@ http:
 database_path: /var/lib/velora/velora.db
 log_level: info
 EOF
-  sudo chown root:velora /etc/velora/config.yaml
-  sudo chmod 0640 /etc/velora/config.yaml
 fi
+sudo chown root:velora /etc/velora/config.yaml
+sudo chmod 0640 /etc/velora/config.yaml
 
-if ! sudo test -f /etc/velora/updater.env; then
-  printf 'VELORA_CHANNEL=%s\n' "$channel" | sudo tee /etc/velora/updater.env >/dev/null
-  sudo chmod 0644 /etc/velora/updater.env
-fi
+printf 'VELORA_CHANNEL=%s\n' "$channel" | sudo tee /etc/velora/updater.env >/dev/null
+sudo chmod 0644 /etc/velora/updater.env
 
 if ! sudo test -f /etc/velora/velora.env; then
   sudo tee /etc/velora/velora.env >/dev/null <<EOF
 VELORA_BOOTSTRAP_USERNAME=$bootstrap_user
 VELORA_BOOTSTRAP_PASSWORD=$bootstrap_password
 EOF
-  sudo chown root:velora /etc/velora/velora.env
-  sudo chmod 0640 /etc/velora/velora.env
 fi
+sudo chown root:velora /etc/velora/velora.env
+sudo chmod 0640 /etc/velora/velora.env
 
 sudo tee /etc/systemd/system/velora-dns.service >/dev/null <<'EOF'
 [Unit]
