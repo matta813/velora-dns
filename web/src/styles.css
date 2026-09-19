@@ -538,6 +538,10 @@ footer {
 .settings-list {
   margin: 25px 0;
 }
+.deployment-form { display: grid; gap: 0.8rem; max-width: 38rem; margin-bottom: 1.5rem; }
+.deployment-form h3, .deployment-form p { margin: 0; }
+.deployment-form label { display: grid; gap: 0.35rem; font-weight: 600; }
+.deployment-form select { padding: 0.55rem; border-radius: 0.4rem; border: 1px solid var(--border); background: var(--surface); color: inherit; }
 .settings-list > div {
   display: grid;
   grid-template-columns: 230px 1fr;

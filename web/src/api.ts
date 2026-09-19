@@ -186,3 +186,12 @@ export async function requestUpdate(signal?: AbortSignal): Promise<{ status: str
     body: { action: "update" },
   });
 }
+
+export interface DeploymentSettings {
+  channel: "stable" | "beta" | "alpha";
+  web_ui_exposure: "local" | "lan";
+  dns_exposure: "local" | "lan";
+}
+export interface DeploymentResponse { settings: DeploymentSettings; applied: boolean; }
+export async function loadDeploymentSettings(signal?: AbortSignal): Promise<DeploymentResponse> { return request<DeploymentResponse>("/api/v1/deployment/settings", signal); }
+export async function saveDeploymentSettings(settings: DeploymentSettings): Promise<DeploymentResponse> { return request<DeploymentResponse>("/api/v1/deployment/settings", undefined, "PUT", { body: settings }); }

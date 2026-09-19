@@ -202,7 +202,7 @@ export default function App() {
                 }
               />
               <Route path="/blocklists" element={<Blocklists readOnly={readOnly} />} />
-              <Route path="/settings" element={<Settings data={data} />} />
+          <Route path="/settings" element={<Settings data={data} admin={user?.role === "admin"} />} />
               <Route path="/updates" element={<UpdateCenter readOnly={readOnly} />} />
               <Route path="/backup" element={<BackupAssistant readOnly={readOnly} />} />
               <Route path="*" element={<p>Page not found.</p>} />

@@ -19,6 +19,8 @@ const (
 	defaultStateFile    = "/var/lib/velora/update-state.json"
 	defaultBinaryPath   = "/opt/velora/velora-dns"
 	defaultWebDir       = "/opt/velora/web"
+	defaultServiceEnv   = "/etc/velora/velora.env"
+	defaultUpdaterEnv   = "/etc/velora/updater.env"
 	defaultBackupSuffix = ".prev"
 	socketPermissions   = 0660
 )
@@ -41,6 +43,8 @@ type AgentConfig struct {
 	Repository   string
 	ReadinessURL string
 	Channel      string
+	ServiceEnv   string
+	UpdaterEnv   string
 	Timeout      time.Duration
 	Logger       *slog.Logger
 }
@@ -56,6 +60,8 @@ func main() {
 		Repository:   envOrDefault("VELORA_REPOSITORY", "matta813/velora-dns"),
 		ReadinessURL: envOrDefault("VELORA_READINESS_URL", "http://127.0.0.1:8080/ready"),
 		Channel:      envOrDefault("VELORA_CHANNEL", "stable"),
+		ServiceEnv:   envOrDefault("VELORA_SERVICE_ENV", defaultServiceEnv),
+		UpdaterEnv:   envOrDefault("VELORA_UPDATER_ENV", defaultUpdaterEnv),
 		Timeout:      10 * time.Minute,
 		Logger:       logger,
 	}

@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import { Settings } from "./Settings";
 import type { Snapshot } from "../api";
 
-it("describes the active management authentication model", () => {
+it("keeps deployment controls restricted to administrators", () => {
   const data = {
     status: {
       ready: true,
@@ -36,10 +36,8 @@ it("describes the active management authentication model", () => {
     checked: new Date(),
   } satisfies Snapshot;
 
-  render(<Settings data={data} />);
+  render(<Settings data={data} admin={false} />);
 
-  expect(
-    screen.getByText(/requires an authenticated user or scoped API token/i),
-  ).toBeInTheDocument();
-  expect(screen.queryByText(/authentication is planned/i)).not.toBeInTheDocument();
+  expect(screen.getByText(/deployment controls require an administrator/i)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /apply and restart/i })).not.toBeInTheDocument();
 });

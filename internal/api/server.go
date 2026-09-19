@@ -14,6 +14,7 @@ import (
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/database"
+	"github.com/matta813/velora-dns/internal/deployment"
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/querylog"
 )
@@ -26,6 +27,10 @@ type QueryStore interface {
 type DNS interface {
 	Ready() bool
 	Addresses() []string
+}
+type Deployment interface {
+	Get(context.Context) (deployment.Response, error)
+	Apply(context.Context, deployment.Settings) (deployment.Response, error)
 }
 type Version struct {
 	Version string `json:"version"`
@@ -48,6 +53,7 @@ type Dependencies struct {
 	Update     UpdateStore
 	Onboarding OnboardingStore
 	Backup     BackupStore
+	Deployment Deployment
 }
 type Error struct {
 	Code    string `json:"code"`
@@ -99,6 +105,10 @@ func New(d Dependencies) http.Handler {
 	if d.Backup != nil {
 		registerBackup(mux, d.Backup)
 	}
+	if d.Deployment != nil {
+		registerDeployment(mux, d.Deployment)
+		capabilities = append(capabilities, "deployment_settings")
+	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
@@ -139,7 +149,7 @@ func New(d Dependencies) http.Handler {
 		}
 		allowed := false
 		for _, candidate := range d.Config.HTTP.AllowedHosts {
-			if strings.EqualFold(host, candidate) {
+			if candidate == "*" || strings.EqualFold(host, candidate) {
 				allowed = true
 				break
 			}
@@ -184,6 +194,10 @@ func New(d Dependencies) http.Handler {
 			tokenScopes := token.Scopes
 			unsafe := r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
 			if strings.HasPrefix(r.URL.Path, "/api/v1/users") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
+				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
+				return
+			}
+			if strings.HasPrefix(r.URL.Path, "/api/v1/deployment/") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
 				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
 				return
 			}

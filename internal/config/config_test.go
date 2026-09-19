@@ -111,3 +111,15 @@ func TestDNSSECConfiguration(t *testing.T) {
 		t.Fatal("DNSSEC without trust anchor accepted")
 	}
 }
+
+func TestParseAllowsWildcardHTTPHostForExplicitLANDeployment(t *testing.T) {
+	c, err := Parse(nil, func(key string) (string, bool) {
+		return "*", key == "VELORA_HTTP_ALLOWED_HOSTS"
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.HTTP.AllowedHosts) != 1 || c.HTTP.AllowedHosts[0] != "*" {
+		t.Fatalf("allowed hosts = %#v", c.HTTP.AllowedHosts)
+	}
+}

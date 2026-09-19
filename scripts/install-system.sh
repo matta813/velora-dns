@@ -24,6 +24,7 @@ printf '%s\n' 'Building the Velora DNS binary and dashboard…'
 npm --prefix web ci
 npm --prefix web run build
 CGO_ENABLED=0 go build -trimpath -o bin/velora-dns ./cmd/server
+CGO_ENABLED=0 go build -trimpath -o bin/velora-updater ./cmd/velora-updater
 
 bootstrap_user=${VELORA_BOOTSTRAP_USERNAME:-admin}
 bootstrap_password=${VELORA_BOOTSTRAP_PASSWORD:-}
@@ -48,6 +49,7 @@ if ! id -u velora >/dev/null 2>&1; then
 fi
 sudo install -d -o velora -g velora -m 0750 /var/lib/velora
 sudo install -o root -g root -m 0755 bin/velora-dns /opt/velora/velora-dns
+sudo install -o root -g root -m 0755 bin/velora-updater /opt/velora/velora-updater
 sudo rm -rf /opt/velora/web
 sudo install -d -o root -g root -m 0755 /opt/velora/web
 sudo cp -R web/dist /opt/velora/web/dist
@@ -77,6 +79,14 @@ database_path: /var/lib/velora/velora.db
 log_level: info
 EOF
   sudo chmod 0640 /etc/velora/config.yaml
+fi
+
+if ! sudo test -f /etc/velora/updater.env; then
+  sudo tee /etc/velora/updater.env >/dev/null <<'EOF'
+VELORA_CHANNEL=stable
+EOF
+  sudo chown root:root /etc/velora/updater.env
+  sudo chmod 0640 /etc/velora/updater.env
 fi
 
 if ! sudo test -f /etc/velora/velora.env; then
@@ -114,8 +124,10 @@ ReadWritePaths=/var/lib/velora
 WantedBy=multi-user.target
 EOF
 
+sudo install -o root -g root -m 0644 scripts/velora-updater.service /etc/systemd/system/velora-updater.service
+
 sudo systemctl daemon-reload
-sudo systemctl enable --now velora-dns
+sudo systemctl enable --now velora-updater velora-dns
 sudo systemctl --no-pager --full status velora-dns
 
 printf '%s\n' 'Velora DNS is running. Open http://127.0.0.1:8080'

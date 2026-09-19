@@ -62,3 +62,21 @@ func TestEnvOrDefaultAndSplitLines(t *testing.T) {
 		t.Fatalf("splitLines = %#v", got)
 	}
 }
+
+func TestEnvironmentFilesRoundTripAndRejectUnsafeValues(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "velora.env")
+	values := map[string]string{"VELORA_CHANNEL": "beta", "VELORA_HTTP_LISTEN": "0.0.0.0:8080"}
+	if err := writeEnvFile(path, values); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readEnvFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["VELORA_CHANNEL"] != "beta" || got["VELORA_HTTP_LISTEN"] != "0.0.0.0:8080" {
+		t.Fatalf("round trip = %#v", got)
+	}
+	if err := writeEnvFile(path, map[string]string{"VELORA_CHANNEL": "beta\nINJECTED=yes"}); err == nil {
+		t.Fatal("accepted newline injection")
+	}
+}
