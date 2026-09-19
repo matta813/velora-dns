@@ -20,7 +20,7 @@ export function OnboardingChecklist() {
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [dismissed, setDismissed] = useState(
-    () => localStorage.getItem("velora_onboarding_dismissed") === "true",
+    () => typeof localStorage !== "undefined" && localStorage.getItem("velora_onboarding_dismissed") === "true",
   );
   const [loading, setLoading] = useState(true);
 
@@ -53,7 +53,9 @@ export function OnboardingChecklist() {
   }, [refresh]);
 
   const handleDismiss = () => {
-    localStorage.setItem("velora_onboarding_dismissed", "true");
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("velora_onboarding_dismissed", "true");
+    }
     setDismissed(true);
   };
 
