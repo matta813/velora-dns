@@ -39,7 +39,20 @@ case "$http_host" in
   127.0.0.1|0.0.0.0) ;;
   *) die 'VELORA_HTTP_HOST must be 127.0.0.1 or 0.0.0.0' ;;
 esac
-export VELORA_CHANNEL="$channel" VELORA_HTTP_HOST="$http_host"
+
+dns_host=${VELORA_DNS_HOST:-}
+if [ -z "$dns_host" ]; then
+  expose_dns=$(prompt_choice 'Expose DNS to your local network? [y/N]: ' N)
+  case "$expose_dns" in
+    y|Y|yes|YES) dns_host=0.0.0.0; printf '%s\n' 'DNS will accept private-network clients; confirm your firewall permits only trusted clients.' ;;
+    *) dns_host=127.0.0.1 ;;
+  esac
+fi
+case "$dns_host" in
+  127.0.0.1|0.0.0.0) ;;
+  *) die 'VELORA_DNS_HOST must be 127.0.0.1 or 0.0.0.0' ;;
+esac
+export VELORA_CHANNEL="$channel" VELORA_HTTP_HOST="$http_host" VELORA_DNS_HOST="$dns_host"
 
 command -v sudo >/dev/null 2>&1 || die "sudo is required to install Docker"
 [ -r /etc/os-release ] || die "only Debian and Ubuntu are supported by this installer"
@@ -102,7 +115,7 @@ if ! sudo test -f /etc/velora/updater.env; then
   sudo chmod 0644 /etc/velora/updater.env
 fi
 
-sudo env VELORA_BOOTSTRAP_USERNAME="$bootstrap_user" VELORA_BOOTSTRAP_PASSWORD="$bootstrap_password" VELORA_CHANNEL="$channel" VELORA_HTTP_HOST="$http_host" docker compose up --build -d
+sudo env VELORA_BOOTSTRAP_USERNAME="$bootstrap_user" VELORA_BOOTSTRAP_PASSWORD="$bootstrap_password" VELORA_CHANNEL="$channel" VELORA_HTTP_HOST="$http_host" VELORA_DNS_HOST="$dns_host" docker compose up --build -d
 sudo docker compose ps
 
 if ! id -nG "$USER" | tr ' ' '\n' | grep -qx docker; then

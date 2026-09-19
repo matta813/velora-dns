@@ -40,9 +40,9 @@ EOF
 chmod +x "$mock_bin"/*
 cp "$root/scripts/install-compose.sh" "$tmp_dir/remote/install-compose.sh"
 
-TEST_INSTALLER_LOG="$log_file" PATH="$mock_bin:$PATH" VELORA_INSTALL_DIR="$tmp_dir/source" VELORA_CHANNEL=beta VELORA_HTTP_HOST=0.0.0.0 \
+TEST_INSTALLER_LOG="$log_file" PATH="$mock_bin:$PATH" VELORA_INSTALL_DIR="$tmp_dir/source" VELORA_CHANNEL=beta VELORA_HTTP_HOST=0.0.0.0 VELORA_DNS_HOST=0.0.0.0 \
   sh "$tmp_dir/remote/install-compose.sh"
 
-assert_logged "sudo env VELORA_BOOTSTRAP_USERNAME=admin VELORA_BOOTSTRAP_PASSWORD=generated-password-which-is-long-enough VELORA_CHANNEL=beta VELORA_HTTP_HOST=0.0.0.0 docker compose up --build -d"
+assert_logged "sudo env VELORA_BOOTSTRAP_USERNAME=admin VELORA_BOOTSTRAP_PASSWORD=generated-password-which-is-long-enough VELORA_CHANNEL=beta VELORA_HTTP_HOST=0.0.0.0 VELORA_DNS_HOST=0.0.0.0 docker compose up --build -d"
 assert_logged "sudo docker compose ps"
 printf '%s\n' 'Compose installer test passed'

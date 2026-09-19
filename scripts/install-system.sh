@@ -48,6 +48,19 @@ case "$http_host" in
   *) die 'VELORA_HTTP_HOST must be 127.0.0.1 or 0.0.0.0' ;;
 esac
 
+dns_host=${VELORA_DNS_HOST:-}
+if [ -z "$dns_host" ]; then
+  expose_dns=$(prompt_choice 'Expose DNS to your local network? [y/N]: ' N)
+  case "$expose_dns" in
+    y|Y|yes|YES) dns_host=0.0.0.0; printf '%s\n' 'DNS will accept private-network clients; confirm your firewall permits only trusted clients.' ;;
+    *) dns_host=127.0.0.1 ;;
+  esac
+fi
+case "$dns_host" in
+  127.0.0.1|0.0.0.0) ;;
+  *) die 'VELORA_DNS_HOST must be 127.0.0.1 or 0.0.0.0' ;;
+esac
+
 go_version=$(go env GOVERSION | sed 's/^go//')
 if [ "$(printf '%s\n%s\n' '1.27.1' "$go_version" | sort -V | head -n 1)" != '1.27.1' ]; then
   die "Go 1.27.1+ is required; found $go_version"
@@ -93,9 +106,9 @@ if ! sudo test -f /etc/velora/config.yaml; then
     http_allowed_hosts="['localhost', '127.0.0.1', '::1']"
   fi
   sudo tee /etc/velora/config.yaml >/dev/null <<EOF
-# Local-only, standard DNS installation. Adjust listener and client CIDRs before LAN use.
+# Standard DNS installation. Restrict listener and client CIDRs before untrusted-network use.
 dns:
-  listen: ['127.0.0.1:53']
+  listen: ['$dns_host:53']
   upstreams: ['1.1.1.1:53', '9.9.9.9:53']
   allowed_clients: ['127.0.0.0/8', '::1/128']
   timeout: 2s
