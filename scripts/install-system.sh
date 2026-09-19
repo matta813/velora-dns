@@ -99,12 +99,12 @@ sudo install -d -o root -g root -m 0755 /opt/velora/web
 sudo cp -R web/dist /opt/velora/web/dist
 sudo chown -R root:root /opt/velora/web
 
+if [ "$http_host" = 0.0.0.0 ]; then
+  http_allowed_hosts="['*']"
+else
+  http_allowed_hosts="['localhost', '127.0.0.1', '::1']"
+fi
 if ! sudo test -f /etc/velora/config.yaml; then
-  if [ "$http_host" = 0.0.0.0 ]; then
-    http_allowed_hosts="['*']"
-  else
-    http_allowed_hosts="['localhost', '127.0.0.1', '::1']"
-  fi
   sudo tee /etc/velora/config.yaml >/dev/null <<EOF
 # Standard DNS installation. Restrict listener and client CIDRs before untrusted-network use.
 dns:
@@ -127,6 +127,7 @@ http:
 database_path: /var/lib/velora/velora.db
 log_level: info
 EOF
+  sudo chown root:velora /etc/velora/config.yaml
   sudo chmod 0640 /etc/velora/config.yaml
 fi
 
@@ -171,10 +172,14 @@ WantedBy=multi-user.target
 EOF
 
 sudo systemctl daemon-reload
-sudo systemctl enable --now velora-dns
+if systemctl is-active --quiet velora-dns; then
+  sudo systemctl restart velora-dns
+else
+  sudo systemctl enable --now velora-dns
+fi
 sudo systemctl --no-pager --full status velora-dns
 
-printf '%s\n' 'Velora DNS is running. Open http://127.0.0.1:8080'
+printf '%s\n' "Velora DNS is running. Open http://${http_host}:8080"
 if [ "$generated_password" = true ]; then
   printf '%s\n' "Bootstrap username: $bootstrap_user"
   printf '%s\n' "Bootstrap password: $bootstrap_password"
