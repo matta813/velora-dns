@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/matta813/velora-dns/internal/api"
@@ -49,15 +51,48 @@ func (m *Manager) BackupStatus() (*api.BackupStatus, error) {
 	}, nil
 }
 
+func (m *Manager) resolveBackupPath(inputPath string) (string, error) {
+	if strings.TrimSpace(inputPath) == "" {
+		return "", errors.New("backup path is required")
+	}
+
+	baseDir, err := filepath.Abs(filepath.Dir(m.databasePath))
+	if err != nil {
+		return "", fmt.Errorf("resolve backup base directory: %w", err)
+	}
+
+	cleanPath := filepath.Clean(inputPath)
+	resolvedPath := filepath.Join(baseDir, cleanPath)
+	resolvedPath, err = filepath.Abs(resolvedPath)
+	if err != nil {
+		return "", fmt.Errorf("resolve backup path: %w", err)
+	}
+
+	rel, err := filepath.Rel(baseDir, resolvedPath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", errors.New("backup path must be within the backup directory")
+	}
+
+	return resolvedPath, nil
+}
+
 func (m *Manager) VerifyBackup(path string) (*api.BackupVerification, error) {
-	if _, err := os.Stat(path); err != nil {
+	validatedPath, err := m.resolveBackupPath(path)
+	if err != nil {
+		return &api.BackupVerification{
+			Valid: false,
+			Error: fmt.Sprintf("invalid backup path: %v", err),
+		}, nil
+	}
+
+	if _, err := os.Stat(validatedPath); err != nil {
 		return &api.BackupVerification{
 			Valid: false,
 			Error: fmt.Sprintf("backup file not found: %v", err),
 		}, nil
 	}
 
-	db, err := sql.Open("sqlite", "file:"+path+"?mode=ro")
+	db, err := sql.Open("sqlite", "file:"+validatedPath+"?mode=ro")
 	if err != nil {
 		return &api.BackupVerification{
 			Valid: false,
