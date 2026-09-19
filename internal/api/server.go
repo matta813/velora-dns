@@ -14,6 +14,7 @@ import (
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/database"
+	"github.com/matta813/velora-dns/internal/dns"
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/querylog"
 )
@@ -48,6 +49,8 @@ type Dependencies struct {
 	Update     UpdateStore
 	Onboarding OnboardingStore
 	Backup     BackupStore
+	Settings   SettingsStore
+	RateLimit  *dns.RateLimitState
 }
 type Error struct {
 	Code    string `json:"code"`
@@ -98,6 +101,9 @@ func New(d Dependencies) http.Handler {
 	}
 	if d.Backup != nil {
 		registerBackup(mux, d.Backup)
+	}
+	if d.Settings != nil {
+		registerSettings(mux, d.Settings, d.RateLimit)
 	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {

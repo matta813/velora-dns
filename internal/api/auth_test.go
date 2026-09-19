@@ -14,6 +14,7 @@ import (
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/database"
+	"github.com/matta813/velora-dns/internal/dns"
 	"github.com/matta813/velora-dns/internal/metrics"
 )
 
@@ -120,6 +121,33 @@ func TestLanguagePreferencesEndpoint(t *testing.T) {
 	}
 	if err = json.Unmarshal(w.Body.Bytes(), &got); err != nil || got.Data.Language != "de" {
 		t.Fatalf("updated language: %v %s", got.Data.Language, w.Body.String())
+	}
+}
+
+func TestRateLimitSettingsEndpoint(t *testing.T) {
+	db, err := database.Open(context.Background(), "sqlite", filepath.Join(t.TempDir(), "auth.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if _, err = db.CreateUser(context.Background(), "admin", "admin password long", "admin"); err != nil {
+		t.Fatal(err)
+	}
+	c := cache.New(10)
+	state := dns.NewRateLimitState(false, 1000, 100, 100)
+	h := New(Dependencies{Database: db, Auth: db, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: config.Default(), Started: time.Now(), Settings: db, RateLimit: state})
+	cookie, csrf := loginForTest(t, h, "admin", "admin password long")
+	if w := authRequest(h, "GET", "/api/v1/settings/rate-limit", "", cookie, ""); w.Code != 200 {
+		t.Fatalf("get rate limit: %d %s", w.Code, w.Body.String())
+	}
+	if w := authRequest(h, "PUT", "/api/v1/settings/rate-limit", `{"enabled":true,"global_qps":500,"client_qps":50,"rate_limit_burst":25}`, cookie, csrf); w.Code != 200 {
+		t.Fatalf("set rate limit: %d %s", w.Code, w.Body.String())
+	}
+	if !state.Enabled() {
+		t.Fatal("rate limit state not enabled after update")
+	}
+	if w := authRequest(h, "PUT", "/api/v1/settings/rate-limit", `{"enabled":true,"global_qps":0,"client_qps":50,"rate_limit_burst":25}`, cookie, csrf); w.Code != 400 {
+		t.Fatalf("invalid rate limit accepted: %d", w.Code)
 	}
 }
 
