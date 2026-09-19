@@ -36,16 +36,16 @@ const (
 
 // Entry represents a single update attempt in the history.
 type Entry struct {
-	ID            string    `json:"id"`
-	StartedAt     time.Time `json:"started_at"`
-	CompletedAt   time.Time `json:"completed_at,omitempty"`
-	FromVersion   string    `json:"from_version"`
-	ToVersion     string    `json:"to_version"`
-	State         State     `json:"state"`
-	Error         string    `json:"error,omitempty"`
-	ReadinessOK   bool      `json:"readiness_ok"`
-	RollbackUsed  bool      `json:"rollback_used"`
-	DeploymentMode string  `json:"deployment_mode"`
+	ID             string    `json:"id"`
+	StartedAt      time.Time `json:"started_at"`
+	CompletedAt    time.Time `json:"completed_at,omitempty"`
+	FromVersion    string    `json:"from_version"`
+	ToVersion      string    `json:"to_version"`
+	State          State     `json:"state"`
+	Error          string    `json:"error,omitempty"`
+	ReadinessOK    bool      `json:"readiness_ok"`
+	RollbackUsed   bool      `json:"rollback_used"`
+	DeploymentMode string    `json:"deployment_mode"`
 }
 
 // Config defines the update contract configuration.
@@ -110,7 +110,7 @@ func (m *Manager) LoadState() error {
 	}
 
 	var persisted struct {
-		Current *Entry `json:"current"`
+		Current *Entry  `json:"current"`
 		History []Entry `json:"history"`
 	}
 	if err := json.Unmarshal(data, &persisted); err != nil {
@@ -136,7 +136,7 @@ func (m *Manager) SaveState() error {
 	}
 
 	persisted := struct {
-		Current *Entry `json:"current"`
+		Current *Entry  `json:"current"`
 		History []Entry `json:"history"`
 	}{
 		Current: m.current,
@@ -165,11 +165,11 @@ func (m *Manager) Begin(fromVersion, toVersion, deploymentMode string) (*Entry, 
 	}
 
 	entry := &Entry{
-		ID:              fmt.Sprintf("update-%d", time.Now().UnixNano()),
-		StartedAt:       time.Now(),
-		FromVersion:     fromVersion,
-		ToVersion:       toVersion,
-		State:           StateDownloading,
+		ID:             fmt.Sprintf("update-%d", time.Now().UnixNano()),
+		StartedAt:      time.Now(),
+		FromVersion:    fromVersion,
+		ToVersion:      toVersion,
+		State:          StateDownloading,
 		DeploymentMode: deploymentMode,
 	}
 	m.current = entry
