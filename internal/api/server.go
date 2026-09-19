@@ -33,19 +33,20 @@ type Version struct {
 	Built   string `json:"built"`
 }
 type Dependencies struct {
-	Database  Database
-	Zones     ZoneStore
-	Filtering BlocklistStore
-	Queries   QueryStore
-	Auth      AuthStore
-	DNS       DNS
-	Cache     *cache.Cache
-	Metrics   *metrics.Metrics
-	Config    config.Config
-	Version   Version
-	Started   time.Time
-	TSIG      TSIGStore
-	Update    UpdateStore
+	Database    Database
+	Zones       ZoneStore
+	Filtering   BlocklistStore
+	Queries     QueryStore
+	Auth        AuthStore
+	DNS         DNS
+	Cache       *cache.Cache
+	Metrics     *metrics.Metrics
+	Config      config.Config
+	Version     Version
+	Started     time.Time
+	TSIG        TSIGStore
+	Update      UpdateStore
+	Onboarding  OnboardingStore
 }
 type Error struct {
 	Code    string `json:"code"`
@@ -90,6 +91,9 @@ func New(d Dependencies) http.Handler {
 	if d.Update != nil {
 		registerUpdate(mux, d.Update, d.Version)
 		capabilities = append(capabilities, "updates")
+	}
+	if d.Onboarding != nil {
+		registerOnboarding(mux, d.Onboarding, d.Config)
 	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
