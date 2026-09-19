@@ -37,6 +37,7 @@ release-test:
 	./scripts/test-release-channel.sh
 	./scripts/test-release-notes.sh
 	./scripts/test-release-announcement.sh
+	./scripts/test-install-compose-bootstrap.sh
 	python3 scripts/test-weekly-growth-report.py
 	./scripts/test-github-workflows.sh
 	python3 scripts/check-markdown-links.py
