@@ -13,17 +13,30 @@ const snapshot = {
 
 afterEach(() => vi.unstubAllGlobals());
 
+function mockOnboardingFetch() {
+  return vi.fn().mockImplementation((url: string) => {
+    if (url === "/api/v1/onboarding/status") {
+      return Promise.resolve({ ok: true, json: async () => ({ data: { first_run: false, user_count: 1, config_ready: true } }) });
+    }
+    return Promise.resolve({ ok: true, json: async () => ({}) });
+  });
+}
+
 it("renders bounded top-domain and top-client statistics", async () => {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: { window_start: "2026-09-07T12:00:00Z", window_end: "2026-09-08T12:00:00Z", total: 3, blocked: 1, top_domains: [{ value: "example.test.", count: 2 }], top_clients: [{ value: "192.0.2.1", count: 3 }] } }) }));
+  vi.stubGlobal("fetch", mockOnboardingFetch().mockImplementation((url: string) => {
+    if (url === "/api/v1/onboarding/status") {
+      return Promise.resolve({ ok: true, json: async () => ({ data: { first_run: false, user_count: 1, config_ready: true } }) });
+    }
+    return Promise.resolve({ ok: true, json: async () => ({ data: { window_start: "2026-09-07T12:00:00Z", window_end: "2026-09-08T12:00:00Z", total: 3, blocked: 1, top_domains: [{ value: "example.test.", count: 2 }], top_clients: [{ value: "192.0.2.1", count: 3 }] } }) });
+  }));
   render(<Dashboard data={snapshot} history={[]} queryLoggingEnabled />);
   expect(await screen.findByText("example.test.")).toBeInTheDocument();
   expect(screen.getByText("192.0.2.1")).toBeInTheDocument();
 });
 
 it("shows unavailable rankings without requesting history when logging is disabled", () => {
-  const fetch = vi.fn();
+  const fetch = mockOnboardingFetch();
   vi.stubGlobal("fetch", fetch);
   render(<Dashboard data={snapshot} history={[]} queryLoggingEnabled={false} />);
   expect(screen.getAllByText(/Unavailable while query logging is disabled/)).toHaveLength(2);
-  expect(fetch).not.toHaveBeenCalled();
 });

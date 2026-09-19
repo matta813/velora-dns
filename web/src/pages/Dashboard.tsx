@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Activity, ArrowUpRight, Database, Timer, Zap } from "lucide-react";
 import { request, type QuerySummary, type Snapshot } from "../api";
 import { Stat } from "../components/Stat";
+import { OnboardingChecklist } from "../components/OnboardingChecklist";
 const number = (v: number) => new Intl.NumberFormat("en").format(v);
 export function Dashboard({
   data,
@@ -41,6 +42,7 @@ export function Dashboard({
     .join(" ");
   return (
     <>
+      <OnboardingChecklist />
       <div className="stats">
         <Stat
           label="Total queries"
