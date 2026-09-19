@@ -21,15 +21,15 @@ const (
 )
 
 type AgentConfig struct {
-	ComposePath     string
-	ComposeDir      string
-	ComposeProject  string
-	ServiceName     string
-	Repository      string
-	ReadinessURL    string
-	StateFile       string
-	Timeout         time.Duration
-	Logger          *slog.Logger
+	ComposePath    string
+	ComposeDir     string
+	ComposeProject string
+	ServiceName    string
+	Repository     string
+	ReadinessURL   string
+	StateFile      string
+	Timeout        time.Duration
+	Logger         *slog.Logger
 }
 
 func main() {
