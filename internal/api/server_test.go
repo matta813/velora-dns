@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -98,6 +99,21 @@ func TestWildcardHostAllowsRemoteWebUI(t *testing.T) {
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://remote.example/api/v1/status", nil))
 	if w.Code != http.StatusOK {
 		t.Fatalf("wildcard host status = %d", w.Code)
+	}
+}
+
+func TestWebFallbackIncludesUpdateAndBackupRoutes(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "index.html"), []byte("ok"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/updates", "/backup"} {
+		r := httptest.NewRequest(http.MethodGet, "http://127.0.0.1"+path, nil)
+		w := httptest.NewRecorder()
+		web(tmpDir).ServeHTTP(w, r)
+		if w.Code != http.StatusOK {
+			t.Fatalf("route %s returned %d, want 200", path, w.Code)
+		}
 	}
 }
 
