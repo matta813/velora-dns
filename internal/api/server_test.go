@@ -71,6 +71,8 @@ func TestHostAndRequestLimits(t *testing.T) {
 	}{
 		{"GET", "attacker.test", "/api/v1/config", 0, 403},
 		{"GET", "127.0.0.1:8080", "/api/v1/config", 0, 200},
+		{"POST", "127.0.0.1:8080", "/api/v1/config", 0, 405},
+		{"PUT", "127.0.0.1:8080", "/api/v1/config", 0, 500},
 		{"POST", "127.0.0.1", "/api/v1/status", 0, 405},
 		{"DELETE", "127.0.0.1", "/api/v1/cache", 2 << 20, 413},
 	} {

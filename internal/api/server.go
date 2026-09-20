@@ -178,8 +178,8 @@ func New(d Dependencies) http.Handler {
 			failure(w, 403, "forbidden_host", "Host is not allowed")
 			return
 		}
-		if expected, ok := map[string]string{"/health": "GET", "/ready": "GET", "/metrics": "GET", "/api/v1/status": "GET", "/api/v1/version": "GET", "/api/v1/stats": "GET", "/api/v1/config": "GET", "/api/v1/cache": "GET, DELETE"}[r.URL.Path]; ok {
-			methodAllowed := r.Method == "GET" || r.Method == "HEAD" || (r.URL.Path == "/api/v1/cache" && r.Method == "DELETE")
+		if expected, ok := map[string]string{"/health": "GET", "/ready": "GET", "/metrics": "GET", "/api/v1/status": "GET", "/api/v1/version": "GET", "/api/v1/stats": "GET", "/api/v1/config": "GET, PUT", "/api/v1/cache": "GET, DELETE"}[r.URL.Path]; ok {
+			methodAllowed := r.Method == "GET" || r.Method == "HEAD" || (r.URL.Path == "/api/v1/cache" && r.Method == "DELETE") || (r.URL.Path == "/api/v1/config" && r.Method == "PUT")
 			if !methodAllowed {
 				w.Header().Set("Allow", expected+", HEAD")
 				failure(w, 405, "method_not_allowed", "Method not allowed")

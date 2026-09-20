@@ -207,7 +207,7 @@ export default function App() {
               <Route path="/settings" element={<Settings data={data} />} />
               <Route path="/updates" element={<UpdateCenter readOnly={readOnly} />} />
               <Route path="/backup" element={<BackupAssistant readOnly={readOnly} />} />
-              <Route path="*" element={<p>Page not found.</p>} />
+              <Route path="*" element={<p>{t("app.not_found")}</p>} />
             </Routes>
           )}
           <footer>

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { request } from "../api";
+import { useI18n } from "../i18n-context";
 import type { RecordInput, Zone, ZoneInput, ZoneRecord } from "./types";
 export function useZones() {
+  const { t } = useI18n();
   const [zones, setZones] = useState<Zone[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,13 +31,13 @@ export function useZones() {
         }
       } catch (e) {
         if (!controller.signal.aborted)
-          setError(e instanceof Error ? e.message : "Unable to load zones");
+          setError(e instanceof Error ? e.message : t("zones.load_failed"));
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
     })();
     return () => controller.abort();
-  }, [revision]);
+  }, [revision, t]);
   async function mutate<T>(operation: () => Promise<T>) {
     setBusy(true);
     try {

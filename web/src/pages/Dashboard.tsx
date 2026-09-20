@@ -31,10 +31,10 @@ export function Dashboard({
       })
       .catch((error) => {
         if (!controller.signal.aborted)
-          setSummaryError(error instanceof Error ? error.message : "Unable to load query statistics");
+          setSummaryError(error instanceof Error ? error.message : t("dashboard.stats_load_failed"));
       });
     return () => controller.abort();
-  }, [queryLoggingEnabled, data.checked]);
+  }, [queryLoggingEnabled, data.checked, t]);
   const max = Math.max(1, ...history);
   const points = history
     .map(
