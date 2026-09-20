@@ -11,7 +11,7 @@ Only checked items are implemented. Milestones describe targets, not release pro
 - [x] Query logging, bounded retention and filters
 - [x] Top domains and clients
 - [x] Versioned operational API (status/stats/cache/config)
-- [ ] Full management CRUD API
+- [x] Full management CRUD API
 - [x] React overview, cache and settings
 - [x] Zones management screen
 - [x] Query history screen
