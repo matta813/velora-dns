@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { loadPreferences, savePreferences } from "./api";
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, type Language } from "./i18n";
@@ -43,25 +43,38 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
-  function setLanguage(next: Language) {
+  const setLanguage = useCallback((next: Language) => {
     setLanguageState(next);
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("velora_language", next);
     }
-    void savePreferences({ language: next, theme }).catch(() => {});
-  }
-  function setTheme(next: Theme) {
+    setThemeState((currentTheme) => {
+      void savePreferences({ language: next, theme: currentTheme }).catch(() => {});
+      return currentTheme;
+    });
+  }, []);
+  const setTheme = useCallback((next: Theme) => {
     setThemeState(next);
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("velora_theme", next);
     }
-    void savePreferences({ language, theme: next }).catch(() => {});
-  }
+    setLanguageState((currentLanguage) => {
+      void savePreferences({ language: currentLanguage, theme: next }).catch(() => {});
+      return currentLanguage;
+    });
+  }, []);
+  const t = useMemo(() => makeT(language), [language]);
+  const i18nValue = useMemo(
+    () => ({ language, setLanguage, t }),
+    [language, setLanguage, t],
+  );
+  const themeValue = useMemo(
+    () => ({ theme, setTheme }),
+    [theme, setTheme],
+  );
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
-      <I18nContext.Provider
-        value={{ language, setLanguage, t: makeT(language) }}
-      >
+    <ThemeContext.Provider value={themeValue}>
+      <I18nContext.Provider value={i18nValue}>
         {children}
       </I18nContext.Provider>
     </ThemeContext.Provider>
