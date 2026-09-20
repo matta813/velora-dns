@@ -4,7 +4,9 @@ import { request, type QuerySummary, type Snapshot } from "../api";
 import { Stat } from "../components/Stat";
 import { OnboardingChecklist } from "../components/OnboardingChecklist";
 import { useI18n } from "../i18n-context";
-const number = (v: number) => new Intl.NumberFormat("en").format(v);
+import type { Language } from "../i18n";
+const number = (language: Language, v: number) =>
+  new Intl.NumberFormat(language).format(v);
 export function Dashboard({
   data,
   history,
@@ -14,7 +16,7 @@ export function Dashboard({
   history: number[];
   queryLoggingEnabled: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [querySummary, setQuerySummary] = useState<QuerySummary | null>(null);
   const [summaryError, setSummaryError] = useState("");
   useEffect(() => {
@@ -48,7 +50,7 @@ export function Dashboard({
       <div className="stats">
         <Stat
           label={t("dashboard.total_queries")}
-          value={number(data.stats.queries_total)}
+          value={number(language, data.stats.queries_total)}
           note={t("dashboard.since_start")}
           icon={<Activity size={17} />}
         />
@@ -61,7 +63,7 @@ export function Dashboard({
         <Stat
           label={t("dashboard.cache_hit_rate")}
           value={`${(data.stats.cache_hit_rate * 100).toFixed(1)}%`}
-          note={`${number(data.cache.hits)} ${t("dashboard.answers_from_memory")}`}
+          note={`${number(language, data.cache.hits)} ${t("dashboard.answers_from_memory")}`}
           icon={<Database size={17} />}
         />
         <Stat
@@ -143,7 +145,7 @@ export function Dashboard({
               <div>
                 <strong>{t("dashboard.memory_cache")}</strong>
                 <p>
-                  {number(data.cache.entries)} / {number(data.cache.capacity)}{" "}
+                  {number(language, data.cache.entries)} / {number(language, data.cache.capacity)}{" "}
                   {t("dashboard.memory_cache")}
                 </p>
               </div>
@@ -215,7 +217,7 @@ export function Dashboard({
 }
 
 function RankingPanel({ title, values, enabled, error }: { title: string; values?: { value: string; count: number }[]; enabled: boolean; error: string }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -231,7 +233,7 @@ function RankingPanel({ title, values, enabled, error }: { title: string; values
         <p className="panel-footnote">{t("dashboard.no_retained")}</p>
       ) : (
         <ol className="ranking-list">
-          {values.map((item) => <li key={item.value}><code>{item.value}</code><strong>{number(item.count)}</strong></li>)}
+          {values.map((item) => <li key={item.value}><code>{item.value}</code><strong>{number(language, item.count)}</strong></li>)}
         </ol>
       )}
     </section>
