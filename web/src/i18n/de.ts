@@ -121,8 +121,6 @@ const de: Record<string, string> = {
   "settings.save_success":
     "Konfiguration gespeichert. Für Änderungen ist ein Neustart erforderlich.",
   "settings.save_failed": "Konfiguration konnte nicht gespeichert werden",
-  "settings.yaml_note":
-    "Hinweis: Die Konfiguration wird in der YAML-Konfigurationsdatei gespeichert. Der Server muss neu gestartet werden, damit Änderungen wirksam werden. Der Installer verwaltet außerdem den Release-Kanal (stable/beta/alpha) und die Bootstrap-Anmeldedaten separat über Umgebungsdateien.",
 
   // Dashboard
   "dashboard.total_queries": "Abfragen gesamt",

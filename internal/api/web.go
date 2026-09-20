@@ -17,7 +17,7 @@ func web(currentDir func() string) http.Handler {
 		fs := http.FileServer(http.Dir(dir))
 		// Only explicit UI routes use the SPA fallback; missing assets remain 404.
 		switch r.URL.Path {
-		case "/", "/cache", "/settings", "/zones", "/blocklists", "/queries", "/updates", "/backup":
+		case "/", "/cache", "/settings", "/zones", "/blocklists", "/queries", "/updates", "/backup", "/dhcp", "/cluster":
 			if _, err := os.Stat(filepath.Join(dir, "index.html")); err != nil {
 				failure(w, 503, "ui_unavailable", "Build the web UI with npm run build")
 				return
