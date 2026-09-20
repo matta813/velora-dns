@@ -94,7 +94,7 @@ func (s *Store) LoadZones(ctx context.Context) ([]zones.Zone, error) {
 		}
 		all[i].Records = append(all[i].Records, r)
 	}
-	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, err
 	}
 	if count > zones.MaxTotalRecords {

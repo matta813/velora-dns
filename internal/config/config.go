@@ -148,7 +148,7 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 	}
 	for key, target := range map[string]*[]string{"HTTP_ALLOWED_HOSTS": &c.HTTP.AllowedHosts, "DNS_LISTEN": &c.DNS.Listen, "DNS_UPSTREAMS": &c.DNS.Upstreams, "DNS_ALLOWED_CLIENTS": &c.DNS.AllowedClients, "DNS_TRUST_ANCHORS": &c.DNS.TrustAnchors} {
 		if v, ok := lookup("VELORA_" + key); ok {
-			*target = strings.Split(v, ",")
+			*target = strings.FieldsFunc(v, func(r rune) bool { return r == ',' || r == '\n' })
 			for i := range *target {
 				(*target)[i] = strings.TrimSpace((*target)[i])
 			}

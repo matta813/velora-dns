@@ -219,7 +219,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		if tlsErr != nil {
 			return tlsErr
 		}
-		doqServer, err = dns.StartQUIC(c.DNS.DoQListen, dnsHandler, tlsConfig)
+		doqServer, err = dns.StartQUIC(c.DNS.DoQListen, dnsHandler, tlsConfig.Clone())
 		if err != nil {
 			return err
 		}
@@ -230,10 +230,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 			result = errors.Join(result, doqServer.Shutdown(shutdown))
 		}()
 	}
-	httpNetwork := "tcp6"
-	if address, parseErr := netip.ParseAddrPort(c.HTTP.Listen); parseErr == nil && address.Addr().Is4() {
-		httpNetwork = "tcp4"
-	}
+	httpNetwork := "tcp"
 	socket, err := net.Listen(httpNetwork, c.HTTP.Listen)
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)

@@ -202,7 +202,8 @@ func (c *TransferClient) IXFR(ctx context.Context, zone, primaryAddr string, ser
 		return result, nil
 	}
 
-	for {
+	maxMessages := 1000
+	for i := 0; i < maxMessages; i++ {
 		if ctx.Err() != nil {
 			result.Errors = append(result.Errors, ctx.Err())
 			return result, nil

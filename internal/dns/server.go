@@ -49,9 +49,11 @@ func StartWithOptions(addresses []string, handler wire.Handler, options ServerOp
 			cleanup()
 			return nil, fmt.Errorf("invalid listener: %w", err)
 		}
-		tcpNetwork, udpNetwork := "tcp6", "udp6"
+		tcpNetwork, udpNetwork := "tcp", "udp"
 		if ip := net.ParseIP(host); ip != nil && ip.To4() != nil {
 			tcpNetwork, udpNetwork = "tcp4", "udp4"
+		} else if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
+			tcpNetwork, udpNetwork = "tcp6", "udp6"
 		}
 		tcp, err := net.Listen(tcpNetwork, address)
 		if err != nil {
