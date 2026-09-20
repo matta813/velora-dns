@@ -54,8 +54,6 @@ const de: Record<string, string> = {
 
   // Settings
   "settings.server_configuration": "Serverkonfiguration",
-  "settings.read_only_hint":
-    "In dieser Foundation schreibgeschützt. YAML oder Umgebungsvariablen aktualisieren und den Server neu starten, um Änderungen anzuwenden.",
   "settings.language": "Sprache",
   "settings.theme": "Farbschema",
   "settings.theme_light": "Hell",
@@ -63,18 +61,7 @@ const de: Record<string, string> = {
   "settings.theme_auto": "Automatisch",
   "settings.theme_hint":
     "Auto folgt dem hellen oder dunklen Farbschema Ihres Betriebssystems.",
-  "settings.dns_listeners": "DNS-Listener",
-  "settings.allowed_clients": "Erlaubte Client-Netzwerke",
-  "settings.upstreams": "Upstream-Server",
-  "settings.attempt_timeout": "Antwort-Timeout",
-  "settings.seconds": "Sekunden",
-  "settings.retries": "Wiederholungen nach der ersten Runde",
-  "settings.max_concurrent": "Maximale gleichzeitige Abfragen",
-  "settings.cache_capacity": "Cache-Kapazität",
   "settings.log_level": "Log-Level",
-  "settings.version": "Version",
-  "settings.security_notice":
-    "Verwaltungszugriff erfordert einen authentifizierten Benutzer oder ein berechtigtes API-Token. Halten Sie diese Oberfläche in einem vertrauenswürdigen lokalen Netzwerk oder hinter einem authentifizierten Tunnel.",
   "settings.rate_limiting": "Ratenbegrenzung",
   "settings.rate_limit_hint":
     "Die Ratenbegrenzung ist standardmäßig deaktiviert. Aktivieren Sie sie, um den Resolver vor Quell-Floods und hohen Abfrageraten zu schützen.",
@@ -95,8 +82,6 @@ const de: Record<string, string> = {
   "settings.cache_ttl_hint": "86400 Sekunden = 24 Stunden. Bereich: 0–604800 Sekunden; 0 verwendet die ursprüngliche Upstream-TTL. Änderungen beim Upstream können entsprechend verzögert sichtbar werden. Eine Änderung leert bestehende Cache-Einträge. Antworten mit TTL 0 und signierte DNSSEC-Antworten behalten ihre ursprüngliche TTL.",
   "settings.cache_ttl_invalid": "Geben Sie eine ganze Zahl zwischen 0 und 604800 Sekunden ein.",
   "settings.dns_listen_label": "DNS-Listen-Adressen (kommagetrennt)",
-  "settings.dns_listen_localhost": "Nur localhost (127.0.0.1:53)",
-  "settings.dns_listen_all": "Alle Schnittstellen (0.0.0.0:53) — LAN-Zugriff",
   "settings.dns_listen_warning":
     "Warnung: 0.0.0.0 macht DNS in Ihrem Netzwerk verfügbar. Stellen Sie sicher, dass die Firewall nur vertrauenswürdige Clients zulässt.",
   "settings.upstreams_label": "Upstream-DNS-Server (kommagetrennt)",
@@ -107,8 +92,6 @@ const de: Record<string, string> = {
     "Nur diese Netzwerke dürfen den Resolver abfragen. Beispiel: 192.168.1.0/24, 10.0.0.0/8",
   "settings.web_section": "Web-UI-Einstellungen",
   "settings.web_listen_label": "Web-UI-Listen-Adresse (IP:Port)",
-  "settings.web_listen_localhost": "Nur localhost (127.0.0.1:8080)",
-  "settings.web_listen_all": "Alle Schnittstellen (0.0.0.0:8080) — LAN-Zugriff",
   "settings.web_listen_warning":
     "Warnung: 0.0.0.0 macht die Web-UI in Ihrem Netzwerk verfügbar. Verwenden Sie eine Firewall oder Authentifizierung.",
   "settings.allowed_hosts_label": "Erlaubte Hosts (kommagetrennt)",
@@ -251,7 +234,6 @@ const de: Record<string, string> = {
   "blocklists.empty_title": "Keine externen Blocklisten",
   "blocklists.empty_text": "Fügen Sie eine vertrauenswürdige öffentliche Hosts- oder Domain-Liste hinzu, um DNS-Blocking anzuwenden.",
   "blocklists.caption": "Externe Blocklisten-Quellen",
-  "blocklists.col_name": "Name",
   "blocklists.col_source": "Quelle",
   "blocklists.col_status": "Status",
   "blocklists.col_last_update": "Letzte Aktualisierung",
