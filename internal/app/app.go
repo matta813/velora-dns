@@ -161,8 +161,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 			}
 			newAllowed = append(newAllowed, prefix)
 		}
-		dnsHandler.Allowed = newAllowed
-		dnsHandler.Slots = make(chan struct{}, updated.DNS.MaxConcurrent)
+		dnsHandler.UpdateConfig(newAllowed, updated.DNS.MaxConcurrent)
 		return nil
 	}
 	listener, err := dns.StartWithOptions(c.DNS.Listen, dnsHandler, dns.ServerOptions{MaxTCPConnections: c.DNS.MaxTCPConns, Observer: observer})

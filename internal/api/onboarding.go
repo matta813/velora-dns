@@ -16,7 +16,7 @@ func registerOnboarding(mux *http.ServeMux, store OnboardingStore, config any) {
 			return
 		}
 
-		isFirstRun := userCount <= 1
+		isFirstRun := userCount == 0
 
 		respond(w, 200, map[string]any{
 			"first_run":    isFirstRun,

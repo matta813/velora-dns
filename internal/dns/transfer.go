@@ -269,7 +269,13 @@ func (h *TransferHandler) ServeAXFR(w wire.ResponseWriter, q *wire.Msg) {
 		return
 	}
 
-	if h.TSIGStore != nil && q.IsTsig() != nil {
+	if h.TSIGStore != nil {
+		if q.IsTsig() == nil {
+			m := new(wire.Msg)
+			m.SetRcode(q, wire.RcodeRefused)
+			_ = w.WriteMsg(m)
+			return
+		}
 		if _, err := h.TSIGStore.VerifyMessage(q); err != nil {
 			m := new(wire.Msg)
 			m.SetRcode(q, wire.RcodeRefused)
