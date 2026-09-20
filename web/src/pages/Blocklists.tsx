@@ -172,7 +172,7 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
             </p>
             <fieldset disabled={busy !== null}>
               <label>
-                Name
+{t("blocklists.name")}
                 <input
                   required
                   value={name}
