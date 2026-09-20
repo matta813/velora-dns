@@ -45,10 +45,14 @@ func Key(q *dns.Msg) (string, bool) {
 	do := false
 	for _, rr := range q.Extra {
 		opt, ok := rr.(*dns.OPT)
-		if !ok || len(opt.Option) > 0 || opt.Version() != 0 {
+		if !ok {
+			continue
+		}
+		if opt.Version() != 0 {
 			return "", false
 		}
 		do = opt.Do()
+		break
 	}
 	question := q.Question[0]
 	return fmt.Sprintf("%s/%d/%d/%t/%t/%t", strings.ToLower(question.Name), question.Qtype, question.Qclass, q.RecursionDesired, q.CheckingDisabled, do), true

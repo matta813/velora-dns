@@ -25,35 +25,37 @@ import { UpdateCenter } from "./pages/UpdateCenter";
 import { BackupAssistant } from "./pages/BackupAssistant";
 import { logout } from "./api";
 import { useAuthUser } from "./auth-context";
+import { useI18n } from "./i18n-context";
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
   const user = useAuthUser();
+  const { t } = useI18n();
   const readOnly = user?.role === "viewer";
   const { pathname } = useLocation();
   const signOut = () => void logout().then(() => window.location.reload());
   const title =
     pathname === "/zones"
-      ? "Local zones"
+      ? t("app.title.zones")
       : pathname === "/queries"
-        ? "Query log"
+        ? t("app.title.queries")
         : pathname === "/blocklists"
-          ? "Blocklists"
+          ? t("app.title.blocklists")
           : pathname === "/cache"
-            ? "DNS cache"
+            ? t("app.title.cache")
             : pathname === "/settings"
-              ? "Settings"
+              ? t("app.title.settings")
               : pathname === "/updates"
-                ? "Updates"
+                ? t("app.title.updates")
                 : pathname === "/backup"
-                  ? "Backup & Restore"
-                  : "Network overview";
+                  ? t("app.title.backup")
+                  : t("app.title.overview");
   useEffect(() => {
     document.title = `Velora DNS · ${title}`;
   }, [title]);
   return (
     <div className="app">
       <a className="skip-link" href="#main">
-        Skip to content
+        {t("app.skip_to_content")}
       </a>
       <aside className="sidebar">
         <a className="brand" href="/">
@@ -67,96 +69,96 @@ export default function App() {
             <Activity size={18} />
           </span>
           <div>
-            <strong>Local resolver</strong>
-            <small>Self-hosted · Foundation</small>
+            <strong>{t("app.local_resolver")}</strong>
+            <small>{t("app.self_hosted_foundation")}</small>
           </div>
         </div>
-        <span className="nav-label">WORKSPACE</span>
-        <nav aria-label="Main navigation">
+        <span className="nav-label">{t("app.workspace_label")}</span>
+        <nav aria-label={t("app.nav.main")}>
           <NavLink to="/" end>
             <LayoutDashboard size={18} />
-            Overview
+            {t("app.nav.overview")}
           </NavLink>
           <NavLink to="/zones">
             <Globe2 size={18} />
-            Local zones
+            {t("app.nav.zones")}
           </NavLink>
           <NavLink to="/queries">
             <ScrollText size={18} />
-            Query log
+            {t("app.nav.queries")}
           </NavLink>
           <NavLink to="/blocklists">
             <ShieldBan size={18} />
-            Blocklists
+            {t("app.nav.blocklists")}
           </NavLink>
           <NavLink to="/cache">
             <Database size={18} />
-            DNS cache
+            {t("app.nav.cache")}
           </NavLink>
           <NavLink to="/settings">
             <Settings2 size={18} />
-            Settings
+            {t("app.nav.settings")}
           </NavLink>
           <NavLink to="/updates">
             <Download size={18} />
-            Updates
+            {t("app.nav.updates")}
           </NavLink>
           <NavLink to="/backup">
             <HardDrive size={18} />
-            Backup
+            {t("app.nav.backup")}
           </NavLink>
         </nav>
         <button className="button secondary mobile-signout" onClick={signOut}>
-          Sign out
+          {t("app.sign_out")}
         </button>
         <div className="sidebar-bottom">
           <div className="privacy">
             <ShieldCheck size={18} />
             <div>
-              <strong>Private by default</strong>
+              <strong>{t("app.private_by_default")}</strong>
               <p>
                 {data?.config.query_log?.enabled
-                  ? "Query history has bounded retention."
-                  : "Query history is not collected."}
+                  ? t("app.privacy.query_retention")
+                  : t("app.privacy.no_query_history")}
               </p>
             </div>
           </div>
           <a href="https://github.com/matta813/velora-dns">
-            GitHub repository <ArrowUpRight size={15} />
+            {t("app.github_repo")} <ArrowUpRight size={15} />
           </a>
-          <button className="button secondary" onClick={signOut}>Sign out</button>
-          <small>{data?.status.version.version ?? "Connecting…"}</small>
+          <button className="button secondary" onClick={signOut}>{t("app.sign_out")}</button>
+          <small>{data?.status.version.version ?? t("app.connecting")}</small>
         </div>
       </aside>
       <div className="main-wrap">
         <header className="topbar">
           <span>
-            Workspace <span className="slash">/</span> <strong>{title}</strong>
+            {t("app.workspace")} <span className="slash">/</span> <strong>{title}</strong>
           </span>
           <span className={`connection ${error ? "offline" : ""}`}>
             <i className="dot" />
             {error
-              ? "Connection lost"
+              ? t("app.connection_lost")
               : data?.status.ready
-                ? "Resolver online"
-                : "Connecting"}
+                ? t("app.resolver_online")
+                : t("app.connecting")}
           </span>
         </header>
         <main id="main">
           <div className="page-heading">
             <div>
-              <span className="eyebrow">YOUR NETWORK, AT A GLANCE</span>
+              <span className="eyebrow">{t("app.eyebrow")}</span>
               <h1>{title}</h1>
               <p>
                 {pathname === "/"
-                  ? "A clear view of your DNS, from request to response."
-                  : "Inspect and manage your resolver foundation."}
+                  ? t("app.subtitle.overview")
+                  : t("app.subtitle.default")}
               </p>
             </div>
             {!["/zones", "/queries", "/blocklists"].includes(pathname) && (
               <button className="button" onClick={refresh}>
                 <RefreshCw size={15} />
-                Refresh
+                {t("app.refresh")}
               </button>
             )}
           </div>
@@ -164,18 +166,18 @@ export default function App() {
             <div className="notice error" role="alert">
               {error}.{" "}
               {data
-                ? `Showing the last successful snapshot from ${data.checked.toLocaleTimeString()}.`
-                : "Check that the Velora server is running."}
+                ? `${t("app.error.showing_last")} ${data.checked.toLocaleTimeString()}.`
+                : t("app.error.check_server")}
             </div>
           )}
           {readOnly && ["/zones", "/blocklists", "/cache"].includes(pathname) && (
             <div className="notice" role="status">
-              You are signed in as a viewer. Management actions are read-only.
+              {t("app.viewer_readonly")}
             </div>
           )}
           {!data && !error && (
             <div className="panel padded" role="status">
-              Connecting to your resolver…
+              {t("app.connecting_panel")}
             </div>
           )}
           {data && (
@@ -210,13 +212,12 @@ export default function App() {
           )}
           <footer>
             <span>
-              Velora DNS <span className="footer-dot">·</span> Independent.
-              Self-hosted.
+              {t("app.footer.independent")}
             </span>
             <span>
               {data
-                ? `Last updated ${data.checked.toLocaleTimeString()}`
-                : "Waiting for server"}
+                ? `${t("app.footer.last_updated")} ${data.checked.toLocaleTimeString()}`
+                : t("app.footer.waiting")}
             </span>
           </footer>
         </main>

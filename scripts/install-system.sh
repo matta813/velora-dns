@@ -61,6 +61,15 @@ case "$dns_host" in
   *) die 'VELORA_DNS_HOST must be 127.0.0.1 or 0.0.0.0' ;;
 esac
 
+# Binding to all interfaces also claims loopback addresses. Ubuntu's
+# systemd-resolved normally owns 127.0.0.53:53, so detect that conflict before
+# downloading and building the application.
+if [ "$dns_host" = 0.0.0.0 ] && command -v ss >/dev/null 2>&1; then
+  if ss -H -ltn 'sport = :53' | grep -q . || ss -H -lun 'sport = :53' | grep -q .; then
+    die 'DNS port 53 is already in use. Stop or reconfigure the service using it (commonly systemd-resolved) before exposing Velora DNS on the LAN. Use VELORA_DNS_HOST=127.0.0.1 for a local-only install.'
+  fi
+fi
+
 go_version=$(go env GOVERSION | sed 's/^go//')
 if [ "$(printf '%s\n%s\n' '1.27.1' "$go_version" | sort -V | head -n 1)" != '1.27.1' ]; then
   die "Go 1.27.1+ is required; found $go_version"
@@ -71,27 +80,43 @@ npm --prefix web ci
 npm --prefix web run build
 CGO_ENABLED=0 go build -trimpath -o bin/velora-dns ./cmd/server
 
+if sudo test -x /opt/velora/velora-dns; then
+  existing_install=true
+  printf '%s\n' 'Existing Velora DNS installation detected; updating it.'
+  sudo cp /opt/velora/velora-dns /opt/velora/velora-dns.old
+else
+  existing_install=false
+fi
+
 bootstrap_user=${VELORA_BOOTSTRAP_USERNAME:-admin}
 bootstrap_password=${VELORA_BOOTSTRAP_PASSWORD:-}
-if [ -z "$bootstrap_password" ]; then
+if sudo test -f /etc/velora/velora.env; then
+  existing_bootstrap_env=true
+  generated_password=false
+elif [ -z "$bootstrap_password" ]; then
+  existing_bootstrap_env=false
   command -v openssl >/dev/null 2>&1 || die "openssl is required to generate a bootstrap password (or set VELORA_BOOTSTRAP_PASSWORD)"
   bootstrap_password=$(openssl rand -base64 24)
   generated_password=true
 else
+  existing_bootstrap_env=false
   generated_password=false
 fi
-[ "${#bootstrap_password}" -ge 12 ] || die "VELORA_BOOTSTRAP_PASSWORD must be at least 12 characters"
-case "$bootstrap_user:$bootstrap_password" in
-  *[!A-Za-z0-9._+/@=:-]*) die "bootstrap credentials may contain only letters, numbers, . _ + / @ = : and -" ;;
-esac
+if [ "$existing_bootstrap_env" = false ]; then
+  [ "${#bootstrap_password}" -ge 12 ] || die "VELORA_BOOTSTRAP_PASSWORD must be at least 12 characters"
+  case "$bootstrap_user:$bootstrap_password" in
+    *[!A-Za-z0-9._+/@=:-]*) die "bootstrap credentials may contain only letters, numbers, . _ + / @ = : and -" ;;
+  esac
+fi
 
-sudo install -d -o root -g root -m 0755 /opt/velora /etc/velora
+sudo install -d -o root -g root -m 0755 /opt/velora
 if ! getent group velora >/dev/null; then
   sudo groupadd --system velora
 fi
 if ! id -u velora >/dev/null 2>&1; then
   sudo useradd --system --home-dir /var/lib/velora --shell /usr/sbin/nologin --gid velora velora
 fi
+sudo install -d -o root -g velora -m 0750 /etc/velora
 sudo install -d -o velora -g velora -m 0750 /var/lib/velora
 sudo install -o root -g root -m 0755 bin/velora-dns /opt/velora/velora-dns
 sudo rm -rf /opt/velora/web
@@ -127,23 +152,26 @@ http:
 database_path: /var/lib/velora/velora.db
 log_level: info
 EOF
-  sudo chown root:velora /etc/velora/config.yaml
-  sudo chmod 0640 /etc/velora/config.yaml
+else
+  sudo sed -i "/listen:.*53/s|listen: .*|listen: ['$dns_host:53']|" /etc/velora/config.yaml
+  sudo sed -i "/listen:.*8080/s|listen: .*|listen: '$http_host:8080'|" /etc/velora/config.yaml
+  sudo sed -i "s|allowed_hosts: .*|allowed_hosts: $http_allowed_hosts|" /etc/velora/config.yaml
+  printf '%s\n' 'Existing config.yaml updated with new listen addresses.'
 fi
+sudo chown root:velora /etc/velora/config.yaml
+sudo chmod 0640 /etc/velora/config.yaml
 
-if ! sudo test -f /etc/velora/updater.env; then
-  printf 'VELORA_CHANNEL=%s\n' "$channel" | sudo tee /etc/velora/updater.env >/dev/null
-  sudo chmod 0644 /etc/velora/updater.env
-fi
+printf 'VELORA_CHANNEL=%s\n' "$channel" | sudo tee /etc/velora/updater.env >/dev/null
+sudo chmod 0644 /etc/velora/updater.env
 
 if ! sudo test -f /etc/velora/velora.env; then
   sudo tee /etc/velora/velora.env >/dev/null <<EOF
 VELORA_BOOTSTRAP_USERNAME=$bootstrap_user
 VELORA_BOOTSTRAP_PASSWORD=$bootstrap_password
 EOF
-  sudo chown root:velora /etc/velora/velora.env
-  sudo chmod 0640 /etc/velora/velora.env
 fi
+sudo chown root:velora /etc/velora/velora.env
+sudo chmod 0640 /etc/velora/velora.env
 
 sudo tee /etc/systemd/system/velora-dns.service >/dev/null <<'EOF'
 [Unit]
@@ -156,6 +184,7 @@ Type=simple
 User=velora
 Group=velora
 EnvironmentFile=/etc/velora/velora.env
+ExecStartPre=/opt/velora/velora-dns-check.sh
 ExecStart=/opt/velora/velora-dns -config /etc/velora/config.yaml
 Restart=on-failure
 RestartSec=5s
@@ -166,10 +195,24 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/velora
+LogsDirectory=velora-dns
 
 [Install]
 WantedBy=multi-user.target
 EOF
+
+sudo tee /opt/velora/velora-dns-check.sh >/dev/null <<'SCRIPT'
+#!/bin/sh
+echo "velora-dns pre-start check:"
+echo "  running as: $(id)"
+echo "  config:     $(ls -la /etc/velora/config.yaml 2>&1)"
+echo "  env:        $(ls -la /etc/velora/velora.env 2>&1)"
+echo "  db dir:     $(ls -la /var/lib/velora 2>&1)"
+test -r /etc/velora/config.yaml || { echo "  ERROR: config.yaml not readable"; exit 1; }
+test -r /etc/velora/velora.env  || { echo "  ERROR: velora.env not readable"; exit 1; }
+echo "  all checks passed"
+SCRIPT
+sudo chmod 0755 /opt/velora/velora-dns-check.sh
 
 sudo systemctl daemon-reload
 if systemctl is-active --quiet velora-dns; then
@@ -180,7 +223,13 @@ fi
 sudo systemctl --no-pager --full status velora-dns
 
 printf '%s\n' "Velora DNS is running. Open http://${http_host}:8080"
-if [ "$generated_password" = true ]; then
+if [ "$existing_install" = true ]; then
+  printf '%s\n' 'Existing installation updated. The previous binary is kept at /opt/velora/velora-dns.old.'
+  printf '%s\n' 'Remove it after you confirm the update works:'
+  printf '%s\n' '  sudo rm /opt/velora/velora-dns.old'
+elif [ "$existing_bootstrap_env" = true ]; then
+  printf '%s\n' 'Existing bootstrap credentials were retained; no password was changed or displayed.'
+elif [ "$generated_password" = true ]; then
   printf '%s\n' "Bootstrap username: $bootstrap_user"
   printf '%s\n' "Bootstrap password: $bootstrap_password"
   printf '%s\n' 'Store this password now; it is saved in /etc/velora/velora.env for the first start only.'

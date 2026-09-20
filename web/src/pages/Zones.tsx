@@ -5,8 +5,10 @@ import { ZoneForm } from "../zones/ZoneForm";
 import { RecordForm } from "../zones/RecordForm";
 import { RecordTable } from "../zones/RecordTable";
 import type { Zone, ZoneRecord } from "../zones/types";
+import { useI18n } from "../i18n-context";
 import "../zones/zones.css";
 export function Zones({ readOnly = false }: { readOnly?: boolean }) {
+  const { t } = useI18n();
   const state = useZones();
   const [selectedID, setSelectedID] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
@@ -38,12 +40,12 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
       await state.remove(deleting.zone, deleting.record);
       setMessage(
         deleting.record
-          ? "Record deleted. DNS changes are active."
-          : "Zone and its records deleted.",
+          ? t("zones.record_deleted")
+          : t("zones.zone_deleted"),
       );
       setDeleting(null);
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : "Unable to delete");
+      setActionError(e instanceof Error ? e.message : t("zones.delete_failed"));
     }
   }
   return (
@@ -52,7 +54,7 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
         <span className="zone-count">
           {state.zones
             ? `${state.zones.length} local ${state.zones.length === 1 ? "zone" : "zones"}`
-            : "Local authority"}
+            : t("zones.local_authority")}
         </span>
         <div>
           <button
@@ -68,7 +70,7 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
             }}
           >
             <RefreshCw size={15} />
-            Reload zones
+            {t("zones.reload")}
           </button>
           <button
             className="button primary"
@@ -80,7 +82,7 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
             }}
           >
             <Plus size={15} />
-            Add zone
+            {t("zones.add_zone")}
           </button>
         </div>
       </div>
@@ -88,8 +90,8 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
         <div className="notice error" role="alert">
           {state.error}.{" "}
           {state.zones
-            ? "Showing the last loaded zones. Reload before making changes."
-            : "Reload to try again."}
+            ? t("zones.error_stale")
+            : t("zones.error_retry")}
         </div>
       )}
       {message && (
@@ -99,7 +101,7 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
       )}
       {actionError && (
         <div className="notice error" role="alert">
-          {actionError}. Reload zones before retrying.
+          {actionError}. {t("zones.reload_before_retry")}
         </div>
       )}
       {creating && (
@@ -111,23 +113,22 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
               const z = await state.create(input);
               setSelectedID(z.id);
               setCreating(false);
-              setMessage("Zone created. Add records to start using it.");
+              setMessage(t("zones.zone_created"));
             }}
           />
         </section>
       )}
       {state.zones === null && !state.error && (
         <section className="panel padded" role="status">
-          Loading local zones…
+          {t("zones.loading")}
         </section>
       )}
       {state.zones?.length === 0 && !creating && (
         <section className="panel zone-empty large">
           <Globe2 size={32} />
-          <h2>Give your network familiar names</h2>
+          <h2>{t("zones.empty_title")}</h2>
           <p>
-            Create a zone such as home.arpa, then add records for your router,
-            services, and devices.
+            {t("zones.empty_text")}
           </p>
           <button
             className="button primary"
@@ -135,7 +136,7 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
             onClick={() => setCreating(true)}
           >
             <Plus size={15} />
-            Create your first zone
+            {t("zones.create_first")}
           </button>
         </section>
       )}
@@ -144,14 +145,14 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
           <section className="panel zone-list">
             <label className="zone-search">
               <Search size={15} />
-              <span className="sr-only">Filter zones</span>
+              <span className="sr-only">{t("zones.filter_aria")}</span>
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Find a zone…"
+                placeholder={t("zones.filter_placeholder")}
               />
             </label>
-            <nav aria-label="Local zones">
+            <nav aria-label={t("zones.nav_aria")}>
               {state.zones
                 ?.filter((z) => z.name.includes(query.toLowerCase()))
                 .map((z) => (
@@ -164,24 +165,24 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
                     <Globe2 size={17} />
                     <span>
                       <strong>{z.name}</strong>
-                      <small>{z.records.length} custom records</small>
+                      <small>{z.records.length} {t("zones.records_custom")}</small>
                     </span>
                   </button>
                 ))}
             </nav>
             {state.zones?.every(
               (z) => !z.name.includes(query.toLowerCase()),
-            ) && <p className="padded">No matching zones.</p>}
+            ) && <p className="padded">{t("zones.no_matching")}</p>}
           </section>
           {selected && (
             <section className="panel zone-detail">
               <div className="panel-heading">
                 <div>
-                  <span className="eyebrow">AUTHORITATIVE ZONE</span>
+                  <span className="eyebrow">{t("zones.authoritative_eyebrow")}</span>
                   <h2>{selected.name}</h2>
                   <p>
                     Revision {selected.revision} · {selected.records.length}{" "}
-                    custom records
+                    {t("zones.records_custom")}
                   </p>
                 </div>
                 <div className="zone-detail-actions">
@@ -195,12 +196,12 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
                     }}
                   >
                     <Plus size={14} />
-                    Add record
+                    {t("zones.add_record")}
                   </button>
                   <button
                     className="icon-button danger-icon"
                     disabled={disabled || Boolean(editor)}
-                    aria-label="Delete zone"
+                    aria-label={t("zones.delete_zone_aria")}
                     onClick={() => {
                       setDeleting({ zone: selected });
                       setActionError("");
@@ -212,10 +213,10 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
               </div>
               <div className="zone-authority">
                 <span>
-                  Primary NS <code>{selected.primary_ns}</code>
+                  {t("zones.primary_ns")} <code>{selected.primary_ns}</code>
                 </span>
                 <span>
-                  Contact <code>{selected.contact}</code>
+                  {t("zones.contact")} <code>{selected.contact}</code>
                 </span>
               </div>
               {deleting && (
@@ -223,14 +224,13 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
                   <p>
                     {deleting.record ? (
                       <>
-                        Delete <strong>{deleting.record.name}</strong> (
+                        {t("zones.delete_record_confirm")} <strong>{deleting.record.name}</strong> (
                         {deleting.record.type})?
                       </>
                     ) : (
                       <>
-                        Delete <strong>{deleting.zone.name}</strong> and all{" "}
-                        {deleting.zone.records.length} records? This cannot be
-                        undone.
+                        {t("zones.delete_zone_confirm")} <strong>{deleting.zone.name}</strong> {" "}
+                        {deleting.zone.records.length} {t("zones.delete_zone_confirm2")}
                       </>
                     )}
                   </p>
@@ -241,17 +241,17 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
                       onClick={() => void remove()}
                     >
                       {state.busy
-                        ? "Deleting…"
+                        ? t("zones.deleting")
                         : deleting.record
-                          ? "Delete record permanently"
-                          : "Delete zone permanently"}
+                          ? t("zones.delete_record_perm")
+                          : t("zones.delete_zone_perm")}
                     </button>
                     <button
                       className="button"
                       disabled={state.busy}
                       onClick={() => setDeleting(null)}
                     >
-                      Cancel deletion
+                      {t("zones.cancel_deletion")}
                     </button>
                   </div>
                 </div>
@@ -266,7 +266,7 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
                   save={async (input) => {
                     await state.saveRecord(editor.zone, input, editor.record);
                     setEditor(null);
-                    setMessage("Record saved. DNS changes are active.");
+                    setMessage(t("zones.record_saved"));
                   }}
                 />
               )}

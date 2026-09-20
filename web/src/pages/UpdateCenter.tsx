@@ -7,12 +7,14 @@ import {
   type UpdateStatus,
   type UpdateEntry,
 } from "../api";
+import { useI18n } from "../i18n-context";
 
 interface Props {
   readOnly: boolean;
 }
 
 export function UpdateCenter({ readOnly }: Props) {
+  const { t } = useI18n();
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [history, setHistory] = useState<UpdateEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +40,7 @@ export function UpdateCenter({ readOnly }: Props) {
         setError(null);
       } catch (e) {
         if (!controller.signal.aborted)
-          setError(e instanceof Error ? e.message : "Failed to load update status");
+          setError(e instanceof Error ? e.message : t("updates.load_failed"));
       } finally {
         setLoading(false);
         if (!controller.signal.aborted) timer = setTimeout(poll, 10000);
@@ -49,10 +51,10 @@ export function UpdateCenter({ readOnly }: Props) {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [revision]);
+  }, [revision, t]);
 
   const handleRequestUpdate = async () => {
-    if (!confirm("Are you sure you want to request an update?")) return;
+    if (!confirm(t("updates.confirm"))) return;
     setRequesting(true);
     setRequestMessage(null);
     try {
@@ -60,20 +62,20 @@ export function UpdateCenter({ readOnly }: Props) {
       setRequestMessage(result.message);
       refresh();
     } catch (e) {
-      setRequestMessage(e instanceof Error ? e.message : "Failed to request update");
+      setRequestMessage(e instanceof Error ? e.message : t("updates.request_failed"));
     } finally {
       setRequesting(false);
     }
   };
 
   if (loading) {
-    return <div className="panel padded">Loading update status...</div>;
+    return <div className="panel padded">{t("updates.loading")}</div>;
   }
 
   return (
     <div>
       <div className="panel padded">
-        <h2>Current Status</h2>
+        <h2>{t("updates.current_status")}</h2>
         {error && (
           <div className="notice error" role="alert">
             {error}
@@ -93,8 +95,8 @@ export function UpdateCenter({ readOnly }: Props) {
               )}
               <strong>
                 {status.updating
-                  ? `Updating: ${status.state}`
-                  : `Installed: ${status.installed}`}
+                  ? `${t("updates.updating")} ${status.state}`
+                  : `${t("updates.installed")} ${status.installed}`}
               </strong>
             </div>
             {status.updating && status.from_version && status.to_version && (
@@ -104,7 +106,7 @@ export function UpdateCenter({ readOnly }: Props) {
             )}
             {status.last_completed && (
               <div style={{ fontSize: "0.85rem", opacity: 0.7 }}>
-                Last completed: {new Date(status.last_completed).toLocaleString()}
+                {t("updates.last_completed")} {new Date(status.last_completed).toLocaleString()}
               </div>
             )}
           </div>
@@ -112,7 +114,7 @@ export function UpdateCenter({ readOnly }: Props) {
         <div style={{ marginTop: "1rem" }}>
           {readOnly ? (
             <div className="notice" role="status">
-              You are signed in as a viewer. Update requests are read-only.
+              {t("updates.viewer_readonly")}
             </div>
           ) : (
             <button
@@ -121,7 +123,7 @@ export function UpdateCenter({ readOnly }: Props) {
               disabled={requesting || status?.updating}
             >
               <Download size={15} />
-              {requesting ? "Requesting..." : status?.updating ? "Update in progress..." : "Request Update"}
+              {requesting ? t("updates.requesting") : status?.updating ? t("updates.in_progress") : t("updates.request")}
             </button>
           )}
           {requestMessage && (
@@ -137,20 +139,20 @@ export function UpdateCenter({ readOnly }: Props) {
       </div>
 
       <div className="panel padded" style={{ marginTop: "1rem" }}>
-        <h2>Update History</h2>
+        <h2>{t("updates.history")}</h2>
         {history.length === 0 ? (
-          <p style={{ opacity: 0.6 }}>No updates recorded yet.</p>
+          <p style={{ opacity: 0.6 }}>{t("updates.no_history")}</p>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={{ textAlign: "left", padding: "0.5rem" }}>From</th>
-                <th style={{ textAlign: "left", padding: "0.5rem" }}>To</th>
-                <th style={{ textAlign: "left", padding: "0.5rem" }}>Channel</th>
-                <th style={{ textAlign: "left", padding: "0.5rem" }}>State</th>
-                <th style={{ textAlign: "left", padding: "0.5rem" }}>Mode</th>
-                <th style={{ textAlign: "left", padding: "0.5rem" }}>Started</th>
-                <th style={{ textAlign: "left", padding: "0.5rem" }}>Duration</th>
+                <th style={{ textAlign: "left", padding: "0.5rem" }}>{t("updates.col_from")}</th>
+                <th style={{ textAlign: "left", padding: "0.5rem" }}>{t("updates.col_to")}</th>
+                <th style={{ textAlign: "left", padding: "0.5rem" }}>{t("updates.col_channel")}</th>
+                <th style={{ textAlign: "left", padding: "0.5rem" }}>{t("updates.col_state")}</th>
+                <th style={{ textAlign: "left", padding: "0.5rem" }}>{t("updates.col_mode")}</th>
+                <th style={{ textAlign: "left", padding: "0.5rem" }}>{t("updates.col_started")}</th>
+                <th style={{ textAlign: "left", padding: "0.5rem" }}>{t("updates.col_duration")}</th>
               </tr>
             </thead>
             <tbody>
@@ -187,7 +189,7 @@ export function UpdateCenter({ readOnly }: Props) {
                     >
                       {entry.state}
                     </span>
-                    {entry.rollback_used && " (rolled back)"}
+                    {entry.rollback_used && t("updates.rolled_back")}
                   </td>
                   <td style={{ padding: "0.5rem" }}>{entry.deployment_mode}</td>
                   <td style={{ padding: "0.5rem" }}>

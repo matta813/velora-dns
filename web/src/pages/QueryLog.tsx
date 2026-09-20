@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { request, type QueryLogEntry } from "../api";
+import { useI18n } from "../i18n-context";
 const empty = { domain: "", client: "", type: "", source: "" };
 export function QueryLog({ enabled }: { enabled: boolean }) {
+  const { t } = useI18n();
   const [entries, setEntries] = useState<QueryLogEntry[] | null>(null);
   const [draft, setDraft] = useState(empty);
   const [filter, setFilter] = useState({ ...empty, before: "", revision: 0 });
@@ -33,13 +35,13 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
       })
       .catch((e) => {
         if (!controller.signal.aborted)
-          setError(e instanceof Error ? e.message : "Unable to load query log");
+          setError(e instanceof Error ? e.message : t("querylog.load_failed"));
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [enabled, filter]);
+  }, [enabled, filter, t]);
   function apply(before = "") {
     setLoading(true);
     setFilter({ ...draft, before, revision: filter.revision + 1 });
@@ -47,8 +49,8 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
   if (!enabled) {
     return (
       <section className="panel zone-empty large" role="status">
-        <h2>Query history unavailable</h2>
-        <p>Enable query logging to collect and inspect future DNS activity.</p>
+        <h2>{t("querylog.unavailable_title")}</h2>
+        <p>{t("querylog.unavailable_text")}</p>
       </section>
     );
   }
@@ -56,17 +58,17 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
     <>
       <div className="zones-toolbar">
         <span className="zone-count">
-          Up to 100 retained responses per page
+          {t("querylog.up_to_100")}
         </span>
         <button className="button" disabled={loading} onClick={() => apply()}>
           <RefreshCw size={15} />
-          Refresh queries
+          {t("querylog.refresh")}
         </button>
       </div>
       <section className="panel form-panel">
         <form
           className="zone-form"
-          aria-label="Query filters"
+          aria-label={t("querylog.filters_aria")}
           onSubmit={(e) => {
             e.preventDefault();
             apply();
@@ -74,30 +76,30 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
         >
           <div className="form-grid">
             <label>
-              Domain
+              {t("querylog.domain")}
               <input
                 maxLength={253}
                 value={draft.domain}
                 onChange={(e) => setDraft({ ...draft, domain: e.target.value })}
-                placeholder="Contains example.com"
+                placeholder={t("querylog.contains_example")}
               />
             </label>
             <label>
-              Client IP
+              {t("querylog.client_ip")}
               <input
                 value={draft.client}
                 onChange={(e) => setDraft({ ...draft, client: e.target.value })}
-                placeholder="Exact IP address"
+                placeholder={t("querylog.exact_ip")}
               />
             </label>
             <label>
-              Query type
+              {t("querylog.query_type")}
               <select
-                aria-label="Query type"
+                aria-label={t("querylog.query_type")}
                 value={draft.type}
                 onChange={(e) => setDraft({ ...draft, type: e.target.value })}
               >
-                <option value="">All types</option>
+                <option value="">{t("querylog.all_types")}</option>
                 {["A", "AAAA", "CNAME", "TXT", "MX", "NS", "PTR", "SOA"].map(
                   (v) => (
                     <option key={v}>{v}</option>
@@ -106,13 +108,13 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
               </select>
             </label>
             <label>
-              Source
+              {t("querylog.source")}
               <select
-                aria-label="Source"
+                aria-label={t("querylog.source")}
                 value={draft.source}
                 onChange={(e) => setDraft({ ...draft, source: e.target.value })}
               >
-                <option value="">All sources</option>
+                <option value="">{t("querylog.all_sources")}</option>
                 {[
                   "cache",
                   "local",
@@ -127,7 +129,7 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
             </label>
           </div>
           <button className="button primary" disabled={loading}>
-            Apply filters
+            {t("querylog.apply_filters")}
           </button>
           <button
             className="button"
@@ -140,21 +142,21 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
               setFilter({ ...blocked, before: "", revision: filter.revision + 1 });
             }}
           >
-            Show blocked queries
+            {t("querylog.show_blocked")}
           </button>
         </form>
       </section>
       {error && (
         <div className="notice error" role="alert">
-          {error}. Previous results may be out of date.
+          {error}. {t("querylog.error_stale")}
         </div>
       )}
-      {loading && <p role="status">Loading query log…</p>}
+      {loading && <p role="status">{t("querylog.loading")}</p>}
       {entries?.length === 0 && !error && !loading && (
         <section className="panel zone-empty large">
-          <h2>No matching queries</h2>
+          <h2>{t("querylog.no_matches")}</h2>
           <p>
-            Try different filters or generate DNS traffic with logging enabled.
+            {t("querylog.no_matches_text")}
           </p>
         </section>
       )}
@@ -162,17 +164,17 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
         <section className="panel">
           <div className="table-wrap">
             <table className="records-table">
-              <caption className="sr-only">DNS query log</caption>
+              <caption className="sr-only">{t("querylog.caption")}</caption>
               <thead>
                 <tr>
                   {[
-                    "Timestamp",
-                    "Client",
-                    "Domain",
-                    "Type",
-                    "Source",
-                    "Response",
-                    "Latency",
+                    t("querylog.col_timestamp"),
+                    t("querylog.col_client"),
+                    t("querylog.col_domain"),
+                    t("querylog.col_type"),
+                    t("querylog.col_source"),
+                    t("querylog.col_response"),
+                    t("querylog.col_latency"),
                   ].map((v) => (
                     <th key={v}>{v}</th>
                   ))}
@@ -212,7 +214,7 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
             });
           }}
         >
-          Older queries
+          {t("querylog.older")}
         </button>
       )}
     </>

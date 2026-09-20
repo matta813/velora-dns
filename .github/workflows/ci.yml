@@ -26,6 +26,7 @@ jobs:
           ./scripts/test-release-notes.sh
           ./scripts/test-release-announcement.sh
           ./scripts/test-install-compose-bootstrap.sh
+          ./scripts/test-install-system-update.sh
           python3 ./scripts/test-weekly-growth-report.py
           python3 ./scripts/check-markdown-links.py
           ./scripts/test-compose.sh

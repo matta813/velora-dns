@@ -18,6 +18,40 @@ type RateLimiter struct {
 	maxItems   int
 }
 
+// RateLimitState is a live-updatable wrapper around an optional RateLimiter.
+// The management API swaps the limiter and enabled flag at runtime.
+type RateLimitState struct {
+	mu      sync.Mutex
+	enabled bool
+	limiter *RateLimiter
+}
+
+func NewRateLimitState(enabled bool, globalQPS, clientQPS, burst int) *RateLimitState {
+	return &RateLimitState{enabled: enabled, limiter: NewRateLimiter(globalQPS, clientQPS, burst)}
+}
+
+func (s *RateLimitState) Configure(enabled bool, globalQPS, clientQPS, burst int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.enabled = enabled
+	s.limiter = NewRateLimiter(globalQPS, clientQPS, burst)
+}
+
+func (s *RateLimitState) Enabled() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.enabled
+}
+
+func (s *RateLimitState) Allow(client netip.Addr, now time.Time) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.enabled {
+		return true
+	}
+	return s.limiter.Allow(client, now)
+}
+
 type bucket struct {
 	tokens  float64
 	updated time.Time

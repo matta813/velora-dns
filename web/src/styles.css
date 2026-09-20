@@ -692,3 +692,144 @@ footer {
 .auth-card { width: min(100%, 26rem); display: grid; gap: 1rem; }
 .auth-card label { display: grid; gap: .4rem; font-weight: 600; }
 .auth-card input { padding: .75rem; border: 1px solid var(--border); border-radius: .5rem; font: inherit; }
+
+/* Dark theme: applied when the root element carries data-theme="dark". */
+[data-theme="dark"] {
+  --bg: #111827;
+  --panel: #1a2230;
+  --border: #2b3547;
+  --text: #e5e9ee;
+  --text-muted: #94a3b8;
+  --accent: #60c2a8;
+}
+[data-theme="dark"] body,
+[data-theme="dark"] .app {
+  background: #111827;
+  color: #e5e9ee;
+}
+[data-theme="dark"] .sidebar {
+  background: #0c1420;
+  color: #b7c3d1;
+  border-right: 1px solid #2b3547;
+}
+[data-theme="dark"] .topbar {
+  background: #1a2230;
+  border-bottom: 1px solid #2b3547;
+  color: #94a3b8;
+}
+[data-theme="dark"] .topbar strong {
+  color: #e5e9ee;
+}
+[data-theme="dark"] .slash {
+  color: #6b7a90;
+}
+[data-theme="dark"] .connection {
+  color: #60c2a8;
+}
+[data-theme="dark"] .dot {
+  background: #60c2a8;
+}
+[data-theme="dark"] .offline {
+  color: #f87171;
+}
+[data-theme="dark"] .offline .dot {
+  background: #f87171;
+}
+[data-theme="dark"] h1 {
+  color: #e5e9ee;
+}
+[data-theme="dark"] h2,
+[data-theme="dark"] h3 {
+  color: #dbe4ee;
+}
+[data-theme="dark"] p {
+  color: #94a3b8;
+}
+[data-theme="dark"] .eyebrow {
+  color: #7dd3fc;
+}
+[data-theme="dark"] .panel,
+[data-theme="dark"] .panel.padded,
+[data-theme="dark"] .foundation-card {
+  background: #1a2230;
+  border-color: #2b3547;
+}
+[data-theme="dark"] .button {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #e5e9ee;
+  box-shadow: none;
+}
+[data-theme="dark"] .button:hover {
+  background: #2a3a52;
+}
+[data-theme="dark"] .button.primary {
+  background: #0f766e;
+  color: #fff;
+}
+[data-theme="dark"] .button.danger {
+  background: #7f1d1d;
+  color: #fff;
+}
+[data-theme="dark"] .stat {
+  background: #1a2230;
+  border-color: #2b3547;
+}
+[data-theme="dark"] .stat-heading {
+  color: #94a3b8;
+}
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: #0f172a;
+  color: #e5e9ee;
+  border: 1px solid #334155;
+}
+[data-theme="dark"] table,
+[data-theme="dark"] .records-table,
+[data-theme="dark"] th {
+  color: #b7c3d1;
+  border-color: #2b3547;
+}
+[data-theme="dark"] td {
+  color: #cbd5e1;
+}
+[data-theme="dark"] code {
+  color: #93c5fd;
+}
+[data-theme="dark"] .zone-list,
+[data-theme="dark"] .zone-detail,
+[data-theme="dark"] .zone-form,
+[data-theme="dark"] .form-panel {
+  background: #1a2230;
+  border-color: #2b3547;
+}
+[data-theme="dark"] .notice {
+  background: rgba(15, 23, 42, 0.6);
+  color: #b7c3d1;
+}
+[data-theme="dark"] .notice.error {
+  background: rgba(127, 29, 29, 0.35);
+  color: #fca5a5;
+}
+[data-theme="dark"] .notice.success {
+  background: rgba(15, 118, 110, 0.35);
+  color: #86efac;
+}
+[data-theme="dark"] footer {
+  color: #6b7a90;
+}
+[data-theme="dark"] .settings-list dt {
+  color: #b7c3d1;
+}
+[data-theme="dark"] .settings-list dd {
+  color: #94a3b8;
+}
+[data-theme="dark"] .auth-shell body,
+[data-theme="dark"] .auth-card {
+  background: #1a2230;
+  border: 1px solid #2b3547;
+}
+[data-theme="dark"] .auth-card label {
+  color: #b7c3d1;
+}

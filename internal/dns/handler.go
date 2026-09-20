@@ -23,7 +23,7 @@ type Handler struct {
 	Observer     QueryObserver
 	Audit        AuditLogger
 	CookieSecret []byte
-	Limiter      *RateLimiter
+	RateLimit    *RateLimitState
 }
 
 func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
@@ -78,7 +78,7 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 		m.Rcode = wire.RcodeRefused
 		return
 	}
-	if h.Limiter != nil && !h.Limiter.Allow(ip.Unmap(), started) {
+	if h.RateLimit != nil && !h.RateLimit.Allow(ip.Unmap(), started) {
 		m.Rcode = wire.RcodeServerFailure
 		source = "rate_limit"
 		h.overloaded("rate_limit")

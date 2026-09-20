@@ -1,6 +1,7 @@
 import { CheckCircle, Circle, ShieldCheck, Users, Globe, Database, Download } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import { loadSnapshot, type Snapshot } from "../api";
+import { useI18n } from "../i18n-context";
 
 interface OnboardingStatus {
   first_run: boolean;
@@ -17,6 +18,7 @@ interface ChecklistItem {
 }
 
 export function OnboardingChecklist() {
+  const { t } = useI18n();
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [dismissed, setDismissed] = useState(
@@ -70,36 +72,36 @@ export function OnboardingChecklist() {
   const items: ChecklistItem[] = [
     {
       id: "credentials",
-      title: "Change bootstrap credentials",
-      description: "The default admin password should be changed after first login.",
+      title: t("onboarding.change_credentials"),
+      description: t("onboarding.change_credentials_text"),
       icon: <Users size={18} />,
       completed: status.user_count > 1,
     },
     {
       id: "dns_config",
-      title: "Review DNS configuration",
-      description: "Ensure upstream servers and allowed clients are correctly configured for your network.",
+      title: t("onboarding.review_dns"),
+      description: t("onboarding.review_dns_text"),
       icon: <Globe size={18} />,
       completed: snapshot.config.dns.upstreams.length > 0,
     },
     {
       id: "client_restriction",
-      title: "Restrict client access",
-      description: "Configure allowed_clients CIDRs to limit which networks can use your resolver.",
+      title: t("onboarding.restrict_clients"),
+      description: t("onboarding.restrict_clients_text"),
       icon: <ShieldCheck size={18} />,
       completed: snapshot.config.dns.allowed_clients.length > 0,
     },
     {
       id: "database",
-      title: "Verify database storage",
-      description: "Ensure the database path is on reliable storage with adequate space.",
+      title: t("onboarding.verify_db"),
+      description: t("onboarding.verify_db_text"),
       icon: <Database size={18} />,
       completed: true,
     },
     {
       id: "updates",
-      title: "Configure update policy",
-      description: "Review the update center to understand how to keep your installation current.",
+      title: t("onboarding.update_policy"),
+      description: t("onboarding.update_policy_text"),
       icon: <Download size={18} />,
       completed: false,
     },
@@ -111,13 +113,13 @@ export function OnboardingChecklist() {
     <div className="panel padded" style={{ marginBottom: "1rem", borderLeft: "3px solid var(--accent, #3b82f6)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
         <div>
-          <h2 style={{ margin: 0 }}>Welcome to Velora DNS</h2>
+          <h2 style={{ margin: 0 }}>{t("onboarding.welcome")}</h2>
           <p style={{ margin: "0.25rem 0 0", opacity: 0.7 }}>
-            Complete these steps to secure your installation ({completedCount}/{items.length})
+            {t("onboarding.complete_steps")} ({completedCount}/{items.length})
           </p>
         </div>
         <button className="button secondary" onClick={handleDismiss}>
-          Dismiss
+{t("onboarding.dismiss")}
         </button>
       </div>
       <div style={{ display: "grid", gap: "0.75rem" }}>

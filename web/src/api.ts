@@ -33,7 +33,7 @@ export interface Config {
     max_concurrent: number;
   };
   cache: { max_entries: number };
-  http: { listen: string; web_dir: string };
+  http: { listen: string; web_dir: string; allowed_hosts: string[] };
   log_level: string;
 }
 export interface Snapshot {
@@ -88,6 +88,34 @@ export interface AuthUser {
   username: string;
   role: "admin" | "operator" | "viewer";
   csrf_token: string;
+  language?: string;
+  theme?: string;
+}
+export interface Preferences {
+  language: string;
+  theme: string;
+}
+export interface RateLimitSettings {
+  enabled: boolean;
+  global_qps: number;
+  client_qps: number;
+  rate_limit_burst: number;
+}
+export async function loadRateLimitSettings(signal?: AbortSignal): Promise<RateLimitSettings> {
+  return request<RateLimitSettings>("/api/v1/settings/rate-limit", signal);
+}
+export async function saveRateLimitSettings(settings: RateLimitSettings): Promise<RateLimitSettings> {
+  return request<RateLimitSettings>("/api/v1/settings/rate-limit", undefined, "PUT", {
+    body: settings,
+  });
+}
+export async function loadPreferences(signal?: AbortSignal): Promise<Preferences> {
+  return request<Preferences>("/api/v1/preferences", signal);
+}
+export async function savePreferences(preferences: Preferences): Promise<Preferences> {
+  return request<Preferences>("/api/v1/preferences", undefined, "PUT", {
+    body: preferences,
+  });
 }
 let csrfToken = "";
 export function setCSRFToken(token: string) { csrfToken = token; }
@@ -185,4 +213,8 @@ export async function requestUpdate(signal?: AbortSignal): Promise<{ status: str
   return request<{ status: string; message: string }>("/api/v1/update/request", signal, "POST", {
     body: { action: "update" },
   });
+}
+
+export async function saveConfig(config: Config, signal?: AbortSignal): Promise<{ status: string; message: string }> {
+  return request<{ status: string; message: string }>("/api/v1/config", signal, "PUT", { body: config });
 }
