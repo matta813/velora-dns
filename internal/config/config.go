@@ -85,6 +85,7 @@ type DHCP struct {
 }
 
 type Cluster struct {
+	Enabled         bool          `yaml:"enabled" json:"enabled"`
 	PrimaryDSN      string        `yaml:"primary_dsn" json:"-"`
 	ReplicaDSNs     []string      `yaml:"replica_dsns" json:"-"`
 	MaxOpenConns    int           `yaml:"max_open_conns" json:"max_open_conns"`
@@ -220,6 +221,13 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 			return c, fmt.Errorf("invalid VELORA_DHCP_PUBLISH_DNS")
 		}
 		c.DHCP.PublishDNS = enabled
+	}
+	if v, ok := lookup("VELORA_HA_ENABLED"); ok {
+		enabled, err := strconv.ParseBool(v)
+		if err != nil {
+			return c, fmt.Errorf("invalid VELORA_HA_ENABLED")
+		}
+		c.Cluster.Enabled = enabled
 	}
 	if v, ok := lookup("VELORA_DNS_RATE_LIMIT_ENABLED"); ok {
 		enabled, err := strconv.ParseBool(v)

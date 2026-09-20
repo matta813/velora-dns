@@ -55,6 +55,7 @@ type Dependencies struct {
 	Settings    SettingsStore
 	RateLimit   *dns.RateLimitState
 	DHCP        DHCPStore
+	Cluster     ClusterStore
 	ApplyConfig func(config.Config) error
 }
 type Error struct {
@@ -121,6 +122,10 @@ func New(d Dependencies) http.Handler {
 	if d.DHCP != nil {
 		registerDHCP(mux, d.DHCP)
 		capabilities = append(capabilities, "dhcp")
+	}
+	if d.Cluster != nil {
+		registerCluster(mux, d.Cluster)
+		capabilities = append(capabilities, "cluster")
 	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
