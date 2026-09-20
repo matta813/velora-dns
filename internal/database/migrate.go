@@ -68,8 +68,9 @@ func (s *Store) adaptMigration(sql string) string {
 	sql = strings.ReplaceAll(sql, " COLLATE NOCASE", "")
 	// PostgreSQL uses BYTEA for arbitrary binary values such as token hashes.
 	sql = strings.ReplaceAll(sql, "BLOB", "BYTEA")
-	// Replace CHECK constraints that use boolean literals (SQLite allows 0/1, PostgreSQL prefers true/false)
-	// CHECK(enabled IN (0,1)) -> CHECK(enabled IN (false,true)) -- but this is column-specific
-	// We leave CHECK constraints as-is since PostgreSQL accepts integer comparisons too
+	// Rewrite SQLite integer booleans to PostgreSQL BOOLEAN columns.
+	sql = strings.ReplaceAll(sql, "enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1))", "enabled BOOLEAN NOT NULL DEFAULT true CHECK(enabled IN (false, true))")
+	sql = strings.ReplaceAll(sql, "disabled INTEGER NOT NULL DEFAULT 0 CHECK(disabled IN (0, 1))", "disabled BOOLEAN NOT NULL DEFAULT false CHECK(disabled IN (false, true))")
+	sql = strings.ReplaceAll(sql, "cache_hit INTEGER NOT NULL DEFAULT 0", "cache_hit BOOLEAN NOT NULL DEFAULT false")
 	return sql
 }

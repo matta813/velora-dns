@@ -33,7 +33,7 @@ type APIToken struct {
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT id,username,role FROM users WHERE disabled=0 ORDER BY username")
+	rows, err := s.db.QueryContext(ctx, "SELECT id,username,role FROM users WHERE disabled=false ORDER BY username")
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (s *Store) Session(ctx context.Context, token []byte) (User, []byte, error)
 	var csrf []byte
 	var expires string
 	p := s.placeholder
-	query := fmt.Sprintf("SELECT u.id,u.username,u.role,s.csrf_token,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=%s AND u.disabled=0", p(1))
+	query := fmt.Sprintf("SELECT u.id,u.username,u.role,s.csrf_token,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=%s AND u.disabled=false", p(1))
 	err := s.db.QueryRowContext(ctx, query, hash[:]).Scan(&u.ID, &u.Username, &u.Role, &csrf, &expires)
 	if err != nil {
 		return User{}, nil, ErrAuthentication
@@ -168,7 +168,7 @@ func (s *Store) AuthenticateAPIToken(ctx context.Context, raw []byte) (User, API
 	var token APIToken
 	var expires string
 	p := s.placeholder
-	query := fmt.Sprintf("SELECT u.id,u.username,u.role,t.id,t.name,t.scopes,t.expires_at FROM api_tokens t JOIN users u ON u.id=t.created_by WHERE t.token_hash=%s AND t.revoked_at IS NULL AND u.disabled=0", p(1))
+	query := fmt.Sprintf("SELECT u.id,u.username,u.role,t.id,t.name,t.scopes,t.expires_at FROM api_tokens t JOIN users u ON u.id=t.created_by WHERE t.token_hash=%s AND t.revoked_at IS NULL AND u.disabled=false", p(1))
 	err := s.db.QueryRowContext(ctx, query, hash[:]).Scan(&user.ID, &user.Username, &user.Role, &token.ID, &token.Name, &token.Scopes, &expires)
 	if err != nil {
 		return User{}, APIToken{}, ErrAuthentication
