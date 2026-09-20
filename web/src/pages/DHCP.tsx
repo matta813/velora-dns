@@ -48,7 +48,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
       }
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load DHCP data");
+      setError(e instanceof Error ? e.message : t("dhcp.load_failed"));
     } finally {
       setLoading(false);
     }
@@ -66,7 +66,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
       })
       .catch((e) => {
         if (active) {
-          setError(e instanceof Error ? e.message : "Failed to load DHCP data");
+          setError(e instanceof Error ? e.message : t("dhcp.load_failed"));
         }
       })
       .finally(() => {
@@ -94,7 +94,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
       });
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create pool");
+      setError(e instanceof Error ? e.message : t("dhcp.create_pool_failed"));
     }
   }
 
@@ -105,7 +105,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
       if (selectedPool === id) setSelectedPool(null);
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete pool");
+      setError(e instanceof Error ? e.message : t("dhcp.delete_pool_failed"));
     }
   }
 
@@ -116,7 +116,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
       setNewReservation({ mac_address: "", ip_address: "", hostname: "" });
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create reservation");
+      setError(e instanceof Error ? e.message : t("dhcp.create_reservation_failed"));
     }
   }
 
@@ -125,7 +125,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
       await deleteReservation(id);
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete reservation");
+      setError(e instanceof Error ? e.message : t("dhcp.delete_reservation_failed"));
     }
   }
 
@@ -134,7 +134,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
       await deleteLease(id);
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete lease");
+      setError(e instanceof Error ? e.message : t("dhcp.delete_lease_failed"));
     }
   }
 
