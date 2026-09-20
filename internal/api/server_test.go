@@ -15,9 +15,19 @@ import (
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/metrics"
+	"github.com/matta813/velora-dns/internal/querylog"
 )
 
 type fakeDB struct{ err error }
+
+type fakeQueryStore struct{}
+
+func (fakeQueryStore) ListQueries(context.Context, querylog.Filter) ([]querylog.Entry, error) {
+	return nil, nil
+}
+func (fakeQueryStore) QuerySummary(context.Context, time.Time, time.Time, int) (querylog.Summary, error) {
+	return querylog.Summary{}, nil
+}
 
 func (d fakeDB) Ping(context.Context) error { return d.err }
 
@@ -110,10 +120,41 @@ func TestWebFallbackIncludesUpdateAndBackupRoutes(t *testing.T) {
 	for _, path := range []string{"/updates", "/backup"} {
 		r := httptest.NewRequest(http.MethodGet, "http://127.0.0.1"+path, nil)
 		w := httptest.NewRecorder()
-		web(tmpDir).ServeHTTP(w, r)
+		web(func() string { return tmpDir }).ServeHTTP(w, r)
 		if w.Code != http.StatusOK {
 			t.Fatalf("route %s returned %d, want 200", path, w.Code)
 		}
+	}
+}
+
+func TestConfigSaveReenablesQueryLoggingWithoutRestart(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "config.yaml")
+	c := cache.New(10)
+	cfg := config.Default()
+	h := New(Dependencies{
+		Database:   fakeDB{},
+		DNS:        fakeDNS(true),
+		Cache:      c,
+		Metrics:    metrics.New(c),
+		Config:     cfg,
+		ConfigPath: tmpFile,
+		Queries:    fakeQueryStore{},
+		Started:    time.Now(),
+	})
+
+	payload := []byte(`{"query_log":{"enabled":true}}`)
+	putReq := httptest.NewRequest(http.MethodPut, "http://127.0.0.1:8080/api/v1/config", bytes.NewReader(payload))
+	putReq.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, putReq)
+	if w.Code != http.StatusOK {
+		t.Fatalf("put config failed: got %d (%s), want 200", w.Code, w.Body.String())
+	}
+
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8080/api/v1/queries", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("query endpoint did not re-enable live: got %d, want 200", w.Code)
 	}
 }
 
