@@ -42,6 +42,7 @@ type Dependencies struct {
 	Cache      *cache.Cache
 	Metrics    *metrics.Metrics
 	Config     config.Config
+	ConfigPath string
 	Version    Version
 	Started    time.Time
 	TSIG       TSIGStore
@@ -124,6 +125,29 @@ func New(d Dependencies) http.Handler {
 		respond(w, 200, d.Cache.Stats())
 	})
 	mux.HandleFunc("GET /api/v1/config", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Config) })
+	mux.HandleFunc("PUT /api/v1/config", func(w http.ResponseWriter, r *http.Request) {
+		if d.ConfigPath == "" {
+			failure(w, 500, "config_path_missing", "Config path not configured")
+			return
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			failure(w, 415, "unsupported_media_type", "Use application/json")
+			return
+		}
+		var newConfig config.Config
+		if !readJSON(w, r, &newConfig) {
+			return
+		}
+		if err := newConfig.Validate(); err != nil {
+			failure(w, 400, "invalid_config", err.Error())
+			return
+		}
+		if err := newConfig.Save(d.ConfigPath); err != nil {
+			failure(w, 500, "config_save_failed", err.Error())
+			return
+		}
+		respond(w, 200, map[string]string{"status": "saved", "message": "Configuration saved. Restart required for changes to take effect."})
+	})
 	mux.Handle("GET /metrics", d.Metrics.Handler())
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { failure(w, 404, "not_found", "Endpoint not found") })
 	mux.Handle("/", web(d.Config.HTTP.WebDir))

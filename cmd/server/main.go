@@ -48,5 +48,5 @@ func run() error {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	return app.Run(ctx, c, logging.New(os.Stdout, c.LogLevel), api.Version{Version: version, Commit: commit, Built: built})
+	return app.Run(ctx, c, *path, logging.New(os.Stdout, c.LogLevel), api.Version{Version: version, Commit: commit, Built: built})
 }

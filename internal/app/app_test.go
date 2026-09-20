@@ -11,7 +11,7 @@ import (
 )
 
 func TestRunRejectsInvalidConfigurationBeforeStartingResources(t *testing.T) {
-	err := Run(context.Background(), config.Config{}, slog.New(slog.NewTextHandler(io.Discard, nil)), api.Version{})
+	err := Run(context.Background(), config.Config{}, "", slog.New(slog.NewTextHandler(io.Discard, nil)), api.Version{})
 	if err == nil {
 		t.Fatal("invalid configuration was accepted")
 	}

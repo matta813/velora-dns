@@ -43,7 +43,7 @@ func (a transferClientAdapter) IXFR(ctx context.Context, zone, primaryAddr strin
 	return &zones.TransferResult{Records: result.Records, SOA: result.SOA, Errors: result.Errors}, err
 }
 
-func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.Version) (result error) {
+func Run(ctx context.Context, c config.Config, configPath string, logger *slog.Logger, version api.Version) (result error) {
 	if err := c.Validate(); err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, Version: version, Started: started, TSIG: tsigStore, Update: updateManager, Backup: backupManager}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Update: updateManager, Backup: backupManager}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)

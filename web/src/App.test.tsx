@@ -89,7 +89,7 @@ it("updates the document title for the current route", async () => {
         max_concurrent: 256,
       },
       cache: { max_entries: 100 },
-      http: { listen: "127.0.0.1:8080", web_dir: "web/dist" },
+      http: { listen: "127.0.0.1:8080", web_dir: "web/dist", allowed_hosts: ["localhost", "127.0.0.1", "::1"] },
       query_log: { enabled: false, retention: 0, max_rows: 1, queue_size: 1 },
       log_level: "info",
     },
