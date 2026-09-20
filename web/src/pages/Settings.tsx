@@ -107,22 +107,22 @@ export function Settings({ data }: { data: Snapshot }) {
         log_level: formData.log_level,
       };
       await saveConfig(newConfig);
-      setMessage({ type: "success", text: "Configuration saved. Restart required for changes to take effect." });
+      setMessage({ type: "success", text: t("settings.save_success") });
     } catch (e) {
-      setMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to save configuration" });
+      setMessage({ type: "error", text: e instanceof Error ? e.message : t("settings.save_failed") });
     } finally {
       setSaving(false);
     }
   };
 
   const dnsListenOptions = [
-    { value: "127.0.0.1:53", label: "Localhost only (127.0.0.1:53)" },
-    { value: "0.0.0.0:53", label: "All interfaces (0.0.0.0:53) — LAN access" },
+    { value: "127.0.0.1:53", label: t("settings.dns_listen_localhost") },
+    { value: "0.0.0.0:53", label: t("settings.dns_listen_all") },
   ];
 
   const httpListenOptions = [
-    { value: "127.0.0.1:8080", label: "Localhost only (127.0.0.1:8080)" },
-    { value: "0.0.0.0:8080", label: "All interfaces (0.0.0.0:8080) — LAN access" },
+    { value: "127.0.0.1:8080", label: t("settings.web_listen_localhost") },
+    { value: "0.0.0.0:8080", label: t("settings.web_listen_all") },
   ];
 
   const logLevelOptions = ["debug", "info", "warn", "error"];
@@ -132,7 +132,7 @@ export function Settings({ data }: { data: Snapshot }) {
       <section className="panel padded">
         <h2>{t("settings.server_configuration")}</h2>
         <p style={{ marginBottom: "1.5rem", opacity: 0.7 }}>
-          These settings correspond to the quickstart installer options. Changes require a server restart to take effect.
+          {t("settings.edit_hint")}
         </p>
 
         <div className="form-grid">
@@ -174,10 +174,10 @@ export function Settings({ data }: { data: Snapshot }) {
 
         <div style={{ display: "grid", gap: "1.5rem" }}>
           <div className="panel" style={{ padding: "1rem" }}>
-            <h3 style={{ marginBottom: "1rem" }}>DNS Settings</h3>
+            <h3 style={{ marginBottom: "1rem" }}>{t("settings.dns_section")}</h3>
             <div style={{ display: "grid", gap: "1rem" }}>
               <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>DNS Listen Address</span>
+                <span>{t("settings.dns_listen_label")}</span>
                 <select
                   value={formData.dns_listen[0] || "127.0.0.1:53"}
                   onChange={(e) => handleChange("dns_listen", [e.target.value])}
@@ -187,11 +187,11 @@ export function Settings({ data }: { data: Snapshot }) {
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
-                <small style={{ opacity: 0.6 }}>Warning: 0.0.0.0 exposes DNS to your network. Ensure firewall allows only trusted clients.</small>
+                <small style={{ opacity: 0.6 }}>{t("settings.dns_listen_warning")}</small>
               </label>
 
               <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>Upstream DNS Servers (comma-separated)</span>
+                <span>{t("settings.upstreams_label")}</span>
                 <input
                   type="text"
                   value={formData.dns_upstreams.join(", ")}
@@ -199,11 +199,11 @@ export function Settings({ data }: { data: Snapshot }) {
                   placeholder="1.1.1.1:53, 9.9.9.9:53"
                   style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
                 />
-                <small style={{ opacity: 0.6 }}>Format: IP:PORT (e.g., 1.1.1.1:53). DoH upstreams use https://host/dns-query</small>
+                <small style={{ opacity: 0.6 }}>{t("settings.upstreams_hint")}</small>
               </label>
 
               <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>Allowed Client Networks (comma-separated CIDRs)</span>
+                <span>{t("settings.allowed_clients_label")}</span>
                 <input
                   type="text"
                   value={formData.dns_allowed_clients.join(", ")}
@@ -211,16 +211,16 @@ export function Settings({ data }: { data: Snapshot }) {
                   placeholder="127.0.0.0/8, ::1/128"
                   style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
                 />
-                <small style={{ opacity: 0.6 }}>Only these networks can query the resolver. Example: 192.168.1.0/24, 10.0.0.0/8</small>
+                <small style={{ opacity: 0.6 }}>{t("settings.allowed_clients_hint")}</small>
               </label>
             </div>
           </div>
 
           <div className="panel" style={{ padding: "1rem" }}>
-            <h3 style={{ marginBottom: "1rem" }}>Web UI Settings</h3>
+            <h3 style={{ marginBottom: "1rem" }}>{t("settings.web_section")}</h3>
             <div style={{ display: "grid", gap: "1rem" }}>
               <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>Web UI Listen Address</span>
+                <span>{t("settings.web_listen_label")}</span>
                 <select
                   value={formData.http_listen}
                   onChange={(e) => handleChange("http_listen", e.target.value)}
@@ -230,11 +230,11 @@ export function Settings({ data }: { data: Snapshot }) {
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
-                <small style={{ opacity: 0.6 }}>Warning: 0.0.0.0 exposes the Web UI to your network. Use a firewall or authentication.</small>
+                <small style={{ opacity: 0.6 }}>{t("settings.web_listen_warning")}</small>
               </label>
 
               <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>Allowed Hosts (comma-separated)</span>
+                <span>{t("settings.allowed_hosts_label")}</span>
                 <input
                   type="text"
                   value={formData.http_allowed_hosts.join(", ")}
@@ -242,13 +242,13 @@ export function Settings({ data }: { data: Snapshot }) {
                   placeholder="localhost, 127.0.0.1, ::1"
                   style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
                 />
-                <small style={{ opacity: 0.6 }}>Host headers allowed to access the management API. Use * to allow all (not recommended for LAN).</small>
+                <small style={{ opacity: 0.6 }}>{t("settings.allowed_hosts_hint")}</small>
               </label>
             </div>
           </div>
 
           <div className="panel" style={{ padding: "1rem" }}>
-            <h3 style={{ marginBottom: "1rem" }}>Logging &amp; Other</h3>
+            <h3 style={{ marginBottom: "1rem" }}>{t("settings.logging_section")}</h3>
             <div style={{ display: "grid", gap: "1rem" }}>
               <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <input
@@ -256,11 +256,11 @@ export function Settings({ data }: { data: Snapshot }) {
                   checked={formData.query_log_enabled}
                   onChange={(e) => handleChange("query_log_enabled", e.target.checked)}
                 />
-                <span>Enable Query Logging</span>
+                <span>{t("settings.enable_query_log")}</span>
               </label>
 
               <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>Log Level</span>
+                <span>{t("settings.log_level")}</span>
                 <select
                   value={formData.log_level}
                   onChange={(e) => handleChange("log_level", e.target.value)}
@@ -283,7 +283,7 @@ export function Settings({ data }: { data: Snapshot }) {
             style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
           >
             <Save size={18} />
-            {saving ? "Saving..." : "Save Configuration"}
+            {saving ? t("settings.saving") : t("settings.save_configuration")}
           </button>
           {message?.type === "success" && <CheckCircle size={18} style={{ color: "var(--success, #22c55e)" }} />}
         </div>
@@ -360,8 +360,7 @@ export function Settings({ data }: { data: Snapshot }) {
       </section>
 
       <div className="notice">
-        <strong>Note:</strong> Configuration is saved to the YAML config file. The server must be restarted for changes to take effect.
-        The installer also manages release channel (stable/beta/alpha) and bootstrap credentials separately via environment files.
+        {t("settings.yaml_note")}
       </div>
     </>
   );
