@@ -28,7 +28,7 @@ func TestMatcherUnderscoreDomains(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {
-		name   string
+		name    string
 		blocked bool
 	}{{"_dmarc.example.com", true}, {"_domainkey.example.com", true}, {"mail._domainkey.example.com", true}, {"safe.example.com", false}} {
 		if got := m.Blocked(tc.name); got != tc.blocked {
