@@ -286,10 +286,7 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
                   setActionError("");
                 }}
               />
-              <p className="panel-footnote">
-                Local answers take priority over forwarding. Devices may retain
-                previous answers until their TTL expires.
-              </p>
+              <p className="panel-footnote">{t("zones.footnote")}</p>
             </section>
           )}
         </div>
