@@ -159,7 +159,7 @@ else
   printf '%s\n' 'Existing config.yaml updated with new listen addresses.'
 fi
 sudo chown root:velora /etc/velora/config.yaml
-sudo chmod 0640 /etc/velora/config.yaml
+sudo chmod 0660 /etc/velora/config.yaml
 
 printf 'VELORA_CHANNEL=%s\n' "$channel" | sudo tee /etc/velora/updater.env >/dev/null
 sudo chmod 0644 /etc/velora/updater.env
@@ -194,7 +194,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/velora
+ReadWritePaths=/var/lib/velora /etc/velora
 LogsDirectory=velora-dns
 
 [Install]

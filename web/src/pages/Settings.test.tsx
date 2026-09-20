@@ -105,3 +105,38 @@ it("loads and updates rate limit settings", async () => {
     rate_limit_burst: 100,
   });
 });
+
+it("allows typing commas in upstream DNS servers and saves parsed configuration", async () => {
+  interface FetchCall {
+    path?: string;
+    method?: string;
+    body?: string;
+  }
+  const calls: FetchCall[] = [];
+  const fetch = vi.fn((path: string, options?: { method?: string; body?: string }) => {
+    calls.push({ path, method: options?.method, body: options?.body });
+    return Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          data: { status: "saved", message: "Configuration saved." },
+        }),
+    });
+  });
+  vi.stubGlobal("fetch", fetch);
+  render(withI18n(<Settings data={data} />));
+
+  const input = screen.getByLabelText(/upstream dns servers/i);
+  fireEvent.change(input, {
+    target: { value: "1.1.1.1:53, 8.8.8.8:53, " },
+  });
+  expect(input).toHaveValue("1.1.1.1:53, 8.8.8.8:53, ");
+
+  fireEvent.click(screen.getByRole("button", { name: "Save configuration" }));
+  await waitFor(() =>
+    expect(calls.some((c) => c.path === "/api/v1/config" && c.method === "PUT")).toBe(true),
+  );
+  const put = calls.find((c) => c.path === "/api/v1/config" && c.method === "PUT");
+  const payload = JSON.parse(put!.body ?? "{}");
+  expect(payload.dns.upstreams).toEqual(["1.1.1.1:53", "8.8.8.8:53"]);
+});

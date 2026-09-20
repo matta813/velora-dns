@@ -20,8 +20,23 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
     }
   };
   useEffect(() => {
-    void Promise.resolve().then(load);
-  }, []);
+    let active = true;
+    void request<BlocklistSource[]>("/api/v1/blocklists")
+      .then((data) => {
+        if (active) {
+          setSources(data);
+          setError("");
+        }
+      })
+      .catch((e) => {
+        if (active) {
+          setError(e instanceof Error ? e.message : t("blocklists.load_failed"));
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [t]);
   const add = async () => {
     setBusy("new");
     setError("");

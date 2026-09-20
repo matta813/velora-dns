@@ -74,6 +74,8 @@ func TestHostAndRequestLimits(t *testing.T) {
 	}{
 		{"GET", "attacker.test", "/api/v1/config", 0, 403},
 		{"GET", "127.0.0.1:8080", "/api/v1/config", 0, 200},
+		{"POST", "127.0.0.1:8080", "/api/v1/config", 0, 405},
+		{"PUT", "127.0.0.1:8080", "/api/v1/config", 0, 500},
 		{"POST", "127.0.0.1", "/api/v1/status", 0, 405},
 		{"DELETE", "127.0.0.1", "/api/v1/cache", 2 << 20, 413},
 	} {
@@ -99,7 +101,7 @@ func TestWildcardHostAllowsRemoteWebUI(t *testing.T) {
 	}
 }
 
-func TestConfigSavePreservesDatabasePath(t *testing.T) {
+func TestConfigSavePreservesDatabasePathAndUpdatesInMemory(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "config.yaml")
 	c := cache.New(10)
 	cfg := config.Default()
@@ -113,6 +115,12 @@ func TestConfigSavePreservesDatabasePath(t *testing.T) {
 		ConfigPath: tmpFile,
 		Started:    time.Now(),
 	})
+
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8080/api/v1/config", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("initial get: got %d, want 200", w.Code)
+	}
 
 	// Web UI sends JSON without database_path (since database_path is json:"-")
 	payload := []byte(`{
@@ -128,28 +136,31 @@ func TestConfigSavePreservesDatabasePath(t *testing.T) {
 		"query_log": {
 			"enabled": true
 		},
-		"log_level": "info"
+		"log_level": "debug"
 	}`)
 
 	putReq := httptest.NewRequest(http.MethodPut, "http://127.0.0.1:8080/api/v1/config", bytes.NewReader(payload))
 	putReq.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+	w = httptest.NewRecorder()
 	h.ServeHTTP(w, putReq)
 	if w.Code != http.StatusOK {
 		t.Fatalf("put config failed: got %d (%s), want 200", w.Code, w.Body.String())
 	}
 
-	// Verify GET reflects the saved changes
+	// Verify GET reflects the in-memory saved changes
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8080/api/v1/config", nil))
 	if w.Code != http.StatusOK {
-		t.Fatalf("get config failed: got %d, want 200", w.Code)
+		t.Fatalf("get updated config: got %d, want 200", w.Code)
 	}
 	var res struct {
 		Data config.Config `json:"data"`
 	}
 	if err := json.NewDecoder(w.Body).Decode(&res); err != nil {
 		t.Fatal(err)
+	}
+	if res.Data.LogLevel != "debug" {
+		t.Fatalf("in-memory config not updated: got %s, want debug", res.Data.LogLevel)
 	}
 	if len(res.Data.DNS.Listen) != 1 || res.Data.DNS.Listen[0] != "0.0.0.0:53" {
 		t.Fatalf("dns.listen not updated: got %v", res.Data.DNS.Listen)
