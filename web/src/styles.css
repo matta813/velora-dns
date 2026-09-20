@@ -136,7 +136,7 @@ nav a.active:after {
   margin-top: auto;
   padding: 28px 10px 0;
 }
-.mobile-signout {
+.button.secondary.mobile-signout {
   display: none;
 }
 .privacy {
@@ -671,7 +671,7 @@ footer {
   .sidebar-bottom {
     display: none;
   }
-  .mobile-signout {
+  .button.secondary.mobile-signout {
     display: inline-flex;
     align-self: flex-start;
     padding: 8px 12px;
