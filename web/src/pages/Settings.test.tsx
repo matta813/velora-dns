@@ -140,3 +140,27 @@ it("allows typing commas in upstream DNS servers and saves parsed configuration"
   const payload = JSON.parse(put!.body ?? "{}");
   expect(payload.dns.upstreams).toEqual(["1.1.1.1:53", "8.8.8.8:53"]);
 });
+
+it("preserves custom DNS listeners and the web address when saving", async () => {
+  const calls: { path: string; method?: string; body?: string }[] = [];
+  vi.stubGlobal("fetch", vi.fn((path: string, options?: { method?: string; body?: string }) => {
+    calls.push({ path, method: options?.method, body: options?.body });
+    return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: { status: "saved" } }) });
+  }));
+  const custom = {
+    ...data,
+    config: {
+      ...data.config,
+      dns: { ...data.config.dns, listen: ["127.0.0.1:5353", "[::1]:5353"] },
+      http: { ...data.config.http, listen: "192.168.1.2:9090" },
+    },
+  };
+  render(withI18n(<Settings data={custom} />));
+  expect(screen.getByLabelText(/dns listen addresses/i)).toHaveValue("127.0.0.1:5353, [::1]:5353");
+  expect(screen.getByLabelText(/web ui listen address/i)).toHaveValue("192.168.1.2:9090");
+  fireEvent.click(screen.getByRole("button", { name: "Save configuration" }));
+  await waitFor(() => expect(calls.some((call) => call.path === "/api/v1/config" && call.method === "PUT")).toBe(true));
+  const payload = JSON.parse(calls.find((call) => call.path === "/api/v1/config" && call.method === "PUT")!.body!);
+  expect(payload.dns.listen).toEqual(["127.0.0.1:5353", "[::1]:5353"]);
+  expect(payload.http.listen).toBe("192.168.1.2:9090");
+});

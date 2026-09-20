@@ -91,7 +91,7 @@ const en: Record<string, string> = {
   "settings.edit_hint":
     "These settings correspond to the quickstart installer options. Changes require a server restart to take effect.",
   "settings.dns_section": "DNS settings",
-  "settings.dns_listen_label": "DNS listen address",
+  "settings.dns_listen_label": "DNS listen addresses (comma-separated)",
   "settings.dns_listen_localhost": "Localhost only (127.0.0.1:53)",
   "settings.dns_listen_all": "All interfaces (0.0.0.0:53) — LAN access",
   "settings.dns_listen_warning":
@@ -103,7 +103,7 @@ const en: Record<string, string> = {
   "settings.allowed_clients_hint":
     "Only these networks can query the resolver. Example: 192.168.1.0/24, 10.0.0.0/8",
   "settings.web_section": "Web UI settings",
-  "settings.web_listen_label": "Web UI listen address",
+  "settings.web_listen_label": "Web UI listen address (IP:port)",
   "settings.web_listen_localhost": "Localhost only (127.0.0.1:8080)",
   "settings.web_listen_all": "All interfaces (0.0.0.0:8080) — LAN access",
   "settings.web_listen_warning":
@@ -510,7 +510,7 @@ const de: Record<string, string> = {
   "settings.edit_hint":
     "Diese Einstellungen entsprechen den Optionen des Quickstart-Installers. Änderungen erfordern einen Neustart des Servers.",
   "settings.dns_section": "DNS-Einstellungen",
-  "settings.dns_listen_label": "DNS-Listen-Adresse",
+  "settings.dns_listen_label": "DNS-Listen-Adressen (kommagetrennt)",
   "settings.dns_listen_localhost": "Nur localhost (127.0.0.1:53)",
   "settings.dns_listen_all": "Alle Schnittstellen (0.0.0.0:53) — LAN-Zugriff",
   "settings.dns_listen_warning":
@@ -522,7 +522,7 @@ const de: Record<string, string> = {
   "settings.allowed_clients_hint":
     "Nur diese Netzwerke dürfen den Resolver abfragen. Beispiel: 192.168.1.0/24, 10.0.0.0/8",
   "settings.web_section": "Web-UI-Einstellungen",
-  "settings.web_listen_label": "Web-UI-Listen-Adresse",
+  "settings.web_listen_label": "Web-UI-Listen-Adresse (IP:Port)",
   "settings.web_listen_localhost": "Nur localhost (127.0.0.1:8080)",
   "settings.web_listen_all": "Alle Schnittstellen (0.0.0.0:8080) — LAN-Zugriff",
   "settings.web_listen_warning":

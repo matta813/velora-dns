@@ -13,7 +13,7 @@ import { themeLabel, SUPPORTED_THEMES, type Theme } from "../theme";
 import { useTheme } from "../theme-context";
 
 interface ConfigFormData {
-  dns_listen: string[];
+  dns_listen: string;
   dns_upstreams: string;
   dns_allowed_clients: string;
   http_listen: string;
@@ -26,7 +26,7 @@ export function Settings({ data }: { data: Snapshot }) {
   const { t, language, setLanguage } = useI18n();
   const { theme, setTheme } = useTheme();
   const [formData, setFormData] = useState<ConfigFormData>({
-    dns_listen: data.config.dns.listen ?? ["127.0.0.1:53"],
+    dns_listen: (data.config.dns.listen ?? ["127.0.0.1:53"]).join(", "),
     dns_upstreams: (data.config.dns.upstreams ?? ["1.1.1.1:53", "9.9.9.9:53"]).join(", "),
     dns_allowed_clients: (data.config.dns.allowed_clients ?? ["127.0.0.0/8", "::1/128"]).join(", "),
     http_listen: data.config.http.listen ?? "127.0.0.1:8080",
@@ -98,7 +98,7 @@ export function Settings({ data }: { data: Snapshot }) {
         ...data.config,
         dns: {
           ...data.config.dns,
-          listen: formData.dns_listen,
+          listen: parseList(formData.dns_listen),
           upstreams: parseList(formData.dns_upstreams),
           allowed_clients: parseList(formData.dns_allowed_clients),
         },
@@ -121,16 +121,6 @@ export function Settings({ data }: { data: Snapshot }) {
       setSaving(false);
     }
   };
-
-  const dnsListenOptions = [
-    { value: "127.0.0.1:53", label: t("settings.dns_listen_localhost") },
-    { value: "0.0.0.0:53", label: t("settings.dns_listen_all") },
-  ];
-
-  const httpListenOptions = [
-    { value: "127.0.0.1:8080", label: t("settings.web_listen_localhost") },
-    { value: "0.0.0.0:8080", label: t("settings.web_listen_all") },
-  ];
 
   const logLevelOptions = ["debug", "info", "warn", "error"];
 
@@ -185,15 +175,13 @@ export function Settings({ data }: { data: Snapshot }) {
             <div style={{ display: "grid", gap: "1rem" }}>
               <label style={{ display: "grid", gap: "0.5rem" }}>
                 <span>{t("settings.dns_listen_label")}</span>
-                <select
-                  value={formData.dns_listen[0] || "127.0.0.1:53"}
-                  onChange={(e) => handleChange("dns_listen", [e.target.value])}
+                <input
+                  type="text"
+                  value={formData.dns_listen}
+                  onChange={(e) => handleChange("dns_listen", e.target.value)}
+                  placeholder="127.0.0.1:53, [::1]:53"
                   style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                >
-                  {dnsListenOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+                />
                 <small style={{ opacity: 0.6 }}>{t("settings.dns_listen_warning")}</small>
               </label>
 
@@ -228,15 +216,13 @@ export function Settings({ data }: { data: Snapshot }) {
             <div style={{ display: "grid", gap: "1rem" }}>
               <label style={{ display: "grid", gap: "0.5rem" }}>
                 <span>{t("settings.web_listen_label")}</span>
-                <select
+                <input
+                  type="text"
                   value={formData.http_listen}
                   onChange={(e) => handleChange("http_listen", e.target.value)}
+                  placeholder="127.0.0.1:8080"
                   style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                >
-                  {httpListenOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+                />
                 <small style={{ opacity: 0.6 }}>{t("settings.web_listen_warning")}</small>
               </label>
 
