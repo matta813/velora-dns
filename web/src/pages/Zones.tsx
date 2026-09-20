@@ -53,7 +53,7 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
       <div className="zones-toolbar">
         <span className="zone-count">
           {state.zones
-            ? `${state.zones.length} local ${state.zones.length === 1 ? "zone" : "zones"}`
+            ? `${state.zones.length} ${t(state.zones.length === 1 ? "zones.count_one" : "zones.count")}`
             : t("zones.local_authority")}
         </span>
         <div>
@@ -181,7 +181,7 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
                   <span className="eyebrow">{t("zones.authoritative_eyebrow")}</span>
                   <h2>{selected.name}</h2>
                   <p>
-                    Revision {selected.revision} · {selected.records.length}{" "}
+                    {t("zones.revision")} {selected.revision} · {selected.records.length}{" "}
                     {t("zones.records_custom")}
                   </p>
                 </div>
