@@ -60,6 +60,24 @@ func TestLRUAndFlush(t *testing.T) {
 		t.Fatal("flush failed")
 	}
 }
+func TestListEntriesPaginatesAndExpires(t *testing.T) {
+	c := New(3)
+	now := time.Unix(1000, 0)
+	c.now = func() time.Time { return now }
+	for _, name := range []string{"a.test.", "b.test.", "c.test."} {
+		q, answer := pair(name, 10)
+		c.Put(q, answer)
+	}
+	page := c.ListEntries(1, 1)
+	if page.Total != 3 || len(page.Entries) != 1 || page.Entries[0].Name != "b.test." || page.Entries[0].Type != "A" || page.Entries[0].RemainingTTL != 10 {
+		t.Fatalf("unexpected page: %+v", page)
+	}
+	now = now.Add(10 * time.Second)
+	page = c.ListEntries(10, 0)
+	if page.Total != 0 || len(page.Entries) != 0 {
+		t.Fatalf("expired entries listed: %+v", page)
+	}
+}
 func TestUnsafeResponsesNotCached(t *testing.T) {
 	for _, kind := range []string{"zero", "truncated", "negative-without-soa", "disabled"} {
 		t.Run(kind, func(t *testing.T) {

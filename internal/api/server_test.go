@@ -16,6 +16,7 @@ import (
 	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/querylog"
+	"github.com/miekg/dns"
 )
 
 type fakeDB struct{ err error }
@@ -73,6 +74,26 @@ func TestAPIAndOriginProtection(t *testing.T) {
 		if w.Code != tc.code {
 			t.Fatalf("%s: %d", tc.path, w.Code)
 		}
+	}
+}
+func TestCacheEntriesEndpoint(t *testing.T) {
+	c := cache.New(10)
+	q := new(dns.Msg)
+	q.SetQuestion("example.test.", dns.TypeA)
+	answer := new(dns.Msg)
+	answer.SetReply(q)
+	answer.Answer = []dns.RR{&dns.A{Hdr: dns.RR_Header{Name: "example.test.", Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 60}, A: []byte{192, 0, 2, 1}}}
+	c.Put(q, answer)
+	h := New(Dependencies{Database: fakeDB{}, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: config.Default(), Started: time.Now()})
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "http://127.0.0.1/api/v1/cache/entries?limit=1", nil))
+	if w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(`"name":"example.test."`)) || !bytes.Contains(w.Body.Bytes(), []byte(`"192.0.2.1"`)) {
+		t.Fatalf("cache entries: status=%d body=%s", w.Code, w.Body.String())
+	}
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "http://127.0.0.1/api/v1/cache/entries?limit=201", nil))
+	if w.Code != 400 {
+		t.Fatalf("invalid limit: %d", w.Code)
 	}
 }
 
