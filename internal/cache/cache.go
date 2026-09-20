@@ -23,6 +23,17 @@ type Stats struct {
 	Hits     uint64 `json:"hits"`
 	Misses   uint64 `json:"misses"`
 }
+type EntryInfo struct {
+	Name         string   `json:"name"`
+	Type         string   `json:"type"`
+	Rcode        string   `json:"rcode"`
+	Answers      []string `json:"answers"`
+	RemainingTTL uint32   `json:"remaining_ttl"`
+}
+type EntryPage struct {
+	Entries []EntryInfo `json:"entries"`
+	Total   int         `json:"total"`
+}
 type Cache struct {
 	mu           sync.Mutex
 	items        map[string]*list.Element
@@ -196,5 +207,35 @@ func (c *Cache) Stats() Stats {
 	defer c.mu.Unlock()
 	c.expire()
 	return Stats{Entries: len(c.items), Capacity: c.max, Hits: c.hits, Misses: c.misses}
+}
+
+// ListEntries returns a bounded snapshot in most-recently-used order.
+func (c *Cache) ListEntries(limit, offset int) EntryPage {
+	if limit < 0 {
+		limit = 0
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.expire()
+	page := EntryPage{Entries: make([]EntryInfo, 0, limit), Total: len(c.items)}
+	now := c.now()
+	for el, i := c.lru.Front(), 0; el != nil && len(page.Entries) < limit; el, i = el.Next(), i+1 {
+		if i < offset {
+			continue
+		}
+		e := el.Value.(*entry)
+		question := e.message.Question[0]
+		remaining := uint32((e.expires.Sub(now) + time.Second - 1) / time.Second)
+		answers := make([]string, 0, len(e.message.Answer))
+		for _, rr := range e.message.Answer {
+			answers = append(answers, strings.TrimSpace(strings.TrimPrefix(rr.String(), rr.Header().String())))
+		}
+		page.Entries = append(page.Entries, EntryInfo{
+			Name: question.Name, Type: dns.TypeToString[question.Qtype],
+			Rcode: dns.RcodeToString[e.message.Rcode], Answers: answers,
+			RemainingTTL: remaining,
+		})
+	}
+	return page
 }
 func (c *Cache) Flush() { c.mu.Lock(); defer c.mu.Unlock(); clear(c.items); c.lru.Init() }

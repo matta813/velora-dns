@@ -433,6 +433,20 @@ p {
 .table-wrap {
   overflow-x: auto;
 }
+.cache-entries-table .cache-answer { white-space: normal; min-width: 220px; }
+.cache-entries-table .cache-answer code { display: block; overflow-wrap: anywhere; }
+.cache-scroll-hint { display: none; }
+.cache-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 23px;
+  font-size: 12px;
+}
+@media (max-width: 650px) {
+  .cache-scroll-hint { display: block; margin: 0; padding: 0 23px 10px; font-size: 11px; }
+}
 table {
   border-collapse: collapse;
   width: 100%;

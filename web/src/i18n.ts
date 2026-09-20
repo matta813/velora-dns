@@ -188,6 +188,20 @@ const en: Record<string, string> = {
   "cache.cleared":
     "Cache cleared. Local zones remain active; other queries will use upstream resolvers.",
   "cache.flush_failed": "Cache flush failed",
+  "cache.entries_title": "Cached DNS entries",
+  "cache.entries_description": "Current answers, most recently used first.",
+  "cache.entries_loading": "Loading cache entries…",
+  "cache.entries_load_failed": "Unable to load cache entries",
+  "cache.entries_empty": "The cache is empty.",
+  "cache.entries_scroll_hint": "Scroll sideways to see all columns.",
+  "cache.entry_name": "Name",
+  "cache.entry_type": "Type",
+  "cache.entry_answer": "Answer",
+  "cache.entry_status": "Status",
+  "cache.entry_ttl": "TTL remaining",
+  "cache.seconds": "s",
+  "cache.previous": "Previous",
+  "cache.next": "Next",
 
   // Query log
   "querylog.unavailable_title": "Query history unavailable",
@@ -630,6 +644,20 @@ const de: Record<string, string> = {
   "cache.cleared":
     "Cache geleert. Lokale Zonen bleiben aktiv; andere Abfragen verwenden die Upstream-Resolver.",
   "cache.flush_failed": "Cache leeren fehlgeschlagen",
+  "cache.entries_title": "DNS-Cache-Einträge",
+  "cache.entries_description": "Aktuelle Antworten, zuletzt verwendete zuerst.",
+  "cache.entries_loading": "Cache-Einträge werden geladen…",
+  "cache.entries_load_failed": "Cache-Einträge konnten nicht geladen werden",
+  "cache.entries_empty": "Der Cache ist leer.",
+  "cache.entries_scroll_hint": "Seitlich scrollen, um alle Spalten zu sehen.",
+  "cache.entry_name": "Name",
+  "cache.entry_type": "Typ",
+  "cache.entry_answer": "Antwort",
+  "cache.entry_status": "Status",
+  "cache.entry_ttl": "Rest-TTL",
+  "cache.seconds": "s",
+  "cache.previous": "Zurück",
+  "cache.next": "Weiter",
 
   // Query log
   "querylog.unavailable_title": "Abfrageverlauf nicht verfügbar",

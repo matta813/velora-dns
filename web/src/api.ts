@@ -17,6 +17,17 @@ export interface Cache {
   hits: number;
   misses: number;
 }
+export interface CacheEntry {
+  name: string;
+  type: string;
+  rcode: string;
+  answers: string[];
+  remaining_ttl: number;
+}
+export interface CacheEntryPage {
+  entries: CacheEntry[];
+  total: number;
+}
 export interface Config {
   query_log: {
     enabled: boolean;
