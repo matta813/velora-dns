@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/matta813/velora-dns/internal/api"
+	"github.com/matta813/velora-dns/internal/backup"
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/database"
@@ -20,6 +21,7 @@ import (
 	"github.com/matta813/velora-dns/internal/filtering"
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/querylog"
+	"github.com/matta813/velora-dns/internal/update"
 	"github.com/matta813/velora-dns/internal/zones"
 )
 
@@ -108,6 +110,15 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	var auditWG sync.WaitGroup
 	auditWG.Go(func() { audit.Run(auditCtx) })
 	defer func() { auditCancel(); auditWG.Wait() }()
+
+	updateManager := update.NewManager(update.DefaultConfig())
+	if err := updateManager.LoadState(); err != nil {
+		return fmt.Errorf("load update state: %w", err)
+	}
+	defer func() { _ = updateManager.SaveState() }()
+
+	backupManager := backup.NewManager(db, c.DatabasePath)
+
 	var wg sync.WaitGroup
 	wg.Go(func() { memory.Run(runCtx) })
 	defer func() { cancel(); wg.Wait() }()
@@ -206,7 +217,7 @@ func Run(ctx context.Context, c config.Config, logger *slog.Logger, version api.
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, Version: version, Started: started, TSIG: tsigStore}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, Version: version, Started: started, TSIG: tsigStore, Update: updateManager, Backup: backupManager}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)

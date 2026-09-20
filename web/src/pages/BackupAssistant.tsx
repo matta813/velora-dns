@@ -125,7 +125,7 @@ export function BackupAssistant({ readOnly }: Props) {
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <input
               type="text"
-              placeholder="/path/to/backup.db"
+              placeholder="backup.db"
               value={verifyPath}
               onChange={(e) => setVerifyPath(e.target.value)}
               style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
