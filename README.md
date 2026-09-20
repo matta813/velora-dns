@@ -144,6 +144,7 @@ dns:
   max_concurrent: 256
 cache:
   max_entries: 10000
+  upstream_ttl: 86400
 http:
   listen: '127.0.0.1:8080'
   web_dir: web/dist

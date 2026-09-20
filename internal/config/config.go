@@ -38,7 +38,8 @@ type DNS struct {
 	TrustAnchors     []string      `yaml:"trust_anchors" json:"trust_anchors"`
 }
 type Cache struct {
-	MaxEntries int `yaml:"max_entries" json:"max_entries"`
+	MaxEntries  int `yaml:"max_entries" json:"max_entries"`
+	UpstreamTTL int `yaml:"upstream_ttl" json:"upstream_ttl"`
 }
 type HTTP struct {
 	AllowedHosts []string `yaml:"allowed_hosts" json:"allowed_hosts"`
@@ -109,7 +110,7 @@ type Config struct {
 }
 
 func Default() Config {
-	return Config{DNS: DNS{Listen: []string{"127.0.0.1:3535"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256, GlobalQPS: 1000, ClientQPS: 100, RateLimitBurst: 100, RateLimitEnabled: false, MaxTCPConns: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{Enabled: false, MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, Cluster: Cluster{MaxOpenConns: 10, MaxIdleConns: 5, ConnMaxLifetime: 5 * time.Minute}, Node: Node{ID: "node-1", Name: "Primary"}, DatabasePath: "data/velora.db", DatabaseDriver: "sqlite", LogLevel: "info"}
+	return Config{DNS: DNS{Listen: []string{"127.0.0.1:3535"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256, GlobalQPS: 1000, ClientQPS: 100, RateLimitBurst: 100, RateLimitEnabled: false, MaxTCPConns: 256}, Cache: Cache{MaxEntries: 10000, UpstreamTTL: 86400}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{Enabled: false, MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, Cluster: Cluster{MaxOpenConns: 10, MaxIdleConns: 5, ConnMaxLifetime: 5 * time.Minute}, Node: Node{ID: "node-1", Name: "Primary"}, DatabasePath: "data/velora.db", DatabaseDriver: "sqlite", LogLevel: "info"}
 }
 func Load(path string) (Config, error) {
 	var data []byte
@@ -170,6 +171,13 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 			}
 			*target = n
 		}
+	}
+	if v, ok := lookup("VELORA_CACHE_UPSTREAM_TTL"); ok {
+		n, err := strconv.ParseUint(v, 10, 32)
+		if err != nil {
+			return c, fmt.Errorf("invalid VELORA_CACHE_UPSTREAM_TTL")
+		}
+		c.Cache.UpstreamTTL = int(n)
 	}
 	if v, ok := lookup("VELORA_DNS_TIMEOUT"); ok {
 		n, err := time.ParseDuration(v)
@@ -291,6 +299,9 @@ func (c Config) Validate() error {
 	}
 	if c.Cache.MaxEntries < 0 || c.Cache.MaxEntries > 1000000 || c.DNS.MaxConcurrent < 1 || c.DNS.MaxConcurrent > 10000 || c.DNS.GlobalQPS < 1 || c.DNS.GlobalQPS > 100000 || c.DNS.ClientQPS < 1 || c.DNS.ClientQPS > 100000 || c.DNS.RateLimitBurst < 1 || c.DNS.RateLimitBurst > 100000 || c.DNS.MaxTCPConns < 1 || c.DNS.MaxTCPConns > 100000 {
 		return fmt.Errorf("invalid cache or concurrency limit")
+	}
+	if c.Cache.UpstreamTTL < 0 || c.Cache.UpstreamTTL > 604800 {
+		return fmt.Errorf("cache.upstream_ttl must be 0–604800 seconds")
 	}
 	if c.QueryLog.QueueSize < 1 || c.QueryLog.QueueSize > 100000 || c.QueryLog.Retention < time.Minute || c.QueryLog.Retention > 365*24*time.Hour || c.QueryLog.MaxRows < 1 || c.QueryLog.MaxRows > 1000000 {
 		return fmt.Errorf("invalid query_log settings")

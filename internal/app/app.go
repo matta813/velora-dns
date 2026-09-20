@@ -82,6 +82,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	memory := cache.New(c.Cache.MaxEntries)
+	memory.SetUpstreamTTL(uint32(c.Cache.UpstreamTTL))
 	local, err := zones.New(initCtx, db, memory.Flush)
 	if err != nil {
 		return fmt.Errorf("load local zones: %w", err)
@@ -151,6 +152,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	}
 	dnsHandler := &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), RateLimit: rateLimitState, Observer: observer, Audit: audit, CookieSecret: cookieSecret}
 	applyConfig := func(updated config.Config) error {
+		memory.SetUpstreamTTL(uint32(updated.Cache.UpstreamTTL))
 		audit.SetEnabled(updated.QueryLog.Enabled)
 		rateLimitState.Configure(updated.DNS.RateLimitEnabled, updated.DNS.GlobalQPS, updated.DNS.ClientQPS, updated.DNS.RateLimitBurst)
 		newAllowed := make([]netip.Prefix, 0, len(updated.DNS.AllowedClients))

@@ -43,7 +43,7 @@ export interface Config {
     retries: number;
     max_concurrent: number;
   };
-  cache: { max_entries: number };
+  cache: { max_entries: number; upstream_ttl: number };
   http: { listen: string; web_dir: string; allowed_hosts: string[] };
   log_level: string;
 }

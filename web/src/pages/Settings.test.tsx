@@ -30,7 +30,7 @@ const data = {
       retries: 1,
       max_concurrent: 256,
     },
-    cache: { max_entries: 100 },
+    cache: { max_entries: 100, upstream_ttl: 86400 },
     http: { listen: "127.0.0.1:8080", web_dir: "web/dist", allowed_hosts: ["localhost", "127.0.0.1", "::1"] },
     log_level: "info",
   },
@@ -163,4 +163,24 @@ it("preserves custom DNS listeners and the web address when saving", async () =>
   const payload = JSON.parse(calls.find((call) => call.path === "/api/v1/config" && call.method === "PUT")!.body!);
   expect(payload.dns.listen).toEqual(["127.0.0.1:5353", "[::1]:5353"]);
   expect(payload.http.listen).toBe("192.168.1.2:9090");
+});
+
+it("saves the edited upstream cache TTL and rejects values above seven days", async () => {
+  const calls: { path: string; method?: string; body?: string }[] = [];
+  vi.stubGlobal("fetch", vi.fn((path: string, options?: { method?: string; body?: string }) => {
+    calls.push({ path, method: options?.method, body: options?.body });
+    return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: { status: "saved" } }) });
+  }));
+  render(withI18n(<Settings data={data} />));
+  const input = screen.getByLabelText(/upstream answer cache ttl/i);
+  expect(input).toHaveValue(86400);
+  fireEvent.change(input, { target: { value: "604801" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save configuration" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("0 to 604800");
+  expect(calls.some((call) => call.path === "/api/v1/config" && call.method === "PUT")).toBe(false);
+  fireEvent.change(input, { target: { value: "7200" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save configuration" }));
+  await waitFor(() => expect(calls.some((call) => call.path === "/api/v1/config" && call.method === "PUT")).toBe(true));
+  const payload = JSON.parse(calls.find((call) => call.path === "/api/v1/config" && call.method === "PUT")!.body!);
+  expect(payload.cache.upstream_ttl).toBe(7200);
 });
