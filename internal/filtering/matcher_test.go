@@ -18,3 +18,21 @@ func TestMatcherAllowOverridesAndWildcardBoundaries(t *testing.T) {
 		}
 	}
 }
+
+func TestMatcherUnderscoreDomains(t *testing.T) {
+	m, err := New([]Rule{
+		{Domain: "_dmarc.example.com", Wildcard: true, Action: Block},
+		{Domain: "_domainkey.example.com", Wildcard: true, Action: Block},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name   string
+		blocked bool
+	}{{"_dmarc.example.com", true}, {"_domainkey.example.com", true}, {"mail._domainkey.example.com", true}, {"safe.example.com", false}} {
+		if got := m.Blocked(tc.name); got != tc.blocked {
+			t.Errorf("%s: blocked=%v, want %v", tc.name, got, tc.blocked)
+		}
+	}
+}
