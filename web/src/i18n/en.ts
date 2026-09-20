@@ -487,6 +487,7 @@ const en: Record<string, string> = {
   "app.nav.cluster": "Cluster",
   "app.title.cluster": "Cluster Overview",
   "cluster.loading": "Loading cluster data…",
+  "cluster.load_failed": "Unable to load cluster data",
   "cluster.total_nodes": "Total nodes",
   "cluster.healthy": "Healthy",
   "cluster.config_versions": "Config versions",

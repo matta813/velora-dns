@@ -32,7 +32,7 @@ export function Cluster() {
       setVersions(v);
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load cluster data");
+      setError(e instanceof Error ? e.message : t("cluster.load_failed"));
     } finally {
       setLoading(false);
     }
@@ -50,7 +50,7 @@ export function Cluster() {
       })
       .catch((e) => {
         if (active) {
-          setError(e instanceof Error ? e.message : "Failed to load cluster data");
+          setError(e instanceof Error ? e.message : t("cluster.load_failed"));
         }
       })
       .finally(() => {
