@@ -13,10 +13,10 @@ The administrative baseline follows PGSentinel, adapted to Velora DNS.
 - SHA-pinned Actions, CodeQL, dependency review, Go vulnerability scans and OpenSSF Scorecard.
 - Release metadata, immutable tags/images, deterministic notes and recovery scripts retained.
 
-**Release publication is disabled.** `RELEASE_ENABLED` is unset/false; the release validation
-job cannot run. No releases or image publications are part of initial implementation.
-Enabling publication requires a later explicit maintainer decision. Normal feature PRs
-must not change RELEASE. Announcement and growth jobs create reviewable artifacts only.
+Release publication is gated by `RELEASE_ENABLED` and requires an explicit maintainer
+decision for each release change. [Beta pre-releases](https://github.com/matta813/velora-dns/releases)
+have been published. Normal feature PRs must not change `RELEASE`. Announcement and
+growth jobs create reviewable artifacts only.
 
 Required checks mirror the reference: release-logic, backend, frontend, build,
 Review dependency changes, Scan Go dependencies, Analyze (go), Analyze (javascript-typescript).
@@ -26,4 +26,4 @@ After the foundation exists, CI no longer skips checks based on missing manifest
 Docker build is added as a required check for Velora's deployment contract. Project-specific
 monitoring descriptions and dependency vulnerability exceptions are not inherited; DNS
 metadata and actual dependency scans apply. Web commit sign-off is enabled, matching the
-reference repository. The release publication gate remains false.
+reference repository. Check the repository variable for the current publication-gate state.
