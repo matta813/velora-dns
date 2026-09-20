@@ -487,6 +487,26 @@ const en: Record<string, string> = {
   "dhcp.expired": "Expired",
   "dhcp.confirm_delete_pool": "Delete this pool and all its reservations?",
   "dhcp.name": "Name",
+  // Cluster / HA
+  "app.nav.cluster": "Cluster",
+  "app.title.cluster": "Cluster Overview",
+  "cluster.loading": "Loading cluster data…",
+  "cluster.total_nodes": "Total nodes",
+  "cluster.healthy": "Healthy",
+  "cluster.config_versions": "Config versions",
+  "cluster.nodes": "Cluster Nodes",
+  "cluster.no_nodes": "No cluster nodes registered.",
+  "cluster.name": "Name",
+  "cluster.address": "Address",
+  "cluster.status": "Status",
+  "cluster.version": "Version",
+  "cluster.last_seen": "Last seen",
+  "cluster.config_history": "Configuration History",
+  "cluster.no_versions": "No configuration versions recorded.",
+  "cluster.hash": "Hash",
+  "cluster.applied_by": "Applied by",
+  "cluster.applied_at": "Applied at",
+  "cluster.just_now": "just now",
 };
 
 const de: Record<string, string> = {
@@ -974,6 +994,26 @@ const de: Record<string, string> = {
   "dhcp.expired": "Abgelaufen",
   "dhcp.confirm_delete_pool": "Diesen Pool und alle seine Reservierungen löschen?",
   "dhcp.name": "Name",
+  // Cluster / HA
+  "app.nav.cluster": "Cluster",
+  "app.title.cluster": "Cluster-Übersicht",
+  "cluster.loading": "Cluster-Daten laden…",
+  "cluster.total_nodes": "Gesamte Knoten",
+  "cluster.healthy": "Gesund",
+  "cluster.config_versions": "Konfigurationsversionen",
+  "cluster.nodes": "Cluster-Knoten",
+  "cluster.no_nodes": "Keine Cluster-Knoten registriert.",
+  "cluster.name": "Name",
+  "cluster.address": "Adresse",
+  "cluster.status": "Status",
+  "cluster.version": "Version",
+  "cluster.last_seen": "Zuletzt gesehen",
+  "cluster.config_history": "Konfigurationsverlauf",
+  "cluster.no_versions": "Keine Konfigurationsversionen aufgezeichnet.",
+  "cluster.hash": "Hash",
+  "cluster.applied_by": "Angewendet von",
+  "cluster.applied_at": "Angewendet am",
+  "cluster.just_now": "gerade eben",
 };
 
 export const dictionaries: Record<Language, Record<string, string>> = { en, de };
