@@ -1,58 +1,89 @@
 # Roadmap
 
-Only checked items are implemented. Milestones describe targets, not release promises.
+This is a directional plan, not a release schedule or a promise that every idea
+will ship. **Now** contains tracked near-term priorities, not necessarily work
+already in progress. **Next** is likely follow-on work; **Later** is longer-term.
+**Exploring** needs design and validation before commitment. The
+[issue tracker](https://github.com/matta813/velora-dns/issues) holds specifications
+and progress; substantial new work should get its own issue before implementation.
 
-## Phase 1 — MVP
+## Now — tracked priorities
 
-- [x] UDP/TCP DNS and upstream forwarding
-- [x] In-memory TTL cache
-- [x] Local authoritative zones and record CRUD
-- [x] Blocklists, allowlists, wildcard matching, remote list updates
-- [x] Query logging, bounded retention and filters
-- [x] Top domains and clients
-- [x] Versioned operational API (status/stats/cache/config)
-- [x] Full management CRUD API
-- [x] React overview, cache and settings
-- [x] Zones management screen
-- [x] Query history screen
-- [x] Complete blocklist management controls
-- [x] SQLite management persistence (migrations, zones and records)
-- [x] Docker deployment
-- [x] Prometheus metrics
+### Updates and operations
 
-## Phase 2
+- Complete the UI-driven update flow for systemd and Docker Compose: release
+  discovery by channel, trusted download and checksum verification, real updater
+  execution, progress, diagnostics, and rollback. See [#156](https://github.com/matta813/velora-dns/issues/156).
 
-- [x] DNS-over-TLS
-- [x] DNS-over-HTTPS
-- [x] DNSSEC validation
-- [x] Users and roles
-- [x] PostgreSQL storage adapter
-- [x] Zone import/export
+### Web UI and internationalisation
 
-## Phase 3
+- Split translations into per-language files, retain a fallback, and test key
+  completeness. See [#154](https://github.com/matta813/velora-dns/issues/154).
 
-- [ ] DHCP server
-- [x] DNS-over-QUIC
-- [x] Secondary zones
-- [x] AXFR/IXFR
-- [x] TSIG
-- [x] API tokens
+## Next — likely follow-on work
 
-## Phase 4
+### DNS and filtering
 
-- [ ] High availability (foundation packages exist; runtime integration is incomplete)
-- [ ] Multiple DNS nodes
-- [ ] Configuration replication
-- [ ] Zone replication
-- [ ] Central management
-- [ ] PostgreSQL cluster support
+- Improve upstream health visibility and failover diagnostics; test behavior under
+  slow, malformed, and unreachable upstreams.
+- Add clearer cache inspection and controls, including visibility into effective
+  TTLs and safe invalidation; review conditional forwarding and local rewrites as
+  separate proposals.
+- Improve per-client filtering policy and blocklist update diagnostics without
+  exposing query data unnecessarily.
 
-## Milestones
+### Observability and security
 
-- **v0.1.0 – Foundation:** config, lifecycle, forwarding, cache, initial API/UI, CI.
-- **v0.2.0 – DNS MVP:** local zones, filtering, query logging, protocol hardening.
-- **v0.3.0 – Management:** full CRUD UI, users/roles, import/export.
-- **v0.4.0 – Production Preview:** encrypted DNS, DNSSEC, security assessment.
-- **v0.5.0 – Transports and Authority:** DoT/DoH/DoQ, secondary zones, TSIG, AXFR/IXFR.
-- **v0.6.0 – Multi-Node:** node membership, config/zone replication, central management, PG cluster.
-- **v1.0.0:** stable storage/API contracts and operational validation. Full HA with quorum-based writes remains a longer-term track.
+- Make readiness, update failures, and DNS performance easier to diagnose through
+  bounded metrics and actionable UI states.
+- Expand audit coverage for sensitive management changes and test role boundaries,
+  session handling, and secret redaction.
+
+### Usability and developer experience
+
+- Improve mobile layout, keyboard accessibility, onboarding, and form validation
+  across the management UI.
+- Strengthen API documentation, local test fixtures, and CI coverage for deployment
+  and upgrade paths.
+
+## Later — planned direction
+
+### Deployment and resilience
+
+- Improve backup/restore tooling and rehearse upgrade compatibility for SQLite and
+  PostgreSQL deployments before expanding production guidance.
+- Continue systemd and Compose installer hardening, architecture support, and
+  release artifact verification.
+
+### DNS and integrations
+
+- Extend zone and record workflows where operational gaps are demonstrated, with
+  compatibility tests for DNSSEC and transfers.
+- Improve management API integration paths and versioning guidance for external
+  automation.
+
+## Exploring — not committed
+
+### High availability
+
+- Evaluate multi-node membership, configuration and zone replication, central
+  management, and PostgreSQL cluster behavior. Foundation packages exist, but
+  these capabilities are **not connected to the production runtime**; single-node
+  deployment remains the supported model. See the
+  [production assessment](production-assessment.md).
+- Define failure, consistency, and recovery semantics before considering any
+  quorum-based write or automatic failover design.
+
+### Network services and extensibility
+
+- Assess whether DHCP, webhooks, and additional language packs belong in the core
+  product or should remain separate integrations.
+
+## Completed work
+
+The implemented DNS transports, local zones, filtering, cache, management API/UI,
+roles, and deployment foundations are described in the
+[README](../README.md) and [architecture documentation](architecture/0001-foundation.md).
+See [GitHub Releases](https://github.com/matta813/velora-dns/releases) and the
+[changelog](../CHANGELOG.md) for release history. Completed work is intentionally
+kept out of the active sections above.
