@@ -14,10 +14,10 @@ import { useTheme } from "../theme-context";
 
 interface ConfigFormData {
   dns_listen: string[];
-  dns_upstreams: string[];
-  dns_allowed_clients: string[];
+  dns_upstreams: string;
+  dns_allowed_clients: string;
   http_listen: string;
-  http_allowed_hosts: string[];
+  http_allowed_hosts: string;
   query_log_enabled: boolean;
   log_level: string;
 }
@@ -27,10 +27,10 @@ export function Settings({ data }: { data: Snapshot }) {
   const { theme, setTheme } = useTheme();
   const [formData, setFormData] = useState<ConfigFormData>({
     dns_listen: data.config.dns.listen ?? ["127.0.0.1:53"],
-    dns_upstreams: data.config.dns.upstreams ?? ["1.1.1.1:53", "9.9.9.9:53"],
-    dns_allowed_clients: data.config.dns.allowed_clients ?? ["127.0.0.0/8", "::1/128"],
+    dns_upstreams: (data.config.dns.upstreams ?? ["1.1.1.1:53", "9.9.9.9:53"]).join(", "),
+    dns_allowed_clients: (data.config.dns.allowed_clients ?? ["127.0.0.0/8", "::1/128"]).join(", "),
     http_listen: data.config.http.listen ?? "127.0.0.1:8080",
-    http_allowed_hosts: data.config.http.allowed_hosts ?? ["localhost", "127.0.0.1", "::1"],
+    http_allowed_hosts: (data.config.http.allowed_hosts ?? ["localhost", "127.0.0.1", "::1"]).join(", "),
     query_log_enabled: data.config.query_log.enabled ?? true,
     log_level: data.config.log_level ?? "info",
   });
@@ -65,7 +65,13 @@ export function Settings({ data }: { data: Snapshot }) {
     setRateLimitError("");
     setRateLimitSaved(false);
     try {
-      const saved = await saveRateLimitSettings(rateLimit);
+      const payload: RateLimitSettings = {
+        ...rateLimit,
+        global_qps: rateLimit.global_qps || 1,
+        client_qps: rateLimit.client_qps || 1,
+        rate_limit_burst: rateLimit.rate_limit_burst || 1,
+      };
+      const saved = await saveRateLimitSettings(payload);
       setRateLimit(saved);
       setRateLimitSaved(true);
     } catch (e) {
@@ -78,10 +84,11 @@ export function Settings({ data }: { data: Snapshot }) {
     setMessage(null);
   };
 
-  const handleArrayChange = (key: keyof ConfigFormData, value: string) => {
-    const arr = value.split(",").map((v) => v.trim()).filter((v) => v);
-    handleChange(key, arr);
-  };
+  const parseList = (value: string): string[] =>
+    value
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
 
   const handleSave = async () => {
     setSaving(true);
@@ -92,13 +99,13 @@ export function Settings({ data }: { data: Snapshot }) {
         dns: {
           ...data.config.dns,
           listen: formData.dns_listen,
-          upstreams: formData.dns_upstreams,
-          allowed_clients: formData.dns_allowed_clients,
+          upstreams: parseList(formData.dns_upstreams),
+          allowed_clients: parseList(formData.dns_allowed_clients),
         },
         http: {
           ...data.config.http,
           listen: formData.http_listen,
-          allowed_hosts: formData.http_allowed_hosts,
+          allowed_hosts: parseList(formData.http_allowed_hosts),
         },
         query_log: {
           ...data.config.query_log,
@@ -194,8 +201,8 @@ export function Settings({ data }: { data: Snapshot }) {
                 <span>{t("settings.upstreams_label")}</span>
                 <input
                   type="text"
-                  value={formData.dns_upstreams.join(", ")}
-                  onChange={(e) => handleArrayChange("dns_upstreams", e.target.value)}
+                  value={formData.dns_upstreams}
+                  onChange={(e) => handleChange("dns_upstreams", e.target.value)}
                   placeholder="1.1.1.1:53, 9.9.9.9:53"
                   style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
                 />
@@ -206,8 +213,8 @@ export function Settings({ data }: { data: Snapshot }) {
                 <span>{t("settings.allowed_clients_label")}</span>
                 <input
                   type="text"
-                  value={formData.dns_allowed_clients.join(", ")}
-                  onChange={(e) => handleArrayChange("dns_allowed_clients", e.target.value)}
+                  value={formData.dns_allowed_clients}
+                  onChange={(e) => handleChange("dns_allowed_clients", e.target.value)}
                   placeholder="127.0.0.0/8, ::1/128"
                   style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
                 />
@@ -237,8 +244,8 @@ export function Settings({ data }: { data: Snapshot }) {
                 <span>{t("settings.allowed_hosts_label")}</span>
                 <input
                   type="text"
-                  value={formData.http_allowed_hosts.join(", ")}
-                  onChange={(e) => handleArrayChange("http_allowed_hosts", e.target.value)}
+                  value={formData.http_allowed_hosts}
+                  onChange={(e) => handleChange("http_allowed_hosts", e.target.value)}
                   placeholder="localhost, 127.0.0.1, ::1"
                   style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
                 />
@@ -313,9 +320,9 @@ export function Settings({ data }: { data: Snapshot }) {
                   type="number"
                   min={1}
                   max={100000}
-                  value={rateLimit.global_qps}
+                  value={rateLimit.global_qps || ""}
                   onChange={(e) =>
-                    setRateLimit({ ...rateLimit, global_qps: Number(e.target.value) })
+                    setRateLimit({ ...rateLimit, global_qps: e.target.value === "" ? 0 : Number(e.target.value) })
                   }
                 />
               </label>
@@ -325,9 +332,9 @@ export function Settings({ data }: { data: Snapshot }) {
                   type="number"
                   min={1}
                   max={100000}
-                  value={rateLimit.client_qps}
+                  value={rateLimit.client_qps || ""}
                   onChange={(e) =>
-                    setRateLimit({ ...rateLimit, client_qps: Number(e.target.value) })
+                    setRateLimit({ ...rateLimit, client_qps: e.target.value === "" ? 0 : Number(e.target.value) })
                   }
                 />
               </label>
@@ -337,9 +344,9 @@ export function Settings({ data }: { data: Snapshot }) {
                   type="number"
                   min={1}
                   max={100000}
-                  value={rateLimit.rate_limit_burst}
+                  value={rateLimit.rate_limit_burst || ""}
                   onChange={(e) =>
-                    setRateLimit({ ...rateLimit, rate_limit_burst: Number(e.target.value) })
+                    setRateLimit({ ...rateLimit, rate_limit_burst: e.target.value === "" ? 0 : Number(e.target.value) })
                   }
                 />
               </label>
