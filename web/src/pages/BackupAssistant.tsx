@@ -122,21 +122,27 @@ export function BackupAssistant({ readOnly }: Props) {
             {t("backup.viewer_readonly")}
           </div>
         ) : (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <input
-              type="text"
-              placeholder="backup.db"
-              value={verifyPath}
-              onChange={(e) => setVerifyPath(e.target.value)}
-              style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-            />
-            <button
-              className="button"
-              onClick={handleVerify}
-              disabled={verifying || !verifyPath.trim()}
-            >
-              {verifying ? t("backup.verifying") : t("backup.verify")}
-            </button>
+          <div>
+            <div className="backup-file-label">
+              <label htmlFor="backup-file-name">{t("backup.file_name")}</label>
+              <div className="backup-file-controls">
+                <input
+                  id="backup-file-name"
+                  type="text"
+                  placeholder="backup.db"
+                  value={verifyPath}
+                  onChange={(e) => setVerifyPath(e.target.value)}
+                />
+                <button
+                  className="button"
+                  onClick={handleVerify}
+                  disabled={verifying || !verifyPath.trim()}
+                >
+                  {verifying ? t("backup.verifying") : t("backup.verify")}
+                </button>
+              </div>
+            </div>
+            <p className="backup-file-hint">{t("backup.file_hint")}</p>
           </div>
         )}
         {verificationResult && (

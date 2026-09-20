@@ -386,6 +386,8 @@ const en: Record<string, string> = {
   "backup.verify_title": "Verify Backup",
   "backup.verify_text":
     "Restore a backup into an isolated temporary location and verify its integrity.",
+  "backup.file_name": "Backup file name",
+  "backup.file_hint": "Place the backup next to the database on the Velora server. Only the file name is used; browser files and other directories cannot be checked here.",
   "backup.viewer_readonly": "You are signed in as a viewer. Backup verification is read-only.",
   "backup.verifying": "Verifying...",
   "backup.verify": "Verify",
@@ -805,6 +807,8 @@ const de: Record<string, string> = {
   "backup.verify_title": "Backup verifizieren",
   "backup.verify_text":
     "Stellen Sie ein Backup in einem isolierten temporären Ort wieder her und verifizieren Sie seine Integrität.",
+  "backup.file_name": "Name der Backup-Datei",
+  "backup.file_hint": "Legen Sie das Backup auf dem Velora-Server neben der Datenbank ab. Hier wird nur der Dateiname verwendet; Browser-Dateien und andere Verzeichnisse können nicht geprüft werden.",
   "backup.viewer_readonly": "Sie sind als Betrachter angemeldet. Backup-Verifizierung ist schreibgeschützt.",
   "backup.verifying": "Wird verifiziert...",
   "backup.verify": "Verifizieren",
