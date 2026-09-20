@@ -53,6 +53,7 @@ type Dependencies struct {
 	Backup     BackupStore
 	Settings   SettingsStore
 	RateLimit  *dns.RateLimitState
+	ApplyConfig func(config.Config) error
 }
 type Error struct {
 	Code    string `json:"code"`
@@ -72,6 +73,10 @@ func failure(w http.ResponseWriter, status int, code, message string) {
 	_ = json.NewEncoder(w).Encode(map[string]any{"error": Error{Code: code, Message: message}})
 }
 func New(d Dependencies) http.Handler {
+	var (
+		cfgMu         sync.RWMutex
+		currentConfig = d.Config
+	)
 	mux := http.NewServeMux()
 	if d.Auth != nil {
 		registerAuth(mux, d.Auth)
@@ -91,7 +96,11 @@ func New(d Dependencies) http.Handler {
 		capabilities = append(capabilities, "blocklists")
 	}
 	if d.Queries != nil {
-		registerQueries(mux, d.Queries, d.Config.QueryLog.Enabled)
+		registerQueries(mux, d.Queries, func() bool {
+			cfgMu.RLock()
+			defer cfgMu.RUnlock()
+			return currentConfig.QueryLog.Enabled
+		})
 		capabilities = append(capabilities, "query_logging")
 	}
 	if d.Update != nil {
@@ -131,10 +140,6 @@ func New(d Dependencies) http.Handler {
 		d.Cache.Flush()
 		respond(w, 200, d.Cache.Stats())
 	})
-	var (
-		cfgMu         sync.RWMutex
-		currentConfig = d.Config
-	)
 	mux.HandleFunc("GET /api/v1/config", func(w http.ResponseWriter, r *http.Request) {
 		cfgMu.RLock()
 		cfg := currentConfig
@@ -167,11 +172,21 @@ func New(d Dependencies) http.Handler {
 		cfgMu.Lock()
 		currentConfig = newConfig
 		cfgMu.Unlock()
-		respond(w, 200, map[string]string{"status": "saved", "message": "Configuration saved. Restart required for changes to take effect."})
+		if d.ApplyConfig != nil {
+			if err := d.ApplyConfig(newConfig); err != nil {
+				failure(w, 500, "config_apply_failed", err.Error())
+				return
+			}
+		}
+		respond(w, 200, map[string]string{"status": "saved", "message": "Configuration saved and applied live where supported."})
 	})
 	mux.Handle("GET /metrics", d.Metrics.Handler())
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { failure(w, 404, "not_found", "Endpoint not found") })
-	mux.Handle("/", web(d.Config.HTTP.WebDir))
+	mux.Handle("/", web(func() string {
+		cfgMu.RLock()
+		defer cfgMu.RUnlock()
+		return currentConfig.HTTP.WebDir
+	}))
 	slots := make(chan struct{}, 32)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")

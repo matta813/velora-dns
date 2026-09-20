@@ -11,9 +11,9 @@ import (
 	"time"
 )
 
-func registerQueries(mux *http.ServeMux, store QueryStore, enabled bool) {
+func registerQueries(mux *http.ServeMux, store QueryStore, enabled func() bool) {
 	mux.HandleFunc("GET /api/v1/queries", func(w http.ResponseWriter, r *http.Request) {
-		if !enabled {
+		if !enabled() {
 			failure(w, 503, "query_logging_disabled", "Query logging is disabled")
 			return
 		}
@@ -75,7 +75,7 @@ func registerQueries(mux *http.ServeMux, store QueryStore, enabled bool) {
 		respond(w, 200, entries)
 	})
 	mux.HandleFunc("GET /api/v1/query-stats", func(w http.ResponseWriter, r *http.Request) {
-		if !enabled {
+		if !enabled() {
 			failure(w, 503, "query_logging_disabled", "Query logging is disabled")
 			return
 		}
