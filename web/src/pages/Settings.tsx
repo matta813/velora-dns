@@ -16,6 +16,7 @@ interface ConfigFormData {
   dns_listen: string;
   dns_upstreams: string;
   dns_allowed_clients: string;
+  cache_upstream_ttl: string;
   http_listen: string;
   http_allowed_hosts: string;
   query_log_enabled: boolean;
@@ -29,6 +30,7 @@ export function Settings({ data }: { data: Snapshot }) {
     dns_listen: (data.config.dns.listen ?? ["127.0.0.1:53"]).join(", "),
     dns_upstreams: (data.config.dns.upstreams ?? ["1.1.1.1:53", "9.9.9.9:53"]).join(", "),
     dns_allowed_clients: (data.config.dns.allowed_clients ?? ["127.0.0.0/8", "::1/128"]).join(", "),
+    cache_upstream_ttl: String(data.config.cache.upstream_ttl ?? 86400),
     http_listen: data.config.http.listen ?? "127.0.0.1:8080",
     http_allowed_hosts: (data.config.http.allowed_hosts ?? ["localhost", "127.0.0.1", "::1"]).join(", "),
     query_log_enabled: data.config.query_log.enabled ?? true,
@@ -91,6 +93,11 @@ export function Settings({ data }: { data: Snapshot }) {
       .filter(Boolean);
 
   const handleSave = async () => {
+    const ttl = Number(formData.cache_upstream_ttl);
+    if (!/^\d+$/.test(formData.cache_upstream_ttl.trim()) || !Number.isInteger(ttl) || ttl > 604800) {
+      setMessage({ type: "error", text: t("settings.cache_ttl_invalid") });
+      return;
+    }
     setSaving(true);
     setMessage(null);
     try {
@@ -101,6 +108,10 @@ export function Settings({ data }: { data: Snapshot }) {
           listen: parseList(formData.dns_listen),
           upstreams: parseList(formData.dns_upstreams),
           allowed_clients: parseList(formData.dns_allowed_clients),
+        },
+        cache: {
+          ...data.config.cache,
+          upstream_ttl: ttl,
         },
         http: {
           ...data.config.http,
@@ -209,6 +220,23 @@ export function Settings({ data }: { data: Snapshot }) {
                 <small style={{ opacity: 0.6 }}>{t("settings.allowed_clients_hint")}</small>
               </label>
             </div>
+          </div>
+
+          <div className="panel" style={{ padding: "1rem" }}>
+            <h3 style={{ marginBottom: "1rem" }}>{t("settings.cache_section")}</h3>
+            <label style={{ display: "grid", gap: "0.5rem" }}>
+              <span>{t("settings.cache_ttl_label")}</span>
+              <input
+                type="number"
+                min={0}
+                max={604800}
+                step={1}
+                value={formData.cache_upstream_ttl}
+                onChange={(e) => handleChange("cache_upstream_ttl", e.target.value)}
+                style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
+              />
+              <small style={{ opacity: 0.6 }}>{t("settings.cache_ttl_hint")}</small>
+            </label>
           </div>
 
           <div className="panel" style={{ padding: "1rem" }}>

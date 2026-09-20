@@ -92,8 +92,12 @@ const en: Record<string, string> = {
   "settings.rate_limit_saved": "Rate limit settings saved.",
   "settings.rate_limit_loading": "Loading rate limit settings…",
   "settings.edit_hint":
-    "These settings correspond to the quickstart installer options. Changes require a server restart to take effect.",
+    "These settings correspond to the quickstart installer options. Some changes require a restart; cache TTL changes apply immediately.",
   "settings.dns_section": "DNS settings",
+  "settings.cache_section": "DNS cache",
+  "settings.cache_ttl_label": "Upstream answer cache TTL (seconds)",
+  "settings.cache_ttl_hint": "86400 seconds = 24 hours. Range: 0–604800 seconds; 0 uses each upstream's original TTL. Upstream changes may take this long to appear. Changing this clears existing cached answers. Zero-TTL and signed DNSSEC answers retain their original TTL.",
+  "settings.cache_ttl_invalid": "Enter a whole number from 0 to 604800 seconds.",
   "settings.dns_listen_label": "DNS listen addresses (comma-separated)",
   "settings.dns_listen_localhost": "Localhost only (127.0.0.1:53)",
   "settings.dns_listen_all": "All interfaces (0.0.0.0:53) — LAN access",
@@ -180,7 +184,7 @@ const en: Record<string, string> = {
   "cache.includes_uncacheable": "Includes uncacheable requests",
   "cache.memory_cache": "Memory cache",
   "cache.description":
-    "Answers expire according to their DNS TTL. Least recently used entries are removed when capacity is reached. Cache contents are never stored in SQLite.",
+    "Positive upstream answers use the configured cache TTL. Zero-TTL, signed DNSSEC, and negative answers retain their original rules. Least recently used entries are removed at capacity. Cache contents are never stored in SQLite.",
   "cache.clear_description":
     "Clearing the cache removes all current answers. Lifetime hit and miss counters are retained.",
   "cache.clearing": "Clearing…",
@@ -548,8 +552,12 @@ const de: Record<string, string> = {
   "settings.rate_limit_saved": "Ratenbegrenzungs-Einstellungen gespeichert.",
   "settings.rate_limit_loading": "Ratenbegrenzungs-Einstellungen werden geladen…",
   "settings.edit_hint":
-    "Diese Einstellungen entsprechen den Optionen des Quickstart-Installers. Änderungen erfordern einen Neustart des Servers.",
+    "Diese Einstellungen entsprechen den Optionen des Quickstart-Installers. Einige Änderungen erfordern einen Neustart; die Cache-TTL gilt sofort.",
   "settings.dns_section": "DNS-Einstellungen",
+  "settings.cache_section": "DNS-Cache",
+  "settings.cache_ttl_label": "Cache-TTL für Upstream-Antworten (Sekunden)",
+  "settings.cache_ttl_hint": "86400 Sekunden = 24 Stunden. Bereich: 0–604800 Sekunden; 0 verwendet die ursprüngliche Upstream-TTL. Änderungen beim Upstream können entsprechend verzögert sichtbar werden. Eine Änderung leert bestehende Cache-Einträge. Antworten mit TTL 0 und signierte DNSSEC-Antworten behalten ihre ursprüngliche TTL.",
+  "settings.cache_ttl_invalid": "Geben Sie eine ganze Zahl zwischen 0 und 604800 Sekunden ein.",
   "settings.dns_listen_label": "DNS-Listen-Adressen (kommagetrennt)",
   "settings.dns_listen_localhost": "Nur localhost (127.0.0.1:53)",
   "settings.dns_listen_all": "Alle Schnittstellen (0.0.0.0:53) — LAN-Zugriff",
@@ -636,7 +644,7 @@ const de: Record<string, string> = {
   "cache.includes_uncacheable": "Inklusive nicht cachebarer Anfragen",
   "cache.memory_cache": "Speicher-Cache",
   "cache.description":
-    "Antworten laufen gemäß ihrer DNS-TTL ab. Am längsten nicht verwendete Einträge werden entfernt, wenn die Kapazität erreicht ist. Cache-Inhalte werden nie in SQLite gespeichert.",
+    "Positive Upstream-Antworten verwenden die konfigurierte Cache-TTL. Antworten mit TTL 0, signierte DNSSEC-Antworten und negative Antworten behalten ihre ursprünglichen Regeln. Bei voller Kapazität werden die am längsten nicht verwendeten Einträge entfernt. Cache-Inhalte werden nie in SQLite gespeichert.",
   "cache.clear_description":
     "Das Leeren des Caches entfernt alle aktuellen Antworten. Die Treffer- und Fehltreffer-Zähler für die Laufzeit bleiben erhalten.",
   "cache.clearing": "Wird geleert…",

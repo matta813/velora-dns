@@ -41,6 +41,7 @@ type Cache struct {
 	max          int
 	now          func() time.Time
 	hits, misses uint64
+	upstreamTTL  uint32
 }
 
 func New(max int) *Cache {
@@ -48,6 +49,45 @@ func New(max int) *Cache {
 		max = 0
 	}
 	return &Cache{items: make(map[string]*list.Element), lru: list.New(), max: max, now: time.Now}
+}
+
+// SetUpstreamTTL updates the positive-answer TTL policy and drops entries
+// cached under the previous policy. Zero keeps the upstream's original TTL.
+func (c *Cache) SetUpstreamTTL(seconds uint32) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.upstreamTTL == seconds {
+		return
+	}
+	c.upstreamTTL = seconds
+	clear(c.items)
+	c.lru.Init()
+}
+
+// NormalizeUpstreamTTL applies the configured TTL to unsigned positive
+// answers before both sending and caching them. Zero-TTL and signed answers
+// retain their upstream lifetimes.
+func (c *Cache) NormalizeUpstreamTTL(m *dns.Msg) {
+	c.mu.Lock()
+	ttl := c.upstreamTTL
+	c.mu.Unlock()
+	if ttl == 0 || m == nil || m.Truncated || m.AuthenticatedData || m.Rcode != dns.RcodeSuccess || len(m.Answer) == 0 {
+		return
+	}
+	for _, section := range [][]dns.RR{m.Answer, m.Ns, m.Extra} {
+		for _, rr := range section {
+			if rr.Header().Rrtype == dns.TypeRRSIG || (rr.Header().Rrtype != dns.TypeOPT && rr.Header().Ttl == 0) {
+				return
+			}
+		}
+	}
+	for _, section := range [][]dns.RR{m.Answer, m.Ns, m.Extra} {
+		for _, rr := range section {
+			if rr.Header().Rrtype != dns.TypeOPT {
+				rr.Header().Ttl = ttl
+			}
+		}
+	}
 }
 func Key(q *dns.Msg) (string, bool) {
 	if len(q.Question) != 1 || q.Opcode != dns.OpcodeQuery || len(q.Answer) > 0 || len(q.Ns) > 0 {
@@ -167,7 +207,7 @@ func cacheTTL(m *dns.Msg) (uint32, bool) {
 		return ttl, true
 	}
 	if m.Rcode == dns.RcodeSuccess && len(m.Answer) > 0 {
-		ttl := maxTTL
+		ttl := uint32(604800)
 		for _, section := range [][]dns.RR{m.Answer, m.Ns, m.Extra} {
 			for _, rr := range section {
 				if rr.Header().Rrtype != dns.TypeOPT && rr.Header().Ttl < ttl {
