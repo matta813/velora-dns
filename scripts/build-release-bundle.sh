@@ -41,7 +41,7 @@ bundle_dir="${output_dir}/${bundle_name}"
 mkdir -p "$bundle_dir"
 
 CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath \
-  -ldflags "-s -w -X main.version=${version} -X main.commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  -ldflags "-s -w -X main.version=${version} -X main.commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.built=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   -o "$bundle_dir/velora-dns" ./cmd/server
 
 # Copy web assets.

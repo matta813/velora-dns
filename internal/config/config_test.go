@@ -20,6 +20,13 @@ func TestLANExampleParses(t *testing.T) {
 	}
 }
 
+func TestDefaultQueryLogDisabled(t *testing.T) {
+	c := Default()
+	if c.QueryLog.Enabled {
+		t.Fatal("default query logging should be disabled")
+	}
+}
+
 func TestQueryLogEnvironmentAndBounds(t *testing.T) {
 	env := map[string]string{"VELORA_QUERY_LOG_ENABLED": "true", "VELORA_QUERY_LOG_RETENTION": "24h", "VELORA_QUERY_LOG_QUEUE_SIZE": "32", "VELORA_QUERY_LOG_MAX_ROWS": "250"}
 	c, err := Parse(nil, func(k string) (string, bool) { v, ok := env[k]; return v, ok })
