@@ -289,3 +289,67 @@ func (s *Store) SetTheme(ctx context.Context, userID int64, theme string) error 
 func validTheme(theme string) bool { return theme == "light" || theme == "dark" || theme == "auto" }
 
 func validRole(role string) bool { return role == "admin" || role == "operator" || role == "viewer" }
+
+func (s *Store) DisableUser(ctx context.Context, id int64) error {
+	p := s.placeholder
+	query := fmt.Sprintf("UPDATE users SET disabled=true WHERE id=%s AND disabled=false", p(1))
+	result, err := s.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return ErrAuthentication
+	}
+	// Revoke all sessions for this user
+	delQuery := fmt.Sprintf("DELETE FROM sessions WHERE user_id=%s", p(1))
+	_, _ = s.db.ExecContext(ctx, delQuery, id)
+	return nil
+}
+
+func (s *Store) UpdateUserPassword(ctx context.Context, id int64, password string) error {
+	if len(password) < 12 {
+		return fmt.Errorf("password must be at least 12 characters")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	p := s.placeholder
+	query := fmt.Sprintf("UPDATE users SET password_hash=%s WHERE id=%s AND disabled=false", p(1), p(2))
+	result, err := s.db.ExecContext(ctx, query, string(hash), id)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return ErrAuthentication
+	}
+	return nil
+}
+
+func (s *Store) UpdateUserRole(ctx context.Context, id int64, role string) error {
+	if !validRole(role) {
+		return fmt.Errorf("invalid role")
+	}
+	p := s.placeholder
+	query := fmt.Sprintf("UPDATE users SET role=%s WHERE id=%s AND disabled=false", p(1), p(2))
+	result, err := s.db.ExecContext(ctx, query, role, id)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return ErrAuthentication
+	}
+	return nil
+}
