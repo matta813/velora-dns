@@ -22,6 +22,7 @@ import (
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/node"
 	"github.com/matta813/velora-dns/internal/querylog"
+	"github.com/matta813/velora-dns/internal/replication"
 	"github.com/matta813/velora-dns/internal/update"
 	"github.com/matta813/velora-dns/internal/zones"
 )
@@ -140,6 +141,18 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		membership.Start(runCtx)
 		defer membership.Stop()
 		logger.Info("node membership started", "node_id", nodeID, "name", c.Node.Name)
+
+		configReplicator := replication.NewConfigReplicator(db, &slogAdapter{logger: logger})
+		configReplicator.Start(runCtx)
+
+		zoneReplicator := replication.NewZoneReplicator(db, &slogAdapter{logger: logger})
+		zoneReplicator.Start(runCtx)
+
+		defer func() {
+			_ = configReplicator
+			_ = zoneReplicator
+		}()
+		logger.Info("replication started")
 	}
 
 	var wg sync.WaitGroup
