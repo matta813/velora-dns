@@ -17,6 +17,17 @@ export interface Cache {
   hits: number;
   misses: number;
 }
+export interface CacheEntry {
+  name: string;
+  type: string;
+  rcode: string;
+  answers: string[];
+  remaining_ttl: number;
+}
+export interface CacheEntryPage {
+  entries: CacheEntry[];
+  total: number;
+}
 export interface Config {
   query_log: {
     enabled: boolean;
@@ -32,7 +43,7 @@ export interface Config {
     retries: number;
     max_concurrent: number;
   };
-  cache: { max_entries: number };
+  cache: { max_entries: number; upstream_ttl: number };
   http: { listen: string; web_dir: string; allowed_hosts: string[] };
   log_level: string;
 }

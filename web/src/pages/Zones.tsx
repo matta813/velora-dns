@@ -23,8 +23,11 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
+  const filteredZones = state.zones?.filter((z) =>
+    z.name.toLowerCase().includes(query.trim().toLowerCase()),
+  );
   const selected =
-    state.zones?.find((z) => z.id === selectedID) ?? state.zones?.[0];
+    filteredZones?.find((z) => z.id === selectedID) ?? filteredZones?.[0];
   const disabled = readOnly || state.busy || state.loading || Boolean(state.error);
   function select(zone: Zone) {
     setSelectedID(zone.id);
@@ -53,7 +56,7 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
       <div className="zones-toolbar">
         <span className="zone-count">
           {state.zones
-            ? `${state.zones.length} local ${state.zones.length === 1 ? "zone" : "zones"}`
+            ? `${state.zones.length} ${t(state.zones.length === 1 ? "zones.count_one" : "zones.count")}`
             : t("zones.local_authority")}
         </span>
         <div>
@@ -148,14 +151,16 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
               <span className="sr-only">{t("zones.filter_aria")}</span>
               <input
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setEditor(null);
+                  setDeleting(null);
+                }}
                 placeholder={t("zones.filter_placeholder")}
               />
             </label>
             <nav aria-label={t("zones.nav_aria")}>
-              {state.zones
-                ?.filter((z) => z.name.includes(query.toLowerCase()))
-                .map((z) => (
+              {filteredZones?.map((z) => (
                   <button
                     key={z.id}
                     disabled={state.busy}
@@ -170,9 +175,7 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
                   </button>
                 ))}
             </nav>
-            {state.zones?.every(
-              (z) => !z.name.includes(query.toLowerCase()),
-            ) && <p className="padded">{t("zones.no_matching")}</p>}
+            {filteredZones?.length === 0 && <p className="padded">{t("zones.no_matching")}</p>}
           </section>
           {selected && (
             <section className="panel zone-detail">
@@ -181,7 +184,7 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
                   <span className="eyebrow">{t("zones.authoritative_eyebrow")}</span>
                   <h2>{selected.name}</h2>
                   <p>
-                    Revision {selected.revision} · {selected.records.length}{" "}
+                    {t("zones.revision")} {selected.revision} · {selected.records.length}{" "}
                     {t("zones.records_custom")}
                   </p>
                 </div>

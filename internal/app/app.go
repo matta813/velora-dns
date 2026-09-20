@@ -20,7 +20,9 @@ import (
 	"github.com/matta813/velora-dns/internal/dns"
 	"github.com/matta813/velora-dns/internal/filtering"
 	"github.com/matta813/velora-dns/internal/metrics"
+	"github.com/matta813/velora-dns/internal/node"
 	"github.com/matta813/velora-dns/internal/querylog"
+	"github.com/matta813/velora-dns/internal/replication"
 	"github.com/matta813/velora-dns/internal/update"
 	"github.com/matta813/velora-dns/internal/zones"
 )
@@ -82,6 +84,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	memory := cache.New(c.Cache.MaxEntries)
+	memory.SetUpstreamTTL(uint32(c.Cache.UpstreamTTL))
 	local, err := zones.New(initCtx, db, memory.Flush)
 	if err != nil {
 		return fmt.Errorf("load local zones: %w", err)
@@ -119,6 +122,39 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 
 	backupManager := backup.NewManager(db, c.DatabasePath)
 
+	var membership *node.Membership
+	if c.Cluster.Enabled {
+		nodeID := c.Node.ID
+		if nodeID == "" {
+			nodeID, err = node.GenerateNodeID()
+			if err != nil {
+				return fmt.Errorf("generate node ID: %w", err)
+			}
+		}
+		localNode := node.Node{
+			ID:      nodeID,
+			Name:    c.Node.Name,
+			Address: c.Node.Address,
+			Status:  "healthy",
+		}
+		membership = node.NewMembership(db, localNode, &slogAdapter{logger: logger})
+		membership.Start(runCtx)
+		defer membership.Stop()
+		logger.Info("node membership started", "node_id", nodeID, "name", c.Node.Name)
+
+		configReplicator := replication.NewConfigReplicator(db, &slogAdapter{logger: logger})
+		configReplicator.Start(runCtx)
+
+		zoneReplicator := replication.NewZoneReplicator(db, &slogAdapter{logger: logger})
+		zoneReplicator.Start(runCtx)
+
+		defer func() {
+			_ = configReplicator
+			_ = zoneReplicator
+		}()
+		logger.Info("replication started")
+	}
+
 	var wg sync.WaitGroup
 	wg.Go(func() { memory.Run(runCtx) })
 	defer func() { cancel(); wg.Wait() }()
@@ -151,6 +187,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	}
 	dnsHandler := &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), RateLimit: rateLimitState, Observer: observer, Audit: audit, CookieSecret: cookieSecret}
 	applyConfig := func(updated config.Config) error {
+		memory.SetUpstreamTTL(uint32(updated.Cache.UpstreamTTL))
 		audit.SetEnabled(updated.QueryLog.Enabled)
 		rateLimitState.Configure(updated.DNS.RateLimitEnabled, updated.DNS.GlobalQPS, updated.DNS.ClientQPS, updated.DNS.RateLimitBurst)
 		newAllowed := make([]netip.Prefix, 0, len(updated.DNS.AllowedClients))
@@ -235,7 +272,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, Update: updateManager, Backup: backupManager, Onboarding: db, ApplyConfig: applyConfig}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, Update: updateManager, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, ApplyConfig: applyConfig}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)
@@ -266,3 +303,9 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	}
 	return result
 }
+
+type slogAdapter struct{ logger *slog.Logger }
+
+func (a *slogAdapter) Info(msg string, args ...any)  { a.logger.Info(msg, args...) }
+func (a *slogAdapter) Error(msg string, args ...any) { a.logger.Error(msg, args...) }
+func (a *slogAdapter) Warn(msg string, args ...any)  { a.logger.Warn(msg, args...) }

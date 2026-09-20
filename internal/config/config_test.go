@@ -26,6 +26,20 @@ func TestDefaultQueryLogDisabled(t *testing.T) {
 		t.Fatal("default query logging should be disabled")
 	}
 }
+func TestUpstreamCacheTTLDefaultAndValidation(t *testing.T) {
+	if got := Default().Cache.UpstreamTTL; got != 86400 {
+		t.Fatalf("default upstream TTL = %d", got)
+	}
+	c, err := Parse([]byte("cache:\n  upstream_ttl: 3600\n"), func(string) (string, bool) { return "", false })
+	if err != nil || c.Cache.UpstreamTTL != 3600 {
+		t.Fatalf("custom upstream TTL: %+v, %v", c.Cache, err)
+	}
+	for _, value := range []string{"-1", "604801"} {
+		if _, err := Parse([]byte("cache:\n  upstream_ttl: "+value+"\n"), func(string) (string, bool) { return "", false }); err == nil {
+			t.Fatalf("accepted invalid upstream TTL %s", value)
+		}
+	}
+}
 
 func TestQueryLogEnvironmentAndBounds(t *testing.T) {
 	env := map[string]string{"VELORA_QUERY_LOG_ENABLED": "true", "VELORA_QUERY_LOG_RETENTION": "24h", "VELORA_QUERY_LOG_QUEUE_SIZE": "32", "VELORA_QUERY_LOG_MAX_ROWS": "250"}

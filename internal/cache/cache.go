@@ -23,6 +23,17 @@ type Stats struct {
 	Hits     uint64 `json:"hits"`
 	Misses   uint64 `json:"misses"`
 }
+type EntryInfo struct {
+	Name         string   `json:"name"`
+	Type         string   `json:"type"`
+	Rcode        string   `json:"rcode"`
+	Answers      []string `json:"answers"`
+	RemainingTTL uint32   `json:"remaining_ttl"`
+}
+type EntryPage struct {
+	Entries []EntryInfo `json:"entries"`
+	Total   int         `json:"total"`
+}
 type Cache struct {
 	mu           sync.Mutex
 	items        map[string]*list.Element
@@ -30,6 +41,7 @@ type Cache struct {
 	max          int
 	now          func() time.Time
 	hits, misses uint64
+	upstreamTTL  uint32
 }
 
 func New(max int) *Cache {
@@ -37,6 +49,45 @@ func New(max int) *Cache {
 		max = 0
 	}
 	return &Cache{items: make(map[string]*list.Element), lru: list.New(), max: max, now: time.Now}
+}
+
+// SetUpstreamTTL updates the positive-answer TTL policy and drops entries
+// cached under the previous policy. Zero keeps the upstream's original TTL.
+func (c *Cache) SetUpstreamTTL(seconds uint32) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.upstreamTTL == seconds {
+		return
+	}
+	c.upstreamTTL = seconds
+	clear(c.items)
+	c.lru.Init()
+}
+
+// NormalizeUpstreamTTL applies the configured TTL to unsigned positive
+// answers before both sending and caching them. Zero-TTL and signed answers
+// retain their upstream lifetimes.
+func (c *Cache) NormalizeUpstreamTTL(m *dns.Msg) {
+	c.mu.Lock()
+	ttl := c.upstreamTTL
+	c.mu.Unlock()
+	if ttl == 0 || m == nil || m.Truncated || m.AuthenticatedData || m.Rcode != dns.RcodeSuccess || len(m.Answer) == 0 {
+		return
+	}
+	for _, section := range [][]dns.RR{m.Answer, m.Ns, m.Extra} {
+		for _, rr := range section {
+			if rr.Header().Rrtype == dns.TypeRRSIG || (rr.Header().Rrtype != dns.TypeOPT && rr.Header().Ttl == 0) {
+				return
+			}
+		}
+	}
+	for _, section := range [][]dns.RR{m.Answer, m.Ns, m.Extra} {
+		for _, rr := range section {
+			if rr.Header().Rrtype != dns.TypeOPT {
+				rr.Header().Ttl = ttl
+			}
+		}
+	}
 }
 func Key(q *dns.Msg) (string, bool) {
 	if len(q.Question) != 1 || q.Opcode != dns.OpcodeQuery || len(q.Answer) > 0 || len(q.Ns) > 0 {
@@ -156,7 +207,7 @@ func cacheTTL(m *dns.Msg) (uint32, bool) {
 		return ttl, true
 	}
 	if m.Rcode == dns.RcodeSuccess && len(m.Answer) > 0 {
-		ttl := maxTTL
+		ttl := uint32(604800)
 		for _, section := range [][]dns.RR{m.Answer, m.Ns, m.Extra} {
 			for _, rr := range section {
 				if rr.Header().Rrtype != dns.TypeOPT && rr.Header().Ttl < ttl {
@@ -196,5 +247,35 @@ func (c *Cache) Stats() Stats {
 	defer c.mu.Unlock()
 	c.expire()
 	return Stats{Entries: len(c.items), Capacity: c.max, Hits: c.hits, Misses: c.misses}
+}
+
+// ListEntries returns a bounded snapshot in most-recently-used order.
+func (c *Cache) ListEntries(limit, offset int) EntryPage {
+	if limit < 0 {
+		limit = 0
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.expire()
+	page := EntryPage{Entries: make([]EntryInfo, 0, limit), Total: len(c.items)}
+	now := c.now()
+	for el, i := c.lru.Front(), 0; el != nil && len(page.Entries) < limit; el, i = el.Next(), i+1 {
+		if i < offset {
+			continue
+		}
+		e := el.Value.(*entry)
+		question := e.message.Question[0]
+		remaining := uint32((e.expires.Sub(now) + time.Second - 1) / time.Second)
+		answers := make([]string, 0, len(e.message.Answer))
+		for _, rr := range e.message.Answer {
+			answers = append(answers, strings.TrimSpace(strings.TrimPrefix(rr.String(), rr.Header().String())))
+		}
+		page.Entries = append(page.Entries, EntryInfo{
+			Name: question.Name, Type: dns.TypeToString[question.Qtype],
+			Rcode: dns.RcodeToString[e.message.Rcode], Answers: answers,
+			RemainingTTL: remaining,
+		})
+	}
+	return page
 }
 func (c *Cache) Flush() { c.mu.Lock(); defer c.mu.Unlock(); clear(c.items); c.lru.Init() }

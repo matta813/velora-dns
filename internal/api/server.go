@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -53,6 +54,8 @@ type Dependencies struct {
 	Backup      BackupStore
 	Settings    SettingsStore
 	RateLimit   *dns.RateLimitState
+	DHCP        DHCPStore
+	Cluster     ClusterStore
 	ApplyConfig func(config.Config) error
 }
 type Error struct {
@@ -116,6 +119,14 @@ func New(d Dependencies) http.Handler {
 	if d.Settings != nil {
 		registerSettings(mux, d.Settings, d.RateLimit)
 	}
+	if d.DHCP != nil {
+		registerDHCP(mux, d.DHCP)
+		capabilities = append(capabilities, "dhcp")
+	}
+	if d.Cluster != nil {
+		registerCluster(mux, d.Cluster)
+		capabilities = append(capabilities, "cluster")
+	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
@@ -127,11 +138,45 @@ func New(d Dependencies) http.Handler {
 		respond(w, 200, map[string]string{"status": "ready"})
 	})
 	mux.HandleFunc("GET /api/v1/status", func(w http.ResponseWriter, r *http.Request) {
-		respond(w, 200, map[string]any{"ready": d.DNS.Ready(), "uptime_seconds": time.Since(d.Started).Seconds(), "dns_listen": d.DNS.Addresses(), "version": d.Version, "capabilities": capabilities})
+		status := map[string]any{
+			"ready":          d.DNS.Ready(),
+			"uptime_seconds": time.Since(d.Started).Seconds(),
+			"dns_listen":     d.DNS.Addresses(),
+			"version":        d.Version,
+			"capabilities":   capabilities,
+		}
+		if d.Cluster != nil {
+			nodes, err := d.Cluster.ListNodes(r.Context())
+			if err == nil {
+				status["cluster_nodes"] = len(nodes)
+				status["cluster_healthy"] = len(nodes) > 0
+			}
+		}
+		respond(w, 200, status)
 	})
 	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Version) })
 	mux.HandleFunc("GET /api/v1/stats", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Metrics.Snapshot()) })
 	mux.HandleFunc("GET /api/v1/cache", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Cache.Stats()) })
+	mux.HandleFunc("GET /api/v1/cache/entries", func(w http.ResponseWriter, r *http.Request) {
+		limit, offset := 100, 0
+		if raw := r.URL.Query().Get("limit"); raw != "" {
+			value, err := strconv.Atoi(raw)
+			if err != nil || value < 1 || value > 200 {
+				failure(w, 400, "invalid_limit", "Limit must be between 1 and 200")
+				return
+			}
+			limit = value
+		}
+		if raw := r.URL.Query().Get("offset"); raw != "" {
+			value, err := strconv.Atoi(raw)
+			if err != nil || value < 0 {
+				failure(w, 400, "invalid_offset", "Offset must be non-negative")
+				return
+			}
+			offset = value
+		}
+		respond(w, 200, d.Cache.ListEntries(limit, offset))
+	})
 	mux.HandleFunc("DELETE /api/v1/cache", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Content-Type") != "application/json" {
 			failure(w, 415, "unsupported_media_type", "Use application/json")

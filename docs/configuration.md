@@ -36,6 +36,7 @@ The server prints structured errors and exits nonzero before reporting readiness
 | YAML key | Environment variable | Default |
 |---|---|---|
 | cache.max_entries | VELORA_CACHE_MAX_ENTRIES | 10000 |
+| cache.upstream_ttl | VELORA_CACHE_UPSTREAM_TTL | 86400 seconds (24 hours) |
 | filtering.block_mode | VELORA_FILTERING_BLOCK_MODE | (NXDOMAIN) |
 | filtering.blocklist | VELORA_FILTERING_BLOCKLIST | (empty) |
 | filtering.allowlist | VELORA_FILTERING_ALLOWLIST | (empty) |
@@ -111,7 +112,11 @@ and accidental hostname dependency. DNS supports up to eight listeners and eight
 Cache size zero disables caching; maximum is 1,000,000 entries. Concurrent DNS work is
 1–10,000 requests. Choose realistic limits for your memory budget; Compose defaults to
 256 MiB. Large DNS responses over 16 KiB are not cached. Positive and SOA-backed negative
-TTLs are capped at one day. Negative TTL follows RFC 2308's minimum of the SOA TTL and
+TTL for unsigned positive upstream answers defaults to 24 hours and can be set to
+0–604800 seconds; zero uses each upstream's original TTL. Changing this setting clears
+existing cache entries. Zero-TTL and DNSSEC-signed answers keep their original TTLs.
+Upstream record changes may remain unseen for the configured duration.
+Negative TTL is capped at one day and follows RFC 2308's minimum of the SOA TTL and
 MINIMUM field. Expiry sweep runs each second;
 expired entries are also rejected immediately on lookup.
 

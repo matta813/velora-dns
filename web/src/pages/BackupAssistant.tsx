@@ -24,6 +24,11 @@ interface Props {
 
 export function BackupAssistant({ readOnly }: Props) {
   const { t } = useI18n();
+  const statusLabel = (state: string) => {
+    const key = `backup.state_${state}`;
+    const translated = t(key);
+    return translated === key ? state : translated;
+  };
   const [status, setStatus] = useState<BackupStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +111,7 @@ export function BackupAssistant({ readOnly }: Props) {
             )}
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <Clock size={18} />
-              <span>{t("backup.verification_state")} {status.verification_state}</span>
+              <span>{t("backup.verification_state")} {statusLabel(status.verification_state)}</span>
             </div>
           </div>
         )}
@@ -122,21 +127,27 @@ export function BackupAssistant({ readOnly }: Props) {
             {t("backup.viewer_readonly")}
           </div>
         ) : (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <input
-              type="text"
-              placeholder="backup.db"
-              value={verifyPath}
-              onChange={(e) => setVerifyPath(e.target.value)}
-              style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-            />
-            <button
-              className="button"
-              onClick={handleVerify}
-              disabled={verifying || !verifyPath.trim()}
-            >
-              {verifying ? t("backup.verifying") : t("backup.verify")}
-            </button>
+          <div>
+            <div className="backup-file-label">
+              <label htmlFor="backup-file-name">{t("backup.file_name")}</label>
+              <div className="backup-file-controls">
+                <input
+                  id="backup-file-name"
+                  type="text"
+                  placeholder="backup.db"
+                  value={verifyPath}
+                  onChange={(e) => setVerifyPath(e.target.value)}
+                />
+                <button
+                  className="button"
+                  onClick={handleVerify}
+                  disabled={verifying || !verifyPath.trim()}
+                >
+                  {verifying ? t("backup.verifying") : t("backup.verify")}
+                </button>
+              </div>
+            </div>
+            <p className="backup-file-hint">{t("backup.file_hint")}</p>
           </div>
         )}
         {verificationResult && (
@@ -178,34 +189,34 @@ export function BackupAssistant({ readOnly }: Props) {
           <div>
             <h3 style={{ marginBottom: "0.5rem" }}>{t("backup.native")}</h3>
             <pre style={{ padding: "1rem", borderRadius: "6px", backgroundColor: "var(--code-bg, #111827)", overflow: "auto" }}>
-{`# Stop the service
+{`# ${t("backup.step_stop_service")}
 sudo systemctl stop velora-dns
 
-# Create a consistent backup
+# ${t("backup.step_create_backup")}
 sqlite3 /var/lib/velora/velora.db ".backup /var/lib/velora/backup-$(date +%Y%m%d).db"
 
-# Restart the service
+# ${t("backup.step_restart_service")}
 sudo systemctl start velora-dns`}
             </pre>
           </div>
           <div>
             <h3 style={{ marginBottom: "0.5rem" }}>{t("backup.docker")}</h3>
             <pre style={{ padding: "1rem", borderRadius: "6px", backgroundColor: "var(--code-bg, #111827)", overflow: "auto" }}>
-{`# Stop the container
+{`# ${t("backup.step_stop_container")}
 docker compose stop velora
 
-# Backup the volume
+# ${t("backup.step_backup_volume")}
 docker run --rm -v velora-dns_velora-data:/data -v $(pwd):/backup \\
   alpine tar czf /backup/velora-data-$(date +%Y%m%d).tar.gz -C /data .
 
-# Restart the container
+# ${t("backup.step_restart_container")}
 docker compose start velora`}
             </pre>
           </div>
           <div>
             <h3 style={{ marginBottom: "0.5rem" }}>{t("backup.online")}</h3>
             <pre style={{ padding: "1rem", borderRadius: "6px", backgroundColor: "var(--code-bg, #111827)", overflow: "auto" }}>
-{`# Use SQLite backup API for consistent online backup
+{`# ${t("backup.step_online_backup")}
 sqlite3 /var/lib/velora/velora.db \\
   ".backup /var/lib/velora/online-backup.db"`}
             </pre>

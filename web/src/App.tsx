@@ -11,6 +11,8 @@ import {
   ScrollText,
   Download,
   HardDrive,
+  Network,
+  Server,
 } from "lucide-react";
 import { useEffect } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
@@ -23,6 +25,8 @@ import { QueryLog } from "./pages/QueryLog";
 import { Blocklists } from "./pages/Blocklists";
 import { UpdateCenter } from "./pages/UpdateCenter";
 import { BackupAssistant } from "./pages/BackupAssistant";
+import { DHCP } from "./pages/DHCP";
+import { Cluster } from "./pages/Cluster";
 import { logout } from "./api";
 import { useAuthUser } from "./auth-context";
 import { useI18n } from "./i18n-context";
@@ -48,7 +52,11 @@ export default function App() {
                 ? t("app.title.updates")
                 : pathname === "/backup"
                   ? t("app.title.backup")
-                  : t("app.title.overview");
+                  : pathname === "/dhcp"
+                    ? t("app.title.dhcp")
+                    : pathname === "/cluster"
+                      ? t("app.title.cluster")
+                      : t("app.title.overview");
   useEffect(() => {
     document.title = `Velora DNS · ${title}`;
   }, [title]);
@@ -106,6 +114,14 @@ export default function App() {
           <NavLink to="/backup">
             <HardDrive size={18} />
             {t("app.nav.backup")}
+          </NavLink>
+          <NavLink to="/dhcp">
+            <Network size={18} />
+            {t("app.nav.dhcp")}
+          </NavLink>
+          <NavLink to="/cluster">
+            <Server size={18} />
+            {t("app.nav.cluster")}
           </NavLink>
         </nav>
         <button className="button secondary mobile-signout" onClick={signOut}>
@@ -207,6 +223,8 @@ export default function App() {
               <Route path="/settings" element={<Settings data={data} />} />
               <Route path="/updates" element={<UpdateCenter readOnly={readOnly} />} />
               <Route path="/backup" element={<BackupAssistant readOnly={readOnly} />} />
+              <Route path="/dhcp" element={<DHCP readOnly={readOnly} />} />
+              <Route path="/cluster" element={<Cluster />} />
               <Route path="*" element={<p>{t("app.not_found")}</p>} />
             </Routes>
           )}

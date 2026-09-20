@@ -136,7 +136,7 @@ nav a.active:after {
   margin-top: auto;
   padding: 28px 10px 0;
 }
-.mobile-signout {
+.button.secondary.mobile-signout {
   display: none;
 }
 .privacy {
@@ -433,6 +433,20 @@ p {
 .table-wrap {
   overflow-x: auto;
 }
+.cache-entries-table .cache-answer { white-space: normal; min-width: 220px; }
+.cache-entries-table .cache-answer code { display: block; overflow-wrap: anywhere; }
+.cache-scroll-hint { display: none; }
+.cache-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 23px;
+  font-size: 12px;
+}
+@media (max-width: 650px) {
+  .cache-scroll-hint { display: block; margin: 0; padding: 0 23px 10px; font-size: 11px; }
+}
 table {
   border-collapse: collapse;
   width: 100%;
@@ -517,6 +531,62 @@ footer {
 .padded > p {
   font-size: 12px;
   line-height: 1.8;
+}
+.settings-preferences,
+.rate-limit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.settings-preferences label,
+.rate-limit-grid label {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  font-size: 12px;
+}
+.settings-preferences select,
+.rate-limit-grid input[type="number"] {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--border, #d4e1d9);
+  border-radius: 6px;
+  background: var(--bg, #fff);
+  color: var(--text, #223b40);
+  font: inherit;
+}
+.rate-limit-fieldset {
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  border: 0;
+}
+.rate-limit-grid .check-row {
+  display: flex;
+  align-items: center;
+  grid-column: 1 / -1;
+  gap: 9px;
+}
+.rate-limit-grid .check-row input { margin: 0; }
+.rate-limit-fieldset .form-actions { margin-top: 18px; }
+.backup-file-label { display: grid; gap: 7px; font-size: 12px; }
+.backup-file-controls { display: flex; gap: 8px; min-width: 0; }
+.backup-file-controls input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--border, #d4e1d9);
+  border-radius: 6px;
+  background: var(--bg, #fff);
+  color: var(--text, #223b40);
+  font: inherit;
+}
+.backup-file-hint { font-size: 12px; color: var(--text-muted, #6f8386); }
+@media (max-width: 650px) {
+  .settings-preferences,
+  .rate-limit-grid { grid-template-columns: 1fr; }
 }
 .danger {
   color: #a74430;
@@ -615,7 +685,7 @@ footer {
   .sidebar-bottom {
     display: none;
   }
-  .mobile-signout {
+  .button.secondary.mobile-signout {
     display: inline-flex;
     align-self: flex-start;
     padding: 8px 12px;

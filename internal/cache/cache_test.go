@@ -40,6 +40,51 @@ func TestTTLExpiryAndIsolation(t *testing.T) {
 		t.Fatal("expired entry survived")
 	}
 }
+func TestConfiguredUpstreamTTL(t *testing.T) {
+	c := New(2)
+	now := time.Unix(1000, 0)
+	c.now = func() time.Time { return now }
+	c.SetUpstreamTTL(86400)
+	q, answer := pair("example.test.", 60)
+	c.NormalizeUpstreamTTL(answer)
+	if answer.Answer[0].Header().Ttl != 86400 {
+		t.Fatalf("response TTL = %d", answer.Answer[0].Header().Ttl)
+	}
+	c.Put(q, answer)
+	now = now.Add(time.Hour)
+	got, ok := c.Get(q)
+	if !ok || got.Answer[0].Header().Ttl != 82800 {
+		t.Fatalf("cached TTL after one hour: %v, %t", got, ok)
+	}
+	c.SetUpstreamTTL(3600)
+	if c.Stats().Entries != 0 {
+		t.Fatal("old TTL policy entries survived configuration change")
+	}
+}
+
+func TestUpstreamTTLLeavesZeroAndSignedAnswersAlone(t *testing.T) {
+	c := New(2)
+	c.SetUpstreamTTL(86400)
+	_, zero := pair("zero.test.", 0)
+	c.NormalizeUpstreamTTL(zero)
+	if zero.Answer[0].Header().Ttl != 0 {
+		t.Fatal("zero TTL was extended")
+	}
+	_, signed := pair("signed.test.", 60)
+	signed.Answer = append(signed.Answer, &dns.RRSIG{Hdr: dns.RR_Header{Name: "signed.test.", Rrtype: dns.TypeRRSIG, Class: dns.ClassINET, Ttl: 60}})
+	c.NormalizeUpstreamTTL(signed)
+	if signed.Answer[0].Header().Ttl != 60 {
+		t.Fatal("signed response TTL was extended")
+	}
+	_, negative := pair("missing.test.", 60)
+	negative.Answer = nil
+	negative.Rcode = dns.RcodeNameError
+	negative.Ns = []dns.RR{&dns.SOA{Hdr: dns.RR_Header{Name: "test.", Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: 60}, Minttl: 30}}
+	c.NormalizeUpstreamTTL(negative)
+	if negative.Ns[0].Header().Ttl != 60 {
+		t.Fatal("negative response TTL was extended")
+	}
+}
 func TestLRUAndFlush(t *testing.T) {
 	c := New(2)
 	a, ar := pair("a.test.", 10)
@@ -58,6 +103,24 @@ func TestLRUAndFlush(t *testing.T) {
 	c.Flush()
 	if c.Stats().Entries != 0 {
 		t.Fatal("flush failed")
+	}
+}
+func TestListEntriesPaginatesAndExpires(t *testing.T) {
+	c := New(3)
+	now := time.Unix(1000, 0)
+	c.now = func() time.Time { return now }
+	for _, name := range []string{"a.test.", "b.test.", "c.test."} {
+		q, answer := pair(name, 10)
+		c.Put(q, answer)
+	}
+	page := c.ListEntries(1, 1)
+	if page.Total != 3 || len(page.Entries) != 1 || page.Entries[0].Name != "b.test." || page.Entries[0].Type != "A" || page.Entries[0].RemainingTTL != 10 {
+		t.Fatalf("unexpected page: %+v", page)
+	}
+	now = now.Add(10 * time.Second)
+	page = c.ListEntries(10, 0)
+	if page.Total != 0 || len(page.Entries) != 0 {
+		t.Fatalf("expired entries listed: %+v", page)
 	}
 }
 func TestUnsafeResponsesNotCached(t *testing.T) {

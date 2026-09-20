@@ -9,13 +9,14 @@ import {
 } from "../api";
 import { SUPPORTED_LANGUAGES, languageName, type Language } from "../i18n";
 import { useI18n } from "../i18n-context";
-import { themeLabel, SUPPORTED_THEMES, type Theme } from "../theme";
+import { SUPPORTED_THEMES, type Theme } from "../theme";
 import { useTheme } from "../theme-context";
 
 interface ConfigFormData {
-  dns_listen: string[];
+  dns_listen: string;
   dns_upstreams: string;
   dns_allowed_clients: string;
+  cache_upstream_ttl: string;
   http_listen: string;
   http_allowed_hosts: string;
   query_log_enabled: boolean;
@@ -26,9 +27,10 @@ export function Settings({ data }: { data: Snapshot }) {
   const { t, language, setLanguage } = useI18n();
   const { theme, setTheme } = useTheme();
   const [formData, setFormData] = useState<ConfigFormData>({
-    dns_listen: data.config.dns.listen ?? ["127.0.0.1:53"],
+    dns_listen: (data.config.dns.listen ?? ["127.0.0.1:53"]).join(", "),
     dns_upstreams: (data.config.dns.upstreams ?? ["1.1.1.1:53", "9.9.9.9:53"]).join(", "),
     dns_allowed_clients: (data.config.dns.allowed_clients ?? ["127.0.0.0/8", "::1/128"]).join(", "),
+    cache_upstream_ttl: String(data.config.cache.upstream_ttl ?? 86400),
     http_listen: data.config.http.listen ?? "127.0.0.1:8080",
     http_allowed_hosts: (data.config.http.allowed_hosts ?? ["localhost", "127.0.0.1", "::1"]).join(", "),
     query_log_enabled: data.config.query_log.enabled ?? true,
@@ -91,6 +93,11 @@ export function Settings({ data }: { data: Snapshot }) {
       .filter(Boolean);
 
   const handleSave = async () => {
+    const ttl = Number(formData.cache_upstream_ttl);
+    if (!/^\d+$/.test(formData.cache_upstream_ttl.trim()) || !Number.isInteger(ttl) || ttl > 604800) {
+      setMessage({ type: "error", text: t("settings.cache_ttl_invalid") });
+      return;
+    }
     setSaving(true);
     setMessage(null);
     try {
@@ -98,9 +105,13 @@ export function Settings({ data }: { data: Snapshot }) {
         ...data.config,
         dns: {
           ...data.config.dns,
-          listen: formData.dns_listen,
+          listen: parseList(formData.dns_listen),
           upstreams: parseList(formData.dns_upstreams),
           allowed_clients: parseList(formData.dns_allowed_clients),
+        },
+        cache: {
+          ...data.config.cache,
+          upstream_ttl: ttl,
         },
         http: {
           ...data.config.http,
@@ -122,16 +133,6 @@ export function Settings({ data }: { data: Snapshot }) {
     }
   };
 
-  const dnsListenOptions = [
-    { value: "127.0.0.1:53", label: t("settings.dns_listen_localhost") },
-    { value: "0.0.0.0:53", label: t("settings.dns_listen_all") },
-  ];
-
-  const httpListenOptions = [
-    { value: "127.0.0.1:8080", label: t("settings.web_listen_localhost") },
-    { value: "0.0.0.0:8080", label: t("settings.web_listen_all") },
-  ];
-
   const logLevelOptions = ["debug", "info", "warn", "error"];
 
   return (
@@ -142,7 +143,7 @@ export function Settings({ data }: { data: Snapshot }) {
           {t("settings.edit_hint")}
         </p>
 
-        <div className="form-grid">
+        <div className="settings-preferences">
           <label>
             {t("settings.language")}
             <select
@@ -164,7 +165,7 @@ export function Settings({ data }: { data: Snapshot }) {
             >
               {SUPPORTED_THEMES.map((code) => (
                 <option key={code} value={code}>
-                  {themeLabel(code)}
+                  {t(`settings.theme_${code}`)}
                 </option>
               ))}
             </select>
@@ -185,15 +186,13 @@ export function Settings({ data }: { data: Snapshot }) {
             <div style={{ display: "grid", gap: "1rem" }}>
               <label style={{ display: "grid", gap: "0.5rem" }}>
                 <span>{t("settings.dns_listen_label")}</span>
-                <select
-                  value={formData.dns_listen[0] || "127.0.0.1:53"}
-                  onChange={(e) => handleChange("dns_listen", [e.target.value])}
+                <input
+                  type="text"
+                  value={formData.dns_listen}
+                  onChange={(e) => handleChange("dns_listen", e.target.value)}
+                  placeholder="127.0.0.1:53, [::1]:53"
                   style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                >
-                  {dnsListenOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+                />
                 <small style={{ opacity: 0.6 }}>{t("settings.dns_listen_warning")}</small>
               </label>
 
@@ -224,19 +223,34 @@ export function Settings({ data }: { data: Snapshot }) {
           </div>
 
           <div className="panel" style={{ padding: "1rem" }}>
+            <h3 style={{ marginBottom: "1rem" }}>{t("settings.cache_section")}</h3>
+            <label style={{ display: "grid", gap: "0.5rem" }}>
+              <span>{t("settings.cache_ttl_label")}</span>
+              <input
+                type="number"
+                min={0}
+                max={604800}
+                step={1}
+                value={formData.cache_upstream_ttl}
+                onChange={(e) => handleChange("cache_upstream_ttl", e.target.value)}
+                style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
+              />
+              <small style={{ opacity: 0.6 }}>{t("settings.cache_ttl_hint")}</small>
+            </label>
+          </div>
+
+          <div className="panel" style={{ padding: "1rem" }}>
             <h3 style={{ marginBottom: "1rem" }}>{t("settings.web_section")}</h3>
             <div style={{ display: "grid", gap: "1rem" }}>
               <label style={{ display: "grid", gap: "0.5rem" }}>
                 <span>{t("settings.web_listen_label")}</span>
-                <select
+                <input
+                  type="text"
                   value={formData.http_listen}
                   onChange={(e) => handleChange("http_listen", e.target.value)}
+                  placeholder="127.0.0.1:8080"
                   style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                >
-                  {httpListenOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+                />
                 <small style={{ opacity: 0.6 }}>{t("settings.web_listen_warning")}</small>
               </label>
 
@@ -302,8 +316,8 @@ export function Settings({ data }: { data: Snapshot }) {
         {loadingRateLimit ? (
           <p role="status">{t("settings.rate_limit_loading")}</p>
         ) : rateLimit ? (
-          <fieldset>
-            <div className="form-grid">
+          <fieldset className="rate-limit-fieldset">
+            <div className="rate-limit-grid">
               <label className="check-row">
                 <input
                   type="checkbox"

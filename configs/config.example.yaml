@@ -23,6 +23,7 @@ dns:
   # trust_anchors: ['. 3600 IN DS <key-tag> <algorithm> <digest-type> <digest>']
 cache:
   max_entries: 10000
+  upstream_ttl: 86400  # seconds; 0 uses the upstream TTL
 filtering:
   # Wildcard rules include the domain and its subdomains. Exact allowlist entries win.
   block_mode: NXDOMAIN  # NXDOMAIN or ZERO

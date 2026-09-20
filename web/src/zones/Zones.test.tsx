@@ -44,6 +44,19 @@ it("keeps viewer zone mutations disabled", async () => {
   expect(screen.getByRole("button", { name: "Add zone" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Reload zones" })).toBeEnabled();
 });
+it("only shows details for a zone matching the active search", async () => {
+  const second = { ...zone, id: 2, name: "office.arpa.", records: [] };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mock([zone, second])));
+  render(withI18n(<Zones />));
+  expect(await screen.findByRole("heading", { name: "home.arpa." })).toBeInTheDocument();
+  const search = screen.getByPlaceholderText("Find a zone…");
+  fireEvent.change(search, { target: { value: "OFFICE" } });
+  expect(screen.queryByRole("heading", { name: "home.arpa." })).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "office.arpa." })).toBeInTheDocument();
+  fireEvent.change(search, { target: { value: "missing" } });
+  expect(screen.getByText("No matching zones.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Add record" })).not.toBeInTheDocument();
+});
 it("creates a zone and confirms deletion with its current revision", async () => {
   const fetch = vi
     .fn()
