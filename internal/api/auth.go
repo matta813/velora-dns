@@ -30,6 +30,9 @@ type AuthStore interface {
 	SetLanguage(context.Context, int64, string) error
 	GetTheme(context.Context, int64) (string, error)
 	SetTheme(context.Context, int64, string) error
+	DisableUser(context.Context, int64) error
+	UpdateUserPassword(context.Context, int64, string) error
+	UpdateUserRole(context.Context, int64, string) error
 }
 
 type authContextKey struct{}
@@ -99,6 +102,64 @@ func registerAuth(mux *http.ServeMux, store AuthStore) {
 			return
 		}
 		respond(w, 201, user)
+	})
+	mux.HandleFunc("DELETE /api/v1/users/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil || id < 1 {
+			failure(w, 400, "invalid_id", "Invalid user ID")
+			return
+		}
+		caller := r.Context().Value(authContextKey{}).(database.User)
+		if caller.ID == id {
+			failure(w, 400, "cannot_disable_self", "Cannot disable your own account")
+			return
+		}
+		if err := store.DisableUser(r.Context(), id); err != nil {
+			failure(w, 404, "not_found", "User not found")
+			return
+		}
+		respond(w, 200, map[string]int64{"disabled": id})
+	})
+	mux.HandleFunc("PUT /api/v1/users/{id}/password", func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil || id < 1 {
+			failure(w, 400, "invalid_id", "Invalid user ID")
+			return
+		}
+		var input struct {
+			Password string `json:"password"`
+		}
+		if !readJSON(w, r, &input) {
+			return
+		}
+		if err := store.UpdateUserPassword(r.Context(), id, input.Password); err != nil {
+			failure(w, 400, "invalid_password", "Password must be at least 12 characters or user not found")
+			return
+		}
+		respond(w, 200, map[string]string{"status": "updated"})
+	})
+	mux.HandleFunc("PUT /api/v1/users/{id}/role", func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil || id < 1 {
+			failure(w, 400, "invalid_id", "Invalid user ID")
+			return
+		}
+		caller := r.Context().Value(authContextKey{}).(database.User)
+		if caller.ID == id {
+			failure(w, 400, "cannot_change_own_role", "Cannot change your own role")
+			return
+		}
+		var input struct {
+			Role string `json:"role"`
+		}
+		if !readJSON(w, r, &input) {
+			return
+		}
+		if err := store.UpdateUserRole(r.Context(), id, input.Role); err != nil {
+			failure(w, 400, "invalid_role", "Role must be admin, operator, or viewer")
+			return
+		}
+		respond(w, 200, map[string]string{"status": "updated"})
 	})
 	mux.HandleFunc("POST /api/v1/auth/login", func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
