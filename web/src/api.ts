@@ -89,9 +89,11 @@ export interface AuthUser {
   role: "admin" | "operator" | "viewer";
   csrf_token: string;
   language?: string;
+  theme?: string;
 }
 export interface Preferences {
   language: string;
+  theme: string;
 }
 export async function loadPreferences(signal?: AbortSignal): Promise<Preferences> {
   return request<Preferences>("/api/v1/preferences", signal);
