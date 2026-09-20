@@ -95,6 +95,20 @@ export interface Preferences {
   language: string;
   theme: string;
 }
+export interface RateLimitSettings {
+  enabled: boolean;
+  global_qps: number;
+  client_qps: number;
+  rate_limit_burst: number;
+}
+export async function loadRateLimitSettings(signal?: AbortSignal): Promise<RateLimitSettings> {
+  return request<RateLimitSettings>("/api/v1/settings/rate-limit", signal);
+}
+export async function saveRateLimitSettings(settings: RateLimitSettings): Promise<RateLimitSettings> {
+  return request<RateLimitSettings>("/api/v1/settings/rate-limit", undefined, "PUT", {
+    body: settings,
+  });
+}
 export async function loadPreferences(signal?: AbortSignal): Promise<Preferences> {
   return request<Preferences>("/api/v1/preferences", signal);
 }

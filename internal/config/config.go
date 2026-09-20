@@ -18,23 +18,24 @@ import (
 )
 
 type DNS struct {
-	Listen         []string      `yaml:"listen" json:"listen"`
-	Upstreams      []string      `yaml:"upstreams" json:"upstreams"`
-	AllowedClients []string      `yaml:"allowed_clients" json:"allowed_clients"`
-	Timeout        time.Duration `yaml:"timeout" json:"timeout"`
-	Retries        int           `yaml:"retries" json:"retries"`
-	MaxConcurrent  int           `yaml:"max_concurrent" json:"max_concurrent"`
-	GlobalQPS      int           `yaml:"global_qps" json:"global_qps"`
-	ClientQPS      int           `yaml:"client_qps" json:"client_qps"`
-	RateLimitBurst int           `yaml:"rate_limit_burst" json:"rate_limit_burst"`
-	MaxTCPConns    int           `yaml:"max_tcp_connections" json:"max_tcp_connections"`
-	DoTListen      string        `yaml:"dot_listen" json:"dot_listen"`
-	DoHListen      string        `yaml:"doh_listen" json:"doh_listen"`
-	DoQListen      string        `yaml:"doq_listen" json:"doq_listen"`
-	TLSCertFile    string        `yaml:"tls_cert_file" json:"tls_cert_file"`
-	TLSKeyFile     string        `yaml:"tls_key_file" json:"-"`
-	DNSSEC         bool          `yaml:"dnssec" json:"dnssec"`
-	TrustAnchors   []string      `yaml:"trust_anchors" json:"trust_anchors"`
+	Listen           []string      `yaml:"listen" json:"listen"`
+	Upstreams        []string      `yaml:"upstreams" json:"upstreams"`
+	AllowedClients   []string      `yaml:"allowed_clients" json:"allowed_clients"`
+	Timeout          time.Duration `yaml:"timeout" json:"timeout"`
+	Retries          int           `yaml:"retries" json:"retries"`
+	MaxConcurrent    int           `yaml:"max_concurrent" json:"max_concurrent"`
+	GlobalQPS        int           `yaml:"global_qps" json:"global_qps"`
+	ClientQPS        int           `yaml:"client_qps" json:"client_qps"`
+	RateLimitBurst   int           `yaml:"rate_limit_burst" json:"rate_limit_burst"`
+	RateLimitEnabled bool          `yaml:"rate_limit_enabled" json:"rate_limit_enabled"`
+	MaxTCPConns      int           `yaml:"max_tcp_connections" json:"max_tcp_connections"`
+	DoTListen        string        `yaml:"dot_listen" json:"dot_listen"`
+	DoHListen        string        `yaml:"doh_listen" json:"doh_listen"`
+	DoQListen        string        `yaml:"doq_listen" json:"doq_listen"`
+	TLSCertFile      string        `yaml:"tls_cert_file" json:"tls_cert_file"`
+	TLSKeyFile       string        `yaml:"tls_key_file" json:"-"`
+	DNSSEC           bool          `yaml:"dnssec" json:"dnssec"`
+	TrustAnchors     []string      `yaml:"trust_anchors" json:"trust_anchors"`
 }
 type Cache struct {
 	MaxEntries int `yaml:"max_entries" json:"max_entries"`
@@ -108,7 +109,7 @@ type Config struct {
 }
 
 func Default() Config {
-	return Config{DNS: DNS{Listen: []string{"127.0.0.1:3535"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256, GlobalQPS: 1000, ClientQPS: 100, RateLimitBurst: 100, MaxTCPConns: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{Enabled: true, MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, Cluster: Cluster{MaxOpenConns: 10, MaxIdleConns: 5, ConnMaxLifetime: 5 * time.Minute}, Node: Node{ID: "node-1", Name: "Primary"}, DatabasePath: "data/velora.db", DatabaseDriver: "sqlite", LogLevel: "info"}
+	return Config{DNS: DNS{Listen: []string{"127.0.0.1:3535"}, Upstreams: []string{"1.1.1.1:53", "9.9.9.9:53"}, AllowedClients: []string{"127.0.0.0/8", "::1/128"}, Timeout: 2 * time.Second, Retries: 1, MaxConcurrent: 256, GlobalQPS: 1000, ClientQPS: 100, RateLimitBurst: 100, RateLimitEnabled: false, MaxTCPConns: 256}, Cache: Cache{MaxEntries: 10000}, HTTP: HTTP{Listen: "127.0.0.1:8080", WebDir: "web/dist", AllowedHosts: []string{"localhost", "127.0.0.1", "::1"}}, QueryLog: QueryLog{Enabled: true, MaxRows: 100000, QueueSize: 1024, Retention: 7 * 24 * time.Hour}, Cluster: Cluster{MaxOpenConns: 10, MaxIdleConns: 5, ConnMaxLifetime: 5 * time.Minute}, Node: Node{ID: "node-1", Name: "Primary"}, DatabasePath: "data/velora.db", DatabaseDriver: "sqlite", LogLevel: "info"}
 }
 func Load(path string) (Config, error) {
 	var data []byte
@@ -190,6 +191,13 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 			return c, fmt.Errorf("invalid VELORA_DNS_DNSSEC")
 		}
 		c.DNS.DNSSEC = enabled
+	}
+	if v, ok := lookup("VELORA_DNS_RATE_LIMIT_ENABLED"); ok {
+		enabled, err := strconv.ParseBool(v)
+		if err != nil {
+			return c, fmt.Errorf("invalid VELORA_DNS_RATE_LIMIT_ENABLED")
+		}
+		c.DNS.RateLimitEnabled = enabled
 	}
 	for key, target := range map[string]*int{"QUERY_LOG_QUEUE_SIZE": &c.QueryLog.QueueSize, "QUERY_LOG_MAX_ROWS": &c.QueryLog.MaxRows} {
 		if v, ok := lookup("VELORA_" + key); ok {

@@ -75,6 +75,18 @@ const en: Record<string, string> = {
   "settings.version": "Version",
   "settings.security_notice":
     "Management access requires an authenticated user or scoped API token. Keep this interface on a trusted local network or behind an authenticated tunnel.",
+  "settings.rate_limiting": "Rate limiting",
+  "settings.rate_limit_hint":
+    "Rate limiting is disabled by default. Enable it to protect the resolver from source floods and high query rates.",
+  "settings.rate_limit_enabled": "Enable rate limiting",
+  "settings.rate_limit_global_qps": "Global queries per second",
+  "settings.rate_limit_client_qps": "Queries per second per client",
+  "settings.rate_limit_burst": "Burst allowance",
+  "settings.save": "Save",
+  "settings.rate_limit_load_failed": "Unable to load rate limit settings",
+  "settings.rate_limit_save_failed": "Unable to save rate limit settings",
+  "settings.rate_limit_saved": "Rate limit settings saved.",
+  "settings.rate_limit_loading": "Loading rate limit settings…",
 
   // Dashboard
   "dashboard.total_queries": "Total queries",
@@ -434,6 +446,18 @@ const de: Record<string, string> = {
   "settings.version": "Version",
   "settings.security_notice":
     "Verwaltungszugriff erfordert einen authentifizierten Benutzer oder ein berechtigtes API-Token. Halten Sie diese Oberfläche in einem vertrauenswürdigen lokalen Netzwerk oder hinter einem authentifizierten Tunnel.",
+  "settings.rate_limiting": "Ratenbegrenzung",
+  "settings.rate_limit_hint":
+    "Die Ratenbegrenzung ist standardmäßig deaktiviert. Aktivieren Sie sie, um den Resolver vor Quell-Floods und hohen Abfrageraten zu schützen.",
+  "settings.rate_limit_enabled": "Ratenbegrenzung aktivieren",
+  "settings.rate_limit_global_qps": "Globale Abfragen pro Sekunde",
+  "settings.rate_limit_client_qps": "Abfragen pro Sekunde pro Client",
+  "settings.rate_limit_burst": "Burst-Erlaubnis",
+  "settings.save": "Speichern",
+  "settings.rate_limit_load_failed": "Ratenbegrenzungs-Einstellungen konnten nicht geladen werden",
+  "settings.rate_limit_save_failed": "Ratenbegrenzungs-Einstellungen konnten nicht gespeichert werden",
+  "settings.rate_limit_saved": "Ratenbegrenzungs-Einstellungen gespeichert.",
+  "settings.rate_limit_loading": "Ratenbegrenzungs-Einstellungen werden geladen…",
 
   // Dashboard
   "dashboard.total_queries": "Abfragen gesamt",

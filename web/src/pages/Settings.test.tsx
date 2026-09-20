@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { expect, it } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
 import { Settings } from "./Settings";
 import { withI18n } from "../test-i18n";
 import { SUPPORTED_THEMES } from "../theme";
@@ -37,7 +37,21 @@ const data = {
   checked: new Date(),
 } satisfies Snapshot;
 
+afterEach(() => vi.unstubAllGlobals());
+
 it("describes the active management authentication model", () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            data: { enabled: false, global_qps: 1000, client_qps: 100, rate_limit_burst: 100 },
+          }),
+      }),
+    ),
+  );
   render(withI18n(<Settings data={data} />));
 
   expect(
@@ -51,4 +65,43 @@ it("offers the supported theme choices", () => {
   for (const theme of SUPPORTED_THEMES) {
     expect(select).toHaveTextContent(theme === "auto" ? "Auto" : theme === "light" ? "Light" : "Dark");
   }
+});
+
+it("loads and updates rate limit settings", async () => {
+  interface FetchCall {
+    method?: string;
+    body?: string;
+  }
+  const calls: FetchCall[] = [];
+  const fetch = vi.fn((_path: string, options: FetchCall) => {
+    calls.push(options);
+    return Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          data:
+            options?.method === "PUT"
+              ? { enabled: true, global_qps: 500, client_qps: 50, rate_limit_burst: 25 }
+              : { enabled: false, global_qps: 1000, client_qps: 100, rate_limit_burst: 100 },
+        }),
+    });
+  });
+  vi.stubGlobal("fetch", fetch);
+  render(withI18n(<Settings data={data} />));
+  const toggle = await screen.findByRole("checkbox", {
+    name: "Enable rate limiting",
+  });
+  fireEvent.click(toggle);
+  fireEvent.change(screen.getByLabelText("Global queries per second"), {
+    target: { value: "500" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
+  const put = calls.find((c) => c.method === "PUT");
+  expect(JSON.parse(put!.body ?? "{}")).toEqual({
+    enabled: true,
+    global_qps: 500,
+    client_qps: 100,
+    rate_limit_burst: 100,
+  });
 });

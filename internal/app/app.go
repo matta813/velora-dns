@@ -143,7 +143,13 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	if _, err = rand.Read(cookieSecret); err != nil {
 		return fmt.Errorf("initialize DNS cookie secret: %w", err)
 	}
-	dnsHandler := &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), Limiter: dns.NewRateLimiter(c.DNS.GlobalQPS, c.DNS.ClientQPS, c.DNS.RateLimitBurst), Observer: observer, Audit: audit, CookieSecret: cookieSecret}
+	rateLimitState := dns.NewRateLimitState(c.DNS.RateLimitEnabled, c.DNS.GlobalQPS, c.DNS.ClientQPS, c.DNS.RateLimitBurst)
+	if persisted, err := db.GetRateLimitSettings(initCtx); err == nil {
+		if persisted.Enabled || persisted.GlobalQPS > 0 || persisted.ClientQPS > 0 || persisted.RateLimitBurst > 0 {
+			rateLimitState.Configure(persisted.Enabled, persisted.GlobalQPS, persisted.ClientQPS, persisted.RateLimitBurst)
+		}
+	}
+	dnsHandler := &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), RateLimit: rateLimitState, Observer: observer, Audit: audit, CookieSecret: cookieSecret}
 	listener, err := dns.StartWithOptions(c.DNS.Listen, dnsHandler, dns.ServerOptions{MaxTCPConnections: c.DNS.MaxTCPConns, Observer: observer})
 	if err != nil {
 		return err
@@ -217,7 +223,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Update: updateManager, Backup: backupManager}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, Update: updateManager, Backup: backupManager}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)
