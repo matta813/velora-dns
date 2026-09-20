@@ -379,10 +379,6 @@ export function Settings({ data }: { data: Snapshot }) {
           </fieldset>
         ) : null}
       </section>
-
-      <div className="notice">
-        {t("settings.yaml_note")}
-      </div>
     </>
   );
 }

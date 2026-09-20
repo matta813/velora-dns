@@ -121,8 +121,6 @@ const en: Record<string, string> = {
   "settings.save_success":
     "Configuration saved. Restart required for changes to take effect.",
   "settings.save_failed": "Failed to save configuration",
-  "settings.yaml_note":
-    "Note: configuration is saved to the YAML config file. The server must be restarted for changes to take effect. The installer also manages the release channel (stable/beta/alpha) and bootstrap credentials separately via environment files.",
 
   // Dashboard
   "dashboard.total_queries": "Total queries",
