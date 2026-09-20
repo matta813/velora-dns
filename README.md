@@ -32,6 +32,31 @@ See the [architecture](docs/architecture/0001-foundation.md),
 [DNS behavior](docs/architecture/0002-dns-semantics.md), and
 [API reference](docs/api.md) for details and limits.
 
+## Translations
+
+Velora DNS ships with a multi-language web UI. The table below tracks translation
+completeness for each supported language. English is the canonical source; other
+languages fall back to English for any missing keys.
+
+<!-- TRANSLATION_TABLE_START -->
+| Language | Code | Completeness |
+|---|---|---|
+| English | `en` | 100% |
+| Deutsch | `de` | 100% |
+| Español | `es` | 100% |
+| Português (Brasil) | `pt-BR` | 100% |
+| Nederlands | `nl` | 100% |
+| Polski | `pl` | 100% |
+| Čeština | `cs` | 100% |
+| Svenska | `sv` | 100% |
+| 日本語 | `ja` | 100% |
+| 한국어 | `ko` | 100% |
+<!-- TRANSLATION_TABLE_END -->
+
+Contributions to improve or add translations are welcome. Each language lives in
+its own file under `web/src/i18n/<code>.ts`. To add a new language, create the
+file, register it in `web/src/i18n/index.ts`, and open a pull request.
+
 ## Install and try it
 
 The supported installer paths are Docker Compose and a direct systemd installation

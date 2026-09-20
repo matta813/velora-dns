@@ -133,12 +133,12 @@ func TestWildcardHostAllowsRemoteWebUI(t *testing.T) {
 	}
 }
 
-func TestWebFallbackIncludesUpdateAndBackupRoutes(t *testing.T) {
+func TestWebFallbackIncludesAllUIRoutes(t *testing.T) {
 	tmpDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tmpDir, "index.html"), []byte("ok"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"/updates", "/backup"} {
+	for _, path := range []string{"/updates", "/backup", "/dhcp", "/cluster"} {
 		r := httptest.NewRequest(http.MethodGet, "http://127.0.0.1"+path, nil)
 		w := httptest.NewRecorder()
 		web(func() string { return tmpDir }).ServeHTTP(w, r)

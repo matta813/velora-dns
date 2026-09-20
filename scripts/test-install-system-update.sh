@@ -99,8 +99,8 @@ case "$1" in
     shift
     ;;
   systemctl)
-    shift
-    if [ "$1" = is-active ]; then exit 1; fi
+    # Delegated to the mock systemctl in $mock_bin.
+    exec systemctl "$@"
     ;;
   *) ;;
 esac
@@ -133,6 +133,25 @@ EOF
 cat > "$mock_bin/openssl" <<'EOF'
 #!/bin/sh
 printf '%s\n' generated-password-which-is-long-enough
+EOF
+
+cat > "$mock_bin/systemctl" <<'EOF'
+#!/bin/sh
+fake_root=${TEST_INSTALLER_FAKE_ROOT:?}
+log=${TEST_INSTALLER_LOG:?}
+shift
+case "$1" in
+  is-active)
+    # Report running when the binary exists (update scenario).
+    [ -x "$fake_root/opt/velora/velora-dns" ] && exit 0
+    exit 1
+    ;;
+  stop)
+    printf 'systemctl stop %s\n' "$2" >> "$log"
+    ;;
+  daemon-reload|enable|restart|status) ;;
+esac
+exit 0
 EOF
 
 for t in getent id ss; do
@@ -179,6 +198,8 @@ PATH="$mock_bin:$PATH" VELORA_INSTALL_DIR="$tmp_dir/source" \
 [ -f "$fake_root/opt/velora/velora-dns.old" ] || fail "expected backup of existing binary"
 [ "$(cat "$fake_root/opt/velora/velora-dns")" = "new-binary" ] || fail "binary was not replaced"
 grep -q "Existing Velora DNS installation detected; updating it" "$tmp_dir/output.log" || fail "expected update message"
+grep -q "Stopping running Velora DNS service" "$tmp_dir/output.log" || fail "expected service stop message"
+grep -q "systemctl stop velora-dns" "$log_file" || fail "systemctl stop was not called during update"
 grep -q "Existing installation updated" "$tmp_dir/output.log" || fail "expected update summary"
 
 printf '%s\n' 'Systemd installer update test passed'

@@ -55,7 +55,7 @@ it("describes the active management authentication model", () => {
   render(withI18n(<Settings data={data} />));
 
   expect(
-    screen.getByText(/configuration is saved to the yaml config file/i),
+    screen.getByText(/server configuration/i),
   ).toBeInTheDocument();
 });
 

@@ -83,6 +83,10 @@ CGO_ENABLED=0 go build -trimpath -o bin/velora-dns ./cmd/server
 if sudo test -x /opt/velora/velora-dns; then
   existing_install=true
   printf '%s\n' 'Existing Velora DNS installation detected; updating it.'
+  if systemctl is-active --quiet velora-dns 2>/dev/null; then
+    printf '%s\n' 'Stopping running Velora DNS service…'
+    sudo systemctl stop velora-dns
+  fi
   sudo cp /opt/velora/velora-dns /opt/velora/velora-dns.old
 else
   existing_install=false
