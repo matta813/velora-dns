@@ -518,6 +518,49 @@ footer {
   font-size: 12px;
   line-height: 1.8;
 }
+.settings-preferences,
+.rate-limit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.settings-preferences label,
+.rate-limit-grid label {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  font-size: 12px;
+}
+.settings-preferences select,
+.rate-limit-grid input[type="number"] {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--border, #d4e1d9);
+  border-radius: 6px;
+  background: var(--bg, #fff);
+  color: var(--text, #223b40);
+  font: inherit;
+}
+.rate-limit-fieldset {
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  border: 0;
+}
+.rate-limit-grid .check-row {
+  display: flex;
+  align-items: center;
+  grid-column: 1 / -1;
+  gap: 9px;
+}
+.rate-limit-grid .check-row input { margin: 0; }
+.rate-limit-fieldset .form-actions { margin-top: 18px; }
+@media (max-width: 650px) {
+  .settings-preferences,
+  .rate-limit-grid { grid-template-columns: 1fr; }
+}
 .danger {
   color: #a74430;
   margin-top: 10px;

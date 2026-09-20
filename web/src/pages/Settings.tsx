@@ -132,7 +132,7 @@ export function Settings({ data }: { data: Snapshot }) {
           {t("settings.edit_hint")}
         </p>
 
-        <div className="form-grid">
+        <div className="settings-preferences">
           <label>
             {t("settings.language")}
             <select
@@ -288,8 +288,8 @@ export function Settings({ data }: { data: Snapshot }) {
         {loadingRateLimit ? (
           <p role="status">{t("settings.rate_limit_loading")}</p>
         ) : rateLimit ? (
-          <fieldset>
-            <div className="form-grid">
+          <fieldset className="rate-limit-fieldset">
+            <div className="rate-limit-grid">
               <label className="check-row">
                 <input
                   type="checkbox"
