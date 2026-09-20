@@ -88,6 +88,20 @@ export interface AuthUser {
   username: string;
   role: "admin" | "operator" | "viewer";
   csrf_token: string;
+  language?: string;
+  theme?: string;
+}
+export interface Preferences {
+  language: string;
+  theme: string;
+}
+export async function loadPreferences(signal?: AbortSignal): Promise<Preferences> {
+  return request<Preferences>("/api/v1/preferences", signal);
+}
+export async function savePreferences(preferences: Preferences): Promise<Preferences> {
+  return request<Preferences>("/api/v1/preferences", undefined, "PUT", {
+    body: preferences,
+  });
 }
 let csrfToken = "";
 export function setCSRFToken(token: string) { csrfToken = token; }

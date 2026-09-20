@@ -2,6 +2,10 @@ import { useState } from "react";
 import { Save, AlertCircle, CheckCircle } from "lucide-react";
 import type { Snapshot, Config } from "../api";
 import { saveConfig } from "../api";
+import { SUPPORTED_LANGUAGES, languageName, type Language } from "../i18n";
+import { useI18n } from "../i18n-context";
+import { themeLabel, SUPPORTED_THEMES, type Theme } from "../theme";
+import { useTheme } from "../theme-context";
 
 interface ConfigFormData {
   dns_listen: string[];
@@ -14,6 +18,8 @@ interface ConfigFormData {
 }
 
 export function Settings({ data }: { data: Snapshot }) {
+  const { t, language, setLanguage } = useI18n();
+  const { theme, setTheme } = useTheme();
   const [formData, setFormData] = useState<ConfigFormData>({
     dns_listen: data.config.dns.listen ?? ["127.0.0.1:53"],
     dns_upstreams: data.config.dns.upstreams ?? ["1.1.1.1:53", "9.9.9.9:53"],
@@ -82,10 +88,40 @@ export function Settings({ data }: { data: Snapshot }) {
 
   return (
     <section className="panel padded">
-      <h2>Server Configuration</h2>
+      <h2>{t("settings.server_configuration")}</h2>
       <p style={{ marginBottom: "1.5rem", opacity: 0.7 }}>
         These settings correspond to the quickstart installer options. Changes require a server restart to take effect.
       </p>
+
+      <div className="form-grid">
+        <label>
+          {t("settings.language")}
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as Language)}
+          >
+            {SUPPORTED_LANGUAGES.map((code) => (
+              <option key={code} value={code}>
+                {languageName(code)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("settings.theme")}
+          <select
+            value={theme}
+            onChange={(e) => setTheme(e.target.value as Theme)}
+          >
+            {SUPPORTED_THEMES.map((code) => (
+              <option key={code} value={code}>
+                {themeLabel(code)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <p className="panel-footnote">{t("settings.theme_hint")}</p>
 
       {message && (
         <div className={`notice ${message.type === "error" ? "error" : ""}`} role="alert" style={{ marginBottom: "1rem" }}>

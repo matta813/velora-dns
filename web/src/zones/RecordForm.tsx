@@ -8,6 +8,7 @@ import {
   type Zone,
   type ZoneRecord,
 } from "./types";
+import { useI18n } from "../i18n-context";
 export function RecordForm({
   zone,
   record,
@@ -21,6 +22,7 @@ export function RecordForm({
   save: (input: RecordInput) => Promise<void>;
   cancel: () => void;
 }) {
+  const { t } = useI18n();
   const [name, setName] = useState(
     record ? ownerName(record.name, zone.name) : "",
   );
@@ -44,7 +46,7 @@ export function RecordForm({
       preference < 0 ||
       preference > 65535
     ) {
-      setError("Enter valid TTL and priority values.");
+      setError(t("zones.invalid_ttl"));
       return;
     }
     try {
@@ -58,37 +60,37 @@ export function RecordForm({
     } catch (e) {
       setError(
         e instanceof APIError && e.status === 412
-          ? "This zone changed elsewhere. Your draft is unchanged. Close this form and reload zones before retrying."
+          ? t("zones.record_conflict")
           : e instanceof Error
             ? e.message
-            : "Unable to save record",
+            : t("zones.save_failed"),
       );
     }
   }
   const valueLabel =
     type === "A"
-      ? "IPv4 address"
+      ? t("zones.ipv4_address")
       : type === "AAAA"
-        ? "IPv6 address"
+        ? t("zones.ipv6_address")
         : type === "TXT"
-          ? "Text value"
-          : "Target hostname";
+          ? t("zones.text_value")
+          : t("zones.target_hostname");
   return (
     <form
       className="zone-form"
       onSubmit={(event) => void submit(event)}
-      aria-label={record ? "Edit DNS record" : "Add DNS record"}
+      aria-label={record ? t("zones.record_form_edit_aria") : t("zones.record_form_add_aria")}
     >
       <div className="form-heading">
         <div>
-          <h3>{record ? "Edit record" : "Add record"}</h3>
-          <p>Changes apply to {zone.name} after saving.</p>
+          <h3>{record ? t("zones.edit_record") : t("zones.add_record_form")}</h3>
+          <p>{t("zones.changes_apply")} {zone.name}.</p>
         </div>
       </div>
       <fieldset disabled={busy}>
         <div className="form-grid">
           <label>
-            Record name
+            {t("zones.record_name")}
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -98,12 +100,11 @@ export function RecordForm({
               autoComplete="off"
             />
             <small>
-              Relative name, @ for the zone, or an absolute name ending in a
-              dot.
+              {t("zones.relative_name_hint")}
             </small>
           </label>
           <label>
-            Record type
+            {t("zones.record_type")}
             <select
               value={type}
               onChange={(e) => setType(e.target.value as RecordType)}
@@ -114,7 +115,7 @@ export function RecordForm({
             </select>
           </label>
           <label>
-            TTL (seconds)
+            {t("zones.ttl_seconds")}
             <input
               type="number"
               min={0}
@@ -126,7 +127,7 @@ export function RecordForm({
           </label>
           {type === "MX" && (
             <label>
-              Priority
+              {t("zones.priority")}
               <input
                 type="number"
                 min={0}
@@ -171,10 +172,10 @@ export function RecordForm({
         )}
         <div className="form-actions">
           <button className="button primary" type="submit">
-            {busy ? "Saving…" : "Save record"}
+            {busy ? t("zones.saving") : t("zones.save_record")}
           </button>
           <button className="button" type="button" onClick={cancel}>
-            Cancel
+            {t("zones.cancel")}
           </button>
         </div>
       </fieldset>

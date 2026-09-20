@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { Zones } from "../pages/Zones";
+import { withI18n } from "../test-i18n";
 import type { Zone } from "./types";
 afterEach(() => vi.unstubAllGlobals());
 const zone: Zone = {
@@ -30,7 +31,7 @@ function mock(data: unknown, status = 200) {
 }
 it("shows load failures without pretending the zone list is empty", async () => {
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Offline")));
-  render(<Zones />);
+  render(withI18n(<Zones />));
   expect(await screen.findByRole("alert")).toHaveTextContent("Offline");
   expect(
     screen.queryByText("Give your network familiar names"),
@@ -38,7 +39,7 @@ it("shows load failures without pretending the zone list is empty", async () => 
 });
 it("keeps viewer zone mutations disabled", async () => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mock([])));
-  render(<Zones readOnly />);
+  render(withI18n(<Zones readOnly />));
   expect(await screen.findByText("Create your first zone")).toBeDisabled();
   expect(screen.getByRole("button", { name: "Add zone" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Reload zones" })).toBeEnabled();
@@ -50,7 +51,7 @@ it("creates a zone and confirms deletion with its current revision", async () =>
     .mockResolvedValueOnce(mock({ ...zone, records: [] }, 201))
     .mockResolvedValueOnce(mock({ deleted: 1 }));
   vi.stubGlobal("fetch", fetch);
-  render(<Zones />);
+  render(withI18n(<Zones />));
   fireEvent.click(await screen.findByText("Create your first zone"));
   fireEvent.change(screen.getByLabelText("Zone name"), {
     target: { value: "home.arpa" },
@@ -73,7 +74,7 @@ it("preserves an edited draft on revision conflict and reloads after cancel", as
     .mockResolvedValueOnce(mock(null, 412))
     .mockResolvedValueOnce(mock([{ ...zone, revision: 2 }]));
   vi.stubGlobal("fetch", fetch);
-  render(<Zones />);
+  render(withI18n(<Zones />));
   fireEvent.click(await screen.findByLabelText("Edit router A record"));
   fireEvent.change(screen.getByLabelText("IPv4 address"), {
     target: { value: "192.168.1.2" },
@@ -98,7 +99,7 @@ it("adds and removes records using the revision returned by the server", async (
     .mockResolvedValueOnce(mock({ ...zone, revision: 2 }, 201))
     .mockResolvedValueOnce(mock({ ...zone, records: [], revision: 3 }));
   vi.stubGlobal("fetch", fetch);
-  render(<Zones />);
+  render(withI18n(<Zones />));
   await screen.findByText(/Revision 1/);
   fireEvent.click(screen.getByRole("button", { name: "Add record" }));
   fireEvent.change(screen.getByLabelText(/Record name/), {

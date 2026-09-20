@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Plus, RefreshCw, ShieldBan } from "lucide-react";
 import { request, type BlocklistSource } from "../api";
+import { useI18n } from "../i18n-context";
 
 export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
+  const { t } = useI18n();
   const [sources, setSources] = useState<BlocklistSource[] | null>(null);
   const [name, setName] = useState("");
   const [url, setURL] = useState("");
@@ -14,7 +16,7 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
     try {
       setSources(await request<BlocklistSource[]>("/api/v1/blocklists"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to load blocklists");
+      setError(e instanceof Error ? e.message : t("blocklists.load_failed"));
     }
   };
   useEffect(() => {
@@ -32,7 +34,7 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
       setAdding(false);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to add source");
+      setError(e instanceof Error ? e.message : t("blocklists.add_failed"));
     } finally {
       setBusy(null);
     }
@@ -44,7 +46,7 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
       await request(`/api/v1/blocklists/${id}/update`, undefined, "POST");
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to update source");
+      setError(e instanceof Error ? e.message : t("blocklists.update_failed_msg"));
     } finally {
       setBusy(null);
     }
@@ -54,8 +56,8 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
       <div className="zones-toolbar">
         <span className="zone-count">
           {sources
-            ? `${sources.length} external ${sources.length === 1 ? "source" : "sources"}`
-            : "DNS policy sources"}
+            ? `${sources.length} ${sources.length === 1 ? t("blocklists.count_one") : t("blocklists.count")}`
+            : t("blocklists.sources_label")}
         </span>
         <div>
           <button
@@ -64,7 +66,7 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
             disabled={busy !== null}
           >
             <RefreshCw size={15} />
-            Reload
+            {t("blocklists.reload")}
           </button>
           <button
             className="button primary"
@@ -72,7 +74,7 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
             disabled={busy !== null || readOnly}
           >
             <Plus size={15} />
-            Add source
+            {t("blocklists.add_source")}
           </button>
         </div>
       </div>
@@ -85,16 +87,15 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
         <section className="panel form-panel">
           <form
             className="zone-form"
-            aria-label="Add blocklist source"
+            aria-label={t("blocklists.add_aria")}
             onSubmit={(e) => {
               e.preventDefault();
               void add();
             }}
           >
-            <h3>Add external blocklist</h3>
+            <h3>{t("blocklists.add_title")}</h3>
             <p>
-              Only public HTTP(S) sources are accepted. Failed refreshes keep
-              prior DNS rules active.
+              {t("blocklists.add_text")}
             </p>
             <fieldset disabled={busy !== null}>
               <label>
@@ -103,11 +104,11 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Community hosts"
+                  placeholder={t("blocklists.community_hosts")}
                 />
               </label>
               <label>
-                Source URL
+                {t("blocklists.source_url")}
                 <input
                   required
                   type="url"
@@ -118,14 +119,14 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
               </label>
               <div className="form-actions">
                 <button className="button primary">
-                  {busy === "new" ? "Adding…" : "Add source"}
+                  {busy === "new" ? t("blocklists.adding") : t("blocklists.add_source")}
                 </button>
                 <button
                   type="button"
                   className="button"
                   onClick={() => setAdding(false)}
                 >
-                  Cancel
+                  {t("blocklists.cancel")}
                 </button>
               </div>
             </fieldset>
@@ -134,27 +135,27 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
       )}
       {sources === null ? (
         <section className="panel padded" role="status">
-          Loading blocklist sources…
+          {t("blocklists.loading")}
         </section>
       ) : sources.length === 0 ? (
         <section className="panel zone-empty large">
           <ShieldBan size={32} />
-          <h2>No external blocklists</h2>
+          <h2>{t("blocklists.empty_title")}</h2>
           <p>
-            Add a trusted public hosts or domain list to apply DNS blocking.
+            {t("blocklists.empty_text")}
           </p>
         </section>
       ) : (
         <section className="panel">
           <div className="table-wrap">
             <table className="records-table">
-              <caption className="sr-only">External blocklist sources</caption>
+              <caption className="sr-only">{t("blocklists.caption")}</caption>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Source</th>
-                  <th>Status</th>
-                  <th>Last update</th>
+                  <th>{t("blocklists.name")}</th>
+                  <th>{t("blocklists.col_source")}</th>
+                  <th>{t("blocklists.col_status")}</th>
+                  <th>{t("blocklists.col_last_update")}</th>
                   <th />
                 </tr>
               </thead>
@@ -169,17 +170,17 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
                     </td>
                     <td>
                       {source.last_error ? (
-                        <span className="notice error">Update failed</span>
+                        <span className="notice error">{t("blocklists.update_failed")}</span>
                       ) : (
                         <span className="record-type">
-                          {source.enabled ? "ACTIVE" : "DISABLED"}
+                          {source.enabled ? t("blocklists.active") : t("blocklists.disabled")}
                         </span>
                       )}
                     </td>
                     <td>
                       {source.last_updated_at
                         ? new Date(source.last_updated_at).toLocaleString()
-                        : "Never"}
+                        : t("blocklists.never")}
                     </td>
                     <td>
                       <button
@@ -188,7 +189,7 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
                         onClick={() => void refresh(source.id)}
                       >
                         <RefreshCw size={14} />
-                        {busy === source.id ? "Updating…" : "Update"}
+                        {busy === source.id ? t("blocklists.updating") : t("blocklists.update")}
                       </button>
                     </td>
                   </tr>

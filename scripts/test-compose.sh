@@ -6,7 +6,7 @@ python3 - <<'CHECK'
 from pathlib import Path
 import re
 text=Path('docker-compose.yml').read_text()
-for setting in ('read_only: true','cap_drop: [ALL]','no-new-privileges:true','127.0.0.1:${VELORA_DNS_PORT','127.0.0.1:${VELORA_HTTP_PORT'):
+for setting in ('read_only: true','cap_drop: [ALL]','no-new-privileges:true','${VELORA_DNS_HOST:-127.0.0.1}:${VELORA_DNS_PORT','${VELORA_HTTP_HOST:-127.0.0.1}:${VELORA_HTTP_PORT'):
     assert setting in text,setting
 for line in Path('Dockerfile').read_text().splitlines():
     if line.startswith('FROM '):

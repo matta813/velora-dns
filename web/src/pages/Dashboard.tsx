@@ -3,6 +3,7 @@ import { Activity, ArrowUpRight, Database, Timer, Zap } from "lucide-react";
 import { request, type QuerySummary, type Snapshot } from "../api";
 import { Stat } from "../components/Stat";
 import { OnboardingChecklist } from "../components/OnboardingChecklist";
+import { useI18n } from "../i18n-context";
 const number = (v: number) => new Intl.NumberFormat("en").format(v);
 export function Dashboard({
   data,
@@ -13,6 +14,7 @@ export function Dashboard({
   history: number[];
   queryLoggingEnabled: boolean;
 }) {
+  const { t } = useI18n();
   const [querySummary, setQuerySummary] = useState<QuerySummary | null>(null);
   const [summaryError, setSummaryError] = useState("");
   useEffect(() => {
@@ -45,39 +47,39 @@ export function Dashboard({
       <OnboardingChecklist />
       <div className="stats">
         <Stat
-          label="Total queries"
+          label={t("dashboard.total_queries")}
           value={number(data.stats.queries_total)}
-          note="Since this server started"
+          note={t("dashboard.since_start")}
           icon={<Activity size={17} />}
         />
         <Stat
-          label="Queries / second"
+          label={t("dashboard.qps")}
           value={data.stats.queries_per_second.toFixed(2)}
-          note="Rolling 60-second average"
+          note={t("dashboard.rolling_avg")}
           icon={<Zap size={17} />}
         />
         <Stat
-          label="Cache hit rate"
+          label={t("dashboard.cache_hit_rate")}
           value={`${(data.stats.cache_hit_rate * 100).toFixed(1)}%`}
-          note={`${number(data.cache.hits)} answers served from memory`}
+          note={`${number(data.cache.hits)} ${t("dashboard.answers_from_memory")}`}
           icon={<Database size={17} />}
         />
         <Stat
-          label="Uptime"
+          label={t("dashboard.uptime")}
           value={`${Math.floor(data.status.uptime_seconds / 3600)}h ${Math.floor(data.status.uptime_seconds / 60) % 60}m`}
-          note="Current process lifetime"
+          note={t("dashboard.process_lifetime")}
           icon={<Timer size={17} />}
         />
       </div>
       <div className="overview-grid">
         <RankingPanel
-          title="Top domains"
+          title={t("dashboard.top_domains")}
           values={querySummary?.top_domains}
           enabled={queryLoggingEnabled}
           error={summaryError}
         />
         <RankingPanel
-          title="Top clients"
+          title={t("dashboard.top_clients")}
           values={querySummary?.top_clients}
           enabled={queryLoggingEnabled}
           error={summaryError}
@@ -87,42 +89,42 @@ export function Dashboard({
         <section className="panel traffic">
           <div className="panel-heading">
             <div>
-              <h2>Query activity</h2>
-              <p>Live samples from your resolver</p>
+              <h2>{t("dashboard.query_activity")}</h2>
+              <p>{t("dashboard.live_samples")}</p>
             </div>
-            <span className="subtle-badge">5s refresh</span>
+            <span className="subtle-badge">{t("dashboard.refresh_5s")}</span>
           </div>
           <div className="chart-label">
             <strong>{data.stats.queries_per_second.toFixed(2)}</strong>
-            <span>queries / sec</span>
+            <span>{t("dashboard.queries_per_sec")}</span>
           </div>
           <svg
             className="chart"
             viewBox="0 0 600 145"
             role="img"
-            aria-label="Query rate sampled during this browser session"
+            aria-label={t("dashboard.chart_aria")}
           >
             <path d="M0 25H600 M0 75H600 M0 125H600" className="chart-grid" />
             <polyline points={points} className="chart-line" />
           </svg>
           <div className="chart-footer">
-            <span>Session samples · {history.length} / 30</span>
-            <span>Now</span>
+            <span>{t("dashboard.session_samples")} · {history.length} / 30</span>
+            <span>{t("dashboard.now")}</span>
           </div>
         </section>
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <h2>Resolver pipeline</h2>
-              <p>How a query reaches its answer</p>
+              <h2>{t("dashboard.resolver_pipeline")}</h2>
+              <p>{t("dashboard.pipeline_subtitle")}</p>
             </div>
           </div>
           <ol className="pipeline">
             <li>
               <span>01</span>
               <div>
-                <strong>Client access</strong>
-                <p>Allowed network check</p>
+                <strong>{t("dashboard.client_access")}</strong>
+                <p>{t("dashboard.allowed_network_check")}</p>
               </div>
               <i className="dot" />
             </li>
@@ -130,8 +132,8 @@ export function Dashboard({
               <li>
                 <span>02</span>
                 <div>
-                  <strong>Local zones</strong>
-                  <p>Authoritative answers before forwarding</p>
+                  <strong>{t("dashboard.local_zones")}</strong>
+                  <p>{t("dashboard.authoritative_before_forwarding")}</p>
                 </div>
                 <i className="dot" />
               </li>
@@ -139,10 +141,10 @@ export function Dashboard({
             <li>
               <span>03</span>
               <div>
-                <strong>Memory cache</strong>
+                <strong>{t("dashboard.memory_cache")}</strong>
                 <p>
                   {number(data.cache.entries)} / {number(data.cache.capacity)}{" "}
-                  entries
+                  {t("dashboard.memory_cache")}
                 </p>
               </div>
               <i className="dot" />
@@ -150,8 +152,8 @@ export function Dashboard({
             <li>
               <span>04</span>
               <div>
-                <strong>Upstream forwarding</strong>
-                <p>{data.config.dns.upstreams.length} configured resolvers</p>
+                <strong>{t("dashboard.upstream_forwarding")}</strong>
+                <p>{data.config.dns.upstreams.length} {t("dashboard.configured_resolvers")}</p>
               </div>
               <ArrowUpRight size={16} />
             </li>
@@ -162,17 +164,17 @@ export function Dashboard({
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <h2>Upstream resolvers</h2>
-              <p>Ordered failover with TCP fallback</p>
+              <h2>{t("dashboard.upstream_resolvers")}</h2>
+              <p>{t("dashboard.ordered_failover")}</p>
             </div>
           </div>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Endpoint</th>
-                  <th>Priority</th>
-                  <th>Attempt timeout</th>
+                  <th>{t("dashboard.endpoint")}</th>
+                  <th>{t("dashboard.priority")}</th>
+                  <th>{t("dashboard.attempt_timeout")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -182,7 +184,7 @@ export function Dashboard({
                       <span className="endpoint-mark">↗</span>
                       <code>{upstream}</code>
                     </td>
-                    <td>{i === 0 ? "Primary" : `Fallback ${i}`}</td>
+                    <td>{i === 0 ? t("dashboard.primary") : `${t("dashboard.fallback")} ${i}`}</td>
                     <td>{data.config.dns.timeout / 1e9}s</td>
                   </tr>
                 ))}
@@ -190,23 +192,21 @@ export function Dashboard({
             </table>
           </div>
           <p className="panel-footnote">
-            Configuration shown. Reachability is evaluated on each query.
+            {t("dashboard.config_shown")}
           </p>
         </section>
         <section className="foundation-card">
-          <span className="eyebrow">BUILDING THE FOUNDATION</span>
+          <span className="eyebrow">{t("dashboard.foundation_eyebrow")}</span>
           <h2>
-            Your DNS.
+            {t("dashboard.foundation_title_1")}
             <br />
-            Under your control.
+            {t("dashboard.foundation_title_2")}
           </h2>
           <p>
-            Local authoritative zones, forwarding, a bounded TTL cache, and
-            opt-in query history and operational visibility. Follow the roadmap
-            for remaining management and protocol features.
+            {t("dashboard.foundation_text")}
           </p>
           <a href="https://github.com/matta813/velora-dns/issues">
-            Explore the roadmap <ArrowUpRight size={16} />
+            {t("dashboard.explore_roadmap")} <ArrowUpRight size={16} />
           </a>
         </section>
       </div>
@@ -215,19 +215,20 @@ export function Dashboard({
 }
 
 function RankingPanel({ title, values, enabled, error }: { title: string; values?: { value: string; count: number }[]; enabled: boolean; error: string }) {
+  const { t } = useI18n();
   return (
     <section className="panel">
       <div className="panel-heading">
-        <div><h2>{title}</h2><p>Retained queries during the last 24 hours</p></div>
+        <div><h2>{title}</h2><p>{t("dashboard.retained_last_24h")}</p></div>
       </div>
       {!enabled ? (
-        <p className="notice">Unavailable while query logging is disabled.</p>
+        <p className="notice">{t("dashboard.unavailable_no_logging")}</p>
       ) : error ? (
         <p className="notice error" role="alert">{error}</p>
       ) : !values ? (
-        <p role="status">Loading query statistics…</p>
+        <p role="status">{t("dashboard.loading_stats")}</p>
       ) : values.length === 0 ? (
-        <p className="panel-footnote">No retained queries in this window.</p>
+        <p className="panel-footnote">{t("dashboard.no_retained")}</p>
       ) : (
         <ol className="ranking-list">
           {values.map((item) => <li key={item.value}><code>{item.value}</code><strong>{number(item.count)}</strong></li>)}

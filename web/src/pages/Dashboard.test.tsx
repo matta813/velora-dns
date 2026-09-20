@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { Dashboard } from "./Dashboard";
+import { withI18n } from "../test-i18n";
 import type { Snapshot } from "../api";
 
 const snapshot = {
@@ -29,7 +30,7 @@ it("renders bounded top-domain and top-client statistics", async () => {
     }
     return Promise.resolve({ ok: true, json: async () => ({ data: { window_start: "2026-09-07T12:00:00Z", window_end: "2026-09-08T12:00:00Z", total: 3, blocked: 1, top_domains: [{ value: "example.test.", count: 2 }], top_clients: [{ value: "192.0.2.1", count: 3 }] } }) });
   }));
-  render(<Dashboard data={snapshot} history={[]} queryLoggingEnabled />);
+  render(withI18n(<Dashboard data={snapshot} history={[]} queryLoggingEnabled />));
   expect(await screen.findByText("example.test.")).toBeInTheDocument();
   expect(screen.getByText("192.0.2.1")).toBeInTheDocument();
 });
@@ -37,6 +38,6 @@ it("renders bounded top-domain and top-client statistics", async () => {
 it("shows unavailable rankings without requesting history when logging is disabled", () => {
   const fetch = mockOnboardingFetch();
   vi.stubGlobal("fetch", fetch);
-  render(<Dashboard data={snapshot} history={[]} queryLoggingEnabled={false} />);
+  render(withI18n(<Dashboard data={snapshot} history={[]} queryLoggingEnabled={false} />));
   expect(screen.getAllByText(/Unavailable while query logging is disabled/)).toHaveLength(2);
 });

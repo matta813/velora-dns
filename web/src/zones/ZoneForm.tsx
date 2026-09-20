@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import type { ZoneInput } from "./types";
+import { useI18n } from "../i18n-context";
 export function ZoneForm({
   busy,
   save,
@@ -12,6 +13,7 @@ export function ZoneForm({
   const [name, setName] = useState("");
   const [primary, setPrimary] = useState("");
   const [contact, setContact] = useState("");
+  const { t } = useI18n();
   const [error, setError] = useState("");
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -23,23 +25,22 @@ export function ZoneForm({
         contact: contact || undefined,
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to create zone");
+      setError(e instanceof Error ? e.message : t("zones.create_failed"));
     }
   }
   return (
     <form
       className="zone-form"
-      aria-label="Create DNS zone"
+      aria-label={t("zones.create_zone_aria")}
       onSubmit={(e) => void submit(e)}
     >
-      <h3>Create a local zone</h3>
+      <h3>{t("zones.create_title")}</h3>
       <p>
-        Velora will answer for this zone and keep unknown names inside your
-        network.
+        {t("zones.create_text")}
       </p>
       <fieldset disabled={busy}>
         <label>
-          Zone name
+          {t("zones.zone_name")}
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -51,10 +52,10 @@ export function ZoneForm({
           />
         </label>
         <details>
-          <summary>Authority settings</summary>
+          <summary>{t("zones.authority_settings")}</summary>
           <div className="form-grid">
             <label>
-              Primary nameserver
+              {t("zones.primary_nameserver")}
               <input
                 value={primary}
                 onChange={(e) => setPrimary(e.target.value)}
@@ -63,7 +64,7 @@ export function ZoneForm({
               />
             </label>
             <label>
-              Contact (DNS mailbox)
+              {t("zones.contact_mailbox")}
               <input
                 value={contact}
                 onChange={(e) => setContact(e.target.value)}
@@ -80,10 +81,10 @@ export function ZoneForm({
         )}
         <div className="form-actions">
           <button className="button primary" type="submit">
-            {busy ? "Creating…" : "Create zone"}
+            {busy ? t("zones.creating") : t("zones.create_zone")}
           </button>
           <button className="button" type="button" onClick={cancel}>
-            Cancel
+            {t("zones.cancel")}
           </button>
         </div>
       </fieldset>

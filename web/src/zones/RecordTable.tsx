@@ -1,5 +1,6 @@
 import { Pencil, Trash2 } from "lucide-react";
 import { ownerName, type Zone, type ZoneRecord } from "./types";
+import { useI18n } from "../i18n-context";
 export function RecordTable({
   zone,
   disabled,
@@ -11,28 +12,28 @@ export function RecordTable({
   edit: (record: ZoneRecord) => void;
   remove: (record: ZoneRecord) => void;
 }) {
+  const { t } = useI18n();
   if (!zone.records.length)
     return (
       <div className="zone-empty">
-        <h3>No custom records yet</h3>
+        <h3>{t("zones.no_records_title")}</h3>
         <p>
-          Add your first record. SOA and fallback apex NS are managed
-          automatically.
+          {t("zones.no_records_text")}
         </p>
       </div>
     );
   return (
     <div className="table-wrap">
       <table className="records-table">
-        <caption className="sr-only">DNS records for {zone.name}</caption>
+        <caption className="sr-only">{t("zones.records_aria")} {zone.name}</caption>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Value</th>
-            <th>TTL</th>
+            <th>{t("zones.col_name")}</th>
+            <th>{t("zones.col_type")}</th>
+            <th>{t("zones.col_value")}</th>
+            <th>{t("zones.col_ttl")}</th>
             <th>
-              <span className="sr-only">Actions</span>
+              <span className="sr-only">{t("zones.col_actions")}</span>
             </th>
           </tr>
         </thead>
@@ -58,7 +59,7 @@ export function RecordTable({
                     className="icon-button"
                     disabled={disabled}
                     onClick={() => edit(record)}
-                    aria-label={`Edit ${ownerName(record.name, zone.name)} ${record.type} record`}
+                    aria-label={`${t("zones.edit_aria")} ${ownerName(record.name, zone.name)} ${record.type} ${t("zones.record_word")}`}
                   >
                     <Pencil size={14} />
                   </button>
@@ -66,7 +67,7 @@ export function RecordTable({
                     className="icon-button danger-icon"
                     disabled={disabled}
                     onClick={() => remove(record)}
-                    aria-label={`Delete ${ownerName(record.name, zone.name)} ${record.type} record`}
+                    aria-label={`${t("zones.delete_aria")} ${ownerName(record.name, zone.name)} ${record.type} ${t("zones.record_word")}`}
                   >
                     <Trash2 size={14} />
                   </button>

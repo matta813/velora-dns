@@ -81,6 +81,57 @@ func bearerRequest(h http.Handler, method, path, token string) *httptest.Respons
 	return w
 }
 
+func TestLanguagePreferencesEndpoint(t *testing.T) {
+	db, err := database.Open(context.Background(), "sqlite", filepath.Join(t.TempDir(), "auth.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if _, err = db.CreateUser(context.Background(), "admin", "admin password long", "admin"); err != nil {
+		t.Fatal(err)
+	}
+	c := cache.New(10)
+	h := New(Dependencies{Database: db, Auth: db, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: config.Default(), Started: time.Now()})
+	cookie, csrf := loginForTest(t, h, "admin", "admin password long")
+	var w *httptest.ResponseRecorder
+	w = authRequest(h, "GET", "/api/v1/preferences", "", cookie, "")
+	if w.Code != 200 {
+		t.Fatalf("get preferences: %d %s", w.Code, w.Body.String())
+	}
+	var got struct {
+		Data struct {
+			Language string `json:"language"`
+			Theme    string `json:"theme"`
+		} `json:"data"`
+	}
+	if err = json.Unmarshal(w.Body.Bytes(), &got); err != nil || got.Data.Language != "en" || got.Data.Theme != "auto" {
+		t.Fatalf("default preferences: %v %s", got.Data.Language, w.Body.String())
+	}
+	w = authRequest(h, "PUT", "/api/v1/preferences", `{"language":"de"}`, cookie, csrf)
+	if w.Code != 200 {
+		t.Fatalf("set preferences: %d %s", w.Code, w.Body.String())
+	}
+	w = authRequest(h, "PUT", "/api/v1/preferences", `{"language":"fr"}`, cookie, csrf)
+	if w.Code != 400 {
+		t.Fatalf("unsupported language: %d %s", w.Code, w.Body.String())
+	}
+	w = authRequest(h, "PUT", "/api/v1/preferences", `{"theme":"dark"}`, cookie, csrf)
+	if w.Code != 200 {
+		t.Fatalf("set theme: %d %s", w.Code, w.Body.String())
+	}
+	w = authRequest(h, "PUT", "/api/v1/preferences", `{"theme":"sepia"}`, cookie, csrf)
+	if w.Code != 400 {
+		t.Fatalf("unsupported theme: %d %s", w.Code, w.Body.String())
+	}
+	w = authRequest(h, "GET", "/api/v1/preferences", "", cookie, "")
+	if w.Code != 200 {
+		t.Fatalf("get preferences after update: %d %s", w.Code, w.Body.String())
+	}
+	if err = json.Unmarshal(w.Body.Bytes(), &got); err != nil || got.Data.Language != "de" || got.Data.Theme != "dark" {
+		t.Fatalf("updated preferences: %v %s", got.Data.Language, w.Body.String())
+	}
+}
+
 func loginForTest(t *testing.T, h http.Handler, username, password string) (*http.Cookie, string) {
 	t.Helper()
 	w := authRequest(h, "POST", "/api/v1/auth/login", `{"username":"`+username+`","password":"`+password+`"}`, nil, "")

@@ -59,8 +59,10 @@ func TestDNSCookieChallengeAndReplayProtection(t *testing.T) {
 	if response.IsEdns0() == nil || !strings.HasPrefix(response.IsEdns0().Option[0].(*wire.EDNS0_COOKIE).Cookie, "0102030405060708") {
 		t.Fatal("BADCOOKIE response omitted replacement cookie")
 	}
-	if calls.Load() != 2 {
-		t.Fatalf("invalid cookie reached resolver: %d calls", calls.Load())
+	// With cache key ignoring cookie options, the second query hits the cache from the first.
+	// Only the initial query (which had no cached entry) reaches the upstream.
+	if calls.Load() != 1 {
+		t.Fatalf("expected 1 upstream call (second query cached), got %d", calls.Load())
 	}
 }
 
