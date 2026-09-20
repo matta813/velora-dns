@@ -22,7 +22,9 @@ type fakeDB struct{ err error }
 
 type fakeQueryStore struct{}
 
-func (fakeQueryStore) ListQueries(context.Context, querylog.Filter) ([]querylog.Entry, error) { return nil, nil }
+func (fakeQueryStore) ListQueries(context.Context, querylog.Filter) ([]querylog.Entry, error) {
+	return nil, nil
+}
 func (fakeQueryStore) QuerySummary(context.Context, time.Time, time.Time, int) (querylog.Summary, error) {
 	return querylog.Summary{}, nil
 }

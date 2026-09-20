@@ -35,24 +35,24 @@ type Version struct {
 	Built   string `json:"built"`
 }
 type Dependencies struct {
-	Database   Database
-	Zones      ZoneStore
-	Filtering  BlocklistStore
-	Queries    QueryStore
-	Auth       AuthStore
-	DNS        DNS
-	Cache      *cache.Cache
-	Metrics    *metrics.Metrics
-	Config     config.Config
-	ConfigPath string
-	Version    Version
-	Started    time.Time
-	TSIG       TSIGStore
-	Update     UpdateStore
-	Onboarding OnboardingStore
-	Backup     BackupStore
-	Settings   SettingsStore
-	RateLimit  *dns.RateLimitState
+	Database    Database
+	Zones       ZoneStore
+	Filtering   BlocklistStore
+	Queries     QueryStore
+	Auth        AuthStore
+	DNS         DNS
+	Cache       *cache.Cache
+	Metrics     *metrics.Metrics
+	Config      config.Config
+	ConfigPath  string
+	Version     Version
+	Started     time.Time
+	TSIG        TSIGStore
+	Update      UpdateStore
+	Onboarding  OnboardingStore
+	Backup      BackupStore
+	Settings    SettingsStore
+	RateLimit   *dns.RateLimitState
 	ApplyConfig func(config.Config) error
 }
 type Error struct {
