@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/matta813/velora-dns/internal/cache"
@@ -130,7 +131,16 @@ func New(d Dependencies) http.Handler {
 		d.Cache.Flush()
 		respond(w, 200, d.Cache.Stats())
 	})
-	mux.HandleFunc("GET /api/v1/config", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Config) })
+	var (
+		cfgMu         sync.RWMutex
+		currentConfig = d.Config
+	)
+	mux.HandleFunc("GET /api/v1/config", func(w http.ResponseWriter, r *http.Request) {
+		cfgMu.RLock()
+		cfg := currentConfig
+		cfgMu.RUnlock()
+		respond(w, 200, cfg)
+	})
 	mux.HandleFunc("PUT /api/v1/config", func(w http.ResponseWriter, r *http.Request) {
 		if d.ConfigPath == "" {
 			failure(w, 500, "config_path_missing", "Config path not configured")
@@ -140,7 +150,9 @@ func New(d Dependencies) http.Handler {
 			failure(w, 415, "unsupported_media_type", "Use application/json")
 			return
 		}
-		var newConfig config.Config
+		cfgMu.RLock()
+		newConfig := currentConfig
+		cfgMu.RUnlock()
 		if !readJSON(w, r, &newConfig) {
 			return
 		}
@@ -152,6 +164,9 @@ func New(d Dependencies) http.Handler {
 			failure(w, 500, "config_save_failed", err.Error())
 			return
 		}
+		cfgMu.Lock()
+		currentConfig = newConfig
+		cfgMu.Unlock()
 		respond(w, 200, map[string]string{"status": "saved", "message": "Configuration saved. Restart required for changes to take effect."})
 	})
 	mux.Handle("GET /metrics", d.Metrics.Handler())
@@ -167,8 +182,11 @@ func New(d Dependencies) http.Handler {
 		if h, _, err := net.SplitHostPort(host); err == nil {
 			host = h
 		}
+		cfgMu.RLock()
+		allowedHosts := currentConfig.HTTP.AllowedHosts
+		cfgMu.RUnlock()
 		allowed := false
-		for _, candidate := range d.Config.HTTP.AllowedHosts {
+		for _, candidate := range allowedHosts {
 			if candidate == "*" || strings.EqualFold(host, candidate) {
 				allowed = true
 				break
