@@ -1,10 +1,13 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -93,5 +96,55 @@ func TestWildcardHostAllowsRemoteWebUI(t *testing.T) {
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://remote.example/api/v1/status", nil))
 	if w.Code != http.StatusOK {
 		t.Fatalf("wildcard host status = %d", w.Code)
+	}
+}
+
+func TestConfigUpdateInMemory(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "config.yaml")
+	c := cache.New(10)
+	cfg := config.Default()
+	h := New(Dependencies{
+		Database:   fakeDB{},
+		DNS:        fakeDNS(true),
+		Cache:      c,
+		Metrics:    metrics.New(c),
+		Config:     cfg,
+		ConfigPath: tmpFile,
+		Started:    time.Now(),
+	})
+
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8080/api/v1/config", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("initial get: got %d, want 200", w.Code)
+	}
+
+	newCfg := cfg
+	newCfg.LogLevel = "debug"
+	body, err := json.Marshal(newCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	putReq := httptest.NewRequest(http.MethodPut, "http://127.0.0.1:8080/api/v1/config", bytes.NewReader(body))
+	putReq.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, putReq)
+	if w.Code != http.StatusOK {
+		t.Fatalf("put config: got %d, want 200", w.Code)
+	}
+
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8080/api/v1/config", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("get updated config: got %d, want 200", w.Code)
+	}
+	var res struct {
+		Data config.Config `json:"data"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&res); err != nil {
+		t.Fatal(err)
+	}
+	if res.Data.LogLevel != "debug" {
+		t.Fatalf("in-memory config not updated: got %s, want debug", res.Data.LogLevel)
 	}
 }
