@@ -49,6 +49,24 @@ func registerBlocklists(mux *http.ServeMux, service BlocklistStore) {
 		}
 		respond(w, 200, sources)
 	})
+	mux.HandleFunc("GET /api/v1/blocklists/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id, ok := sourceID(w, r)
+		if !ok {
+			return
+		}
+		sources, err := service.List(r.Context())
+		if err != nil {
+			blocklistError(w, err)
+			return
+		}
+		for _, s := range sources {
+			if s.ID == id {
+				respond(w, 200, s)
+				return
+			}
+		}
+		failure(w, 404, "not_found", "Source not found")
+	})
 	mux.HandleFunc("POST /api/v1/blocklists", func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
 			Name    string `json:"name"`
@@ -136,7 +154,7 @@ func registerBlocklists(mux *http.ServeMux, service BlocklistStore) {
 		}
 		respond(w, 200, map[string]int64{"deleted": id})
 	})
-	for path, methods := range map[string]string{"/api/v1/blocklists": "GET, HEAD, POST", "/api/v1/blocklists/{id}": "PUT, DELETE", "/api/v1/blocklists/{id}/content": "PUT", "/api/v1/blocklists/{id}/update": "POST"} {
+	for path, methods := range map[string]string{"/api/v1/blocklists": "GET, HEAD, POST", "/api/v1/blocklists/{id}": "GET, PUT, DELETE", "/api/v1/blocklists/{id}/content": "PUT", "/api/v1/blocklists/{id}/update": "POST"} {
 		mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Allow", methods)
 			failure(w, 405, "method_not_allowed", "Method not allowed")
