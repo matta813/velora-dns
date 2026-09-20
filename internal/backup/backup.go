@@ -52,7 +52,8 @@ func (m *Manager) BackupStatus() (*api.BackupStatus, error) {
 }
 
 func (m *Manager) resolveBackupPath(inputPath string) (string, error) {
-	if strings.TrimSpace(inputPath) == "" {
+	trimmed := strings.TrimSpace(inputPath)
+	if trimmed == "" {
 		return "", errors.New("backup path is required")
 	}
 
@@ -61,19 +62,12 @@ func (m *Manager) resolveBackupPath(inputPath string) (string, error) {
 		return "", fmt.Errorf("resolve backup base directory: %w", err)
 	}
 
-	cleanPath := filepath.Clean(inputPath)
-	resolvedPath := filepath.Join(baseDir, cleanPath)
-	resolvedPath, err = filepath.Abs(resolvedPath)
-	if err != nil {
-		return "", fmt.Errorf("resolve backup path: %w", err)
+	name := filepath.Base(filepath.Clean(trimmed))
+	if name == "." || name == ".." || name == string(filepath.Separator) {
+		return "", errors.New("invalid backup path")
 	}
 
-	rel, err := filepath.Rel(baseDir, resolvedPath)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		return "", errors.New("backup path must be within the backup directory")
-	}
-
-	return resolvedPath, nil
+	return filepath.Join(baseDir, name), nil
 }
 
 func (m *Manager) VerifyBackup(path string) (*api.BackupVerification, error) {
