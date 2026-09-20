@@ -101,10 +101,11 @@ func TestWildcardHostAllowsRemoteWebUI(t *testing.T) {
 	}
 }
 
-func TestConfigUpdateInMemory(t *testing.T) {
+func TestConfigSavePreservesDatabasePathAndUpdatesInMemory(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "config.yaml")
 	c := cache.New(10)
 	cfg := config.Default()
+	cfg.DatabasePath = "/var/lib/velora/velora.db"
 	h := New(Dependencies{
 		Database:   fakeDB{},
 		DNS:        fakeDNS(true),
@@ -121,20 +122,32 @@ func TestConfigUpdateInMemory(t *testing.T) {
 		t.Fatalf("initial get: got %d, want 200", w.Code)
 	}
 
-	newCfg := cfg
-	newCfg.LogLevel = "debug"
-	body, err := json.Marshal(newCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	putReq := httptest.NewRequest(http.MethodPut, "http://127.0.0.1:8080/api/v1/config", bytes.NewReader(body))
+	// Web UI sends JSON without database_path (since database_path is json:"-")
+	payload := []byte(`{
+		"dns": {
+			"listen": ["0.0.0.0:53"],
+			"upstreams": ["1.1.1.1:53", "9.9.9.9:53"],
+			"allowed_clients": ["192.168.20.0/26"]
+		},
+		"http": {
+			"listen": "0.0.0.0:8080",
+			"allowed_hosts": ["*"]
+		},
+		"query_log": {
+			"enabled": true
+		},
+		"log_level": "debug"
+	}`)
+
+	putReq := httptest.NewRequest(http.MethodPut, "http://127.0.0.1:8080/api/v1/config", bytes.NewReader(payload))
 	putReq.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, putReq)
 	if w.Code != http.StatusOK {
-		t.Fatalf("put config: got %d, want 200", w.Code)
+		t.Fatalf("put config failed: got %d (%s), want 200", w.Code, w.Body.String())
 	}
 
+	// Verify GET reflects the in-memory saved changes
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8080/api/v1/config", nil))
 	if w.Code != http.StatusOK {
@@ -148,5 +161,20 @@ func TestConfigUpdateInMemory(t *testing.T) {
 	}
 	if res.Data.LogLevel != "debug" {
 		t.Fatalf("in-memory config not updated: got %s, want debug", res.Data.LogLevel)
+	}
+	if len(res.Data.DNS.Listen) != 1 || res.Data.DNS.Listen[0] != "0.0.0.0:53" {
+		t.Fatalf("dns.listen not updated: got %v", res.Data.DNS.Listen)
+	}
+	if len(res.Data.DNS.AllowedClients) != 1 || res.Data.DNS.AllowedClients[0] != "192.168.20.0/26" {
+		t.Fatalf("dns.allowed_clients not updated: got %v", res.Data.DNS.AllowedClients)
+	}
+
+	// Verify saved file on disk preserved DatabasePath
+	loaded, err := config.Load(tmpFile)
+	if err != nil {
+		t.Fatalf("failed to load saved config: %v", err)
+	}
+	if loaded.DatabasePath != "/var/lib/velora/velora.db" {
+		t.Fatalf("database_path was overwritten or lost: got %q", loaded.DatabasePath)
 	}
 }

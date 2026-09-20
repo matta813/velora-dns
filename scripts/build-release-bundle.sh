@@ -68,7 +68,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/velora
+ReadWritePaths=/var/lib/velora /etc/velora
 
 [Install]
 WantedBy=multi-user.target
