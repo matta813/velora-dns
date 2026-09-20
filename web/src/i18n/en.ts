@@ -54,8 +54,6 @@ const en: Record<string, string> = {
 
   // Settings
   "settings.server_configuration": "Server configuration",
-  "settings.read_only_hint":
-    "Read-only in this foundation. Update YAML or environment variables and restart the server to apply changes.",
   "settings.language": "Language",
   "settings.theme": "Theme",
   "settings.theme_light": "Light",
@@ -63,18 +61,7 @@ const en: Record<string, string> = {
   "settings.theme_auto": "Auto",
   "settings.theme_hint":
     "Auto follows your operating system's light or dark color scheme.",
-  "settings.dns_listeners": "DNS listeners",
-  "settings.allowed_clients": "Allowed client networks",
-  "settings.upstreams": "Upstreams",
-  "settings.attempt_timeout": "Attempt timeout",
-  "settings.seconds": "seconds",
-  "settings.retries": "Retries after first round",
-  "settings.max_concurrent": "Maximum concurrent queries",
-  "settings.cache_capacity": "Cache capacity",
   "settings.log_level": "Log level",
-  "settings.version": "Version",
-  "settings.security_notice":
-    "Management access requires an authenticated user or scoped API token. Keep this interface on a trusted local network or behind an authenticated tunnel.",
   "settings.rate_limiting": "Rate limiting",
   "settings.rate_limit_hint":
     "Rate limiting is disabled by default. Enable it to protect the resolver from source floods and high query rates.",
@@ -95,8 +82,6 @@ const en: Record<string, string> = {
   "settings.cache_ttl_hint": "86400 seconds = 24 hours. Range: 0–604800 seconds; 0 uses each upstream's original TTL. Upstream changes may take this long to appear. Changing this clears existing cached answers. Zero-TTL and signed DNSSEC answers retain their original TTL.",
   "settings.cache_ttl_invalid": "Enter a whole number from 0 to 604800 seconds.",
   "settings.dns_listen_label": "DNS listen addresses (comma-separated)",
-  "settings.dns_listen_localhost": "Localhost only (127.0.0.1:53)",
-  "settings.dns_listen_all": "All interfaces (0.0.0.0:53) — LAN access",
   "settings.dns_listen_warning":
     "Warning: 0.0.0.0 exposes DNS to your network. Ensure the firewall allows only trusted clients.",
   "settings.upstreams_label": "Upstream DNS servers (comma-separated)",
@@ -107,8 +92,6 @@ const en: Record<string, string> = {
     "Only these networks can query the resolver. Example: 192.168.1.0/24, 10.0.0.0/8",
   "settings.web_section": "Web UI settings",
   "settings.web_listen_label": "Web UI listen address (IP:port)",
-  "settings.web_listen_localhost": "Localhost only (127.0.0.1:8080)",
-  "settings.web_listen_all": "All interfaces (0.0.0.0:8080) — LAN access",
   "settings.web_listen_warning":
     "Warning: 0.0.0.0 exposes the Web UI to your network. Use a firewall or authentication.",
   "settings.allowed_hosts_label": "Allowed hosts (comma-separated)",
@@ -253,7 +236,6 @@ const en: Record<string, string> = {
   "blocklists.empty_title": "No external blocklists",
   "blocklists.empty_text": "Add a trusted public hosts or domain list to apply DNS blocking.",
   "blocklists.caption": "External blocklist sources",
-  "blocklists.col_name": "Name",
   "blocklists.col_source": "Source",
   "blocklists.col_status": "Status",
   "blocklists.col_last_update": "Last update",
