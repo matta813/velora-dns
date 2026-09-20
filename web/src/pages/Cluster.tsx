@@ -36,7 +36,7 @@ export function Cluster() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let active = true;
@@ -59,7 +59,7 @@ export function Cluster() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [t]);
 
   function timeAgo(dateStr: string): string {
     const d = new Date(dateStr);
