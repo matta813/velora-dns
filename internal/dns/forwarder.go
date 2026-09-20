@@ -153,11 +153,7 @@ func (f *Forwarder) exchangeDoH(ctx context.Context, query *wire.Msg, upstream s
 	}
 	request.Header.Set("Content-Type", dnsMessageMediaType)
 	request.Header.Set("Accept", dnsMessageMediaType)
-	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
-	if f.TLSConfig != nil {
-		tlsConfig = f.TLSConfig.Clone()
-	}
-	client := f.httpClient(tlsConfig)
+	client := f.httpClient()
 	response, err := client.Do(request)
 	if err != nil {
 		return nil, err
@@ -178,8 +174,12 @@ func (f *Forwarder) exchangeDoH(ctx context.Context, query *wire.Msg, upstream s
 	return message, nil
 }
 
-func (f *Forwarder) httpClient(tlsConfig *tls.Config) *http.Client {
+func (f *Forwarder) httpClient() *http.Client {
 	f.dohOnce.Do(func() {
+		tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+		if f.TLSConfig != nil {
+			tlsConfig = f.TLSConfig.Clone()
+		}
 		f.dohClient = &http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig, ForceAttemptHTTP2: true, MaxIdleConns: 16, MaxIdleConnsPerHost: 8, MaxConnsPerHost: 32, IdleConnTimeout: 30 * time.Second, ResponseHeaderTimeout: f.Timeout}, Timeout: f.Timeout}
 	})
 	return f.dohClient

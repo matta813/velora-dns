@@ -125,3 +125,31 @@ func TestDNSSECConfiguration(t *testing.T) {
 		t.Fatal("DNSSEC without trust anchor accepted")
 	}
 }
+
+func TestListEnvVarsAcceptNewlineDelimiter(t *testing.T) {
+	lookup := func(k string) (string, bool) {
+		v, ok := map[string]string{
+			"VELORA_DNS_LISTEN":          "127.0.0.1:5353\n[::1]:5353",
+			"VELORA_DNS_UPSTREAMS":       "1.1.1.1:53\n9.9.9.9:53",
+			"VELORA_DNS_ALLOWED_CLIENTS": "127.0.0.0/8\n::1/128",
+			"VELORA_HTTP_ALLOWED_HOSTS":  "localhost\n127.0.0.1",
+		}[k]
+		return v, ok
+	}
+	c, err := Parse(nil, lookup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.DNS.Listen) != 2 || c.DNS.Listen[0] != "127.0.0.1:5353" || c.DNS.Listen[1] != "[::1]:5353" {
+		t.Fatalf("DNS listen not split by newline: %v", c.DNS.Listen)
+	}
+	if len(c.DNS.Upstreams) != 2 || c.DNS.Upstreams[0] != "1.1.1.1:53" || c.DNS.Upstreams[1] != "9.9.9.9:53" {
+		t.Fatalf("DNS upstreams not split by newline: %v", c.DNS.Upstreams)
+	}
+	if len(c.DNS.AllowedClients) != 2 || c.DNS.AllowedClients[0] != "127.0.0.0/8" || c.DNS.AllowedClients[1] != "::1/128" {
+		t.Fatalf("allowed clients not split by newline: %v", c.DNS.AllowedClients)
+	}
+	if len(c.HTTP.AllowedHosts) != 2 || c.HTTP.AllowedHosts[0] != "localhost" || c.HTTP.AllowedHosts[1] != "127.0.0.1" {
+		t.Fatalf("HTTP allowed hosts not split by newline: %v", c.HTTP.AllowedHosts)
+	}
+}
