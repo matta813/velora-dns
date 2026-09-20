@@ -74,6 +74,8 @@ export interface BlocklistSource {
   enabled: boolean;
   last_updated_at?: string;
   last_error: string;
+  domains?: string[];
+  domain_count?: number;
 }
 export class APIError extends Error {
   constructor(

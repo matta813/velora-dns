@@ -86,7 +86,7 @@ func (s *Store) LoadSources(ctx context.Context) ([]filtering.Source, error) {
 		out[i].Domains = append(out[i].Domains, domain)
 		count++
 	}
-	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, err
 	}
 	if count > filtering.MaxTotalDomains {

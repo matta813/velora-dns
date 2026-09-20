@@ -138,7 +138,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		}
 	}
 	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer, Validator: validator}
-	resolver := &dns.Resolver{Cache: memory, Forwarder: forwarder, Local: local, Filter: matcher, BlockMode: c.Filtering.BlockMode}
+	resolver := dns.NewResolver(local, matcher, memory, forwarder, c.Filtering.BlockMode)
 	cookieSecret := make([]byte, 32)
 	if _, err = rand.Read(cookieSecret); err != nil {
 		return fmt.Errorf("initialize DNS cookie secret: %w", err)
@@ -150,6 +150,21 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		}
 	}
 	dnsHandler := &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), RateLimit: rateLimitState, Observer: observer, Audit: audit, CookieSecret: cookieSecret}
+	applyConfig := func(updated config.Config) error {
+		audit.SetEnabled(updated.QueryLog.Enabled)
+		rateLimitState.Configure(updated.DNS.RateLimitEnabled, updated.DNS.GlobalQPS, updated.DNS.ClientQPS, updated.DNS.RateLimitBurst)
+		newAllowed := make([]netip.Prefix, 0, len(updated.DNS.AllowedClients))
+		for _, cidr := range updated.DNS.AllowedClients {
+			prefix, err := netip.ParsePrefix(cidr)
+			if err != nil {
+				return err
+			}
+			newAllowed = append(newAllowed, prefix)
+		}
+		dnsHandler.UpdateConfig(newAllowed, updated.DNS.MaxConcurrent)
+		resolver.SetBlockMode(updated.Filtering.BlockMode)
+		return nil
+	}
 	listener, err := dns.StartWithOptions(c.DNS.Listen, dnsHandler, dns.ServerOptions{MaxTCPConnections: c.DNS.MaxTCPConns, Observer: observer})
 	if err != nil {
 		return err
@@ -204,7 +219,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		if tlsErr != nil {
 			return tlsErr
 		}
-		doqServer, err = dns.StartQUIC(c.DNS.DoQListen, dnsHandler, tlsConfig)
+		doqServer, err = dns.StartQUIC(c.DNS.DoQListen, dnsHandler, tlsConfig.Clone())
 		if err != nil {
 			return err
 		}
@@ -215,15 +230,12 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 			result = errors.Join(result, doqServer.Shutdown(shutdown))
 		}()
 	}
-	httpNetwork := "tcp6"
-	if address, parseErr := netip.ParseAddrPort(c.HTTP.Listen); parseErr == nil && address.Addr().Is4() {
-		httpNetwork = "tcp4"
-	}
+	httpNetwork := "tcp"
 	socket, err := net.Listen(httpNetwork, c.HTTP.Listen)
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, Update: updateManager, Backup: backupManager}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, Update: updateManager, Backup: backupManager, Onboarding: db, ApplyConfig: applyConfig}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)

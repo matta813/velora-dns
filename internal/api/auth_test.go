@@ -160,6 +160,78 @@ func TestRateLimitSettingsEndpoint(t *testing.T) {
 	}
 }
 
+func TestUserManagement(t *testing.T) {
+	db, err := database.Open(context.Background(), "sqlite", filepath.Join(t.TempDir(), "users.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if _, err = db.CreateUser(context.Background(), "admin", "admin password long", "admin"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.CreateUser(context.Background(), "viewer", "viewer password long", "viewer"); err != nil {
+		t.Fatal(err)
+	}
+	c := cache.New(10)
+	h := New(Dependencies{Database: db, Auth: db, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: config.Default(), Started: time.Now()})
+	adminCookie, adminCSRF := loginForTest(t, h, "admin", "admin password long")
+
+	// List users
+	w := authRequest(h, "GET", "/api/v1/users", "", adminCookie, "")
+	if w.Code != 200 {
+		t.Fatalf("list users: %d", w.Code)
+	}
+
+	// Create user
+	w = authRequest(h, "POST", "/api/v1/users", `{"username":"operator","password":"operator password long","role":"operator"}`, adminCookie, adminCSRF)
+	if w.Code != 201 {
+		t.Fatalf("create user: %d %s", w.Code, w.Body.String())
+	}
+
+	// Get user ID from response
+	var created struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	if err = json.Unmarshal(w.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+
+	// Change role
+	w = authRequest(h, "PUT", "/api/v1/users/"+strconv.FormatInt(created.Data.ID, 10)+"/role", `{"role":"viewer"}`, adminCookie, adminCSRF)
+	if w.Code != 200 {
+		t.Fatalf("change role: %d %s", w.Code, w.Body.String())
+	}
+
+	// Change password
+	w = authRequest(h, "PUT", "/api/v1/users/"+strconv.FormatInt(created.Data.ID, 10)+"/password", `{"password":"new password long enough"}`, adminCookie, adminCSRF)
+	if w.Code != 200 {
+		t.Fatalf("change password: %d %s", w.Code, w.Body.String())
+	}
+
+	// Disable user
+	w = authRequest(h, "DELETE", "/api/v1/users/"+strconv.FormatInt(created.Data.ID, 10), "", adminCookie, adminCSRF)
+	if w.Code != 200 {
+		t.Fatalf("disable user: %d %s", w.Code, w.Body.String())
+	}
+
+	// Cannot disable self
+	adminID := int64(1) // admin user
+	w = authRequest(h, "DELETE", "/api/v1/users/"+strconv.FormatInt(adminID, 10), "", adminCookie, adminCSRF)
+	if w.Code != 400 {
+		t.Fatalf("admin disable self: expected 400, got %d", w.Code)
+	}
+
+	// Viewer cannot manage users
+	viewerCookie, viewerCSRF := loginForTest(t, h, "viewer", "viewer password long")
+	w = authRequest(h, "GET", "/api/v1/users", "", viewerCookie, "")
+	if w.Code != 403 {
+		t.Fatalf("viewer list users: %d", w.Code)
+	}
+	_ = viewerCSRF
+}
+
 func loginForTest(t *testing.T, h http.Handler, username, password string) (*http.Cookie, string) {
 	t.Helper()
 	w := authRequest(h, "POST", "/api/v1/auth/login", `{"username":"`+username+`","password":"`+password+`"}`, nil, "")

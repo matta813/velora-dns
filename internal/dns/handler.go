@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"sync"
 	"time"
 
 	"github.com/matta813/velora-dns/internal/querylog"
@@ -24,6 +25,14 @@ type Handler struct {
 	Audit        AuditLogger
 	CookieSecret []byte
 	RateLimit    *RateLimitState
+	mu           sync.RWMutex
+}
+
+func (h *Handler) UpdateConfig(allowed []netip.Prefix, maxConcurrent int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.Allowed = allowed
+	h.Slots = make(chan struct{}, maxConcurrent)
 }
 
 func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
@@ -67,7 +76,10 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 	clientIP = host
 	allowed := false
 	if err == nil && e == nil {
-		for _, prefix := range h.Allowed {
+		h.mu.RLock()
+		prefixes := h.Allowed
+		h.mu.RUnlock()
+		for _, prefix := range prefixes {
 			if prefix.Contains(ip.Unmap()) {
 				allowed = true
 				break
@@ -102,9 +114,12 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 		m.Rcode = wire.RcodeRefused
 		return
 	}
+	h.mu.RLock()
+	slots := h.Slots
+	h.mu.RUnlock()
 	select {
-	case h.Slots <- struct{}{}:
-		defer func() { <-h.Slots }()
+	case slots <- struct{}{}:
+		defer func() { <-slots }()
 	default:
 		m.Rcode = wire.RcodeServerFailure
 		source = "overload"

@@ -59,13 +59,20 @@ type Logger struct {
 func New(store Store, enabled bool, capacity int, retention time.Duration, maxRows int) *Logger {
 	return &Logger{store: store, enabled: enabled, queue: make(chan Entry, capacity), retention: retention, maxRows: maxRows}
 }
+func (l *Logger) SetEnabled(enabled bool) {
+	l.mu.Lock()
+	l.enabled = enabled
+	l.mu.Unlock()
+}
 func (l *Logger) Record(e Entry) {
-	if !l.enabled {
+	l.mu.RLock()
+	enabled := l.enabled
+	stopped := l.stopped
+	l.mu.RUnlock()
+	if !enabled {
 		return
 	}
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-	if l.stopped {
+	if stopped {
 		l.dropped.Add(1)
 		return
 	}

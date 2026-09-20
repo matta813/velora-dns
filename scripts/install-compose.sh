@@ -115,7 +115,12 @@ if ! sudo test -f /etc/velora/updater.env; then
   sudo chmod 0644 /etc/velora/updater.env
 fi
 
-sudo env VELORA_BOOTSTRAP_USERNAME="$bootstrap_user" VELORA_BOOTSTRAP_PASSWORD="$bootstrap_password" VELORA_CHANNEL="$channel" VELORA_HTTP_HOST="$http_host" VELORA_DNS_HOST="$dns_host" docker compose up --build -d
+sudo install -d -m 0700 /run/velora
+compose_env=$(sudo mktemp /run/velora/.env.XXXXXX)
+sudo chmod 0600 "$compose_env"
+printf 'VELORA_BOOTSTRAP_USERNAME=%s\nVELORA_BOOTSTRAP_PASSWORD=%s\nVELORA_CHANNEL=%s\nVELORA_HTTP_HOST=%s\nVELORA_DNS_HOST=%s\n' "$bootstrap_user" "$bootstrap_password" "$channel" "$http_host" "$dns_host" | sudo tee "$compose_env" >/dev/null
+sudo docker compose --env-file "$compose_env" up --build -d
+sudo rm -f "$compose_env"
 sudo docker compose ps
 
 if ! id -nG "$USER" | tr ' ' '\n' | grep -qx docker; then

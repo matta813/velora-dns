@@ -202,7 +202,8 @@ func (c *TransferClient) IXFR(ctx context.Context, zone, primaryAddr string, ser
 		return result, nil
 	}
 
-	for {
+	maxMessages := 1000
+	for i := 0; i < maxMessages; i++ {
 		if ctx.Err() != nil {
 			result.Errors = append(result.Errors, ctx.Err())
 			return result, nil
@@ -269,7 +270,13 @@ func (h *TransferHandler) ServeAXFR(w wire.ResponseWriter, q *wire.Msg) {
 		return
 	}
 
-	if h.TSIGStore != nil && q.IsTsig() != nil {
+	if h.TSIGStore != nil {
+		if q.IsTsig() == nil {
+			m := new(wire.Msg)
+			m.SetRcode(q, wire.RcodeRefused)
+			_ = w.WriteMsg(m)
+			return
+		}
 		if _, err := h.TSIGStore.VerifyMessage(q); err != nil {
 			m := new(wire.Msg)
 			m.SetRcode(q, wire.RcodeRefused)

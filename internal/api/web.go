@@ -7,16 +7,17 @@ import (
 	"strings"
 )
 
-func web(dir string) http.Handler {
-	fs := http.FileServer(http.Dir(dir))
+func web(currentDir func() string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			failure(w, 405, "method_not_allowed", "Method not allowed")
 			return
 		}
+		dir := currentDir()
+		fs := http.FileServer(http.Dir(dir))
 		// Only explicit UI routes use the SPA fallback; missing assets remain 404.
 		switch r.URL.Path {
-		case "/", "/cache", "/settings", "/zones", "/blocklists", "/queries":
+		case "/", "/cache", "/settings", "/zones", "/blocklists", "/queries", "/updates", "/backup":
 			if _, err := os.Stat(filepath.Join(dir, "index.html")); err != nil {
 				failure(w, 503, "ui_unavailable", "Build the web UI with npm run build")
 				return

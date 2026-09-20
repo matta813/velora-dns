@@ -33,7 +33,7 @@ type APIToken struct {
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT id,username,role FROM users WHERE disabled=0 ORDER BY username")
+	rows, err := s.db.QueryContext(ctx, "SELECT id,username,role FROM users WHERE disabled=false ORDER BY username")
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +45,9 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 			return nil, err
 		}
 		users = append(users, u)
+	}
+	if users == nil {
+		users = []User{}
 	}
 	return users, rows.Err()
 }
@@ -109,7 +112,7 @@ func (s *Store) Session(ctx context.Context, token []byte) (User, []byte, error)
 	var csrf []byte
 	var expires string
 	p := s.placeholder
-	query := fmt.Sprintf("SELECT u.id,u.username,u.role,s.csrf_token,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=%s AND u.disabled=0", p(1))
+	query := fmt.Sprintf("SELECT u.id,u.username,u.role,s.csrf_token,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=%s AND u.disabled=false", p(1))
 	err := s.db.QueryRowContext(ctx, query, hash[:]).Scan(&u.ID, &u.Username, &u.Role, &csrf, &expires)
 	if err != nil {
 		return User{}, nil, ErrAuthentication
@@ -168,7 +171,7 @@ func (s *Store) AuthenticateAPIToken(ctx context.Context, raw []byte) (User, API
 	var token APIToken
 	var expires string
 	p := s.placeholder
-	query := fmt.Sprintf("SELECT u.id,u.username,u.role,t.id,t.name,t.scopes,t.expires_at FROM api_tokens t JOIN users u ON u.id=t.created_by WHERE t.token_hash=%s AND t.revoked_at IS NULL AND u.disabled=0", p(1))
+	query := fmt.Sprintf("SELECT u.id,u.username,u.role,t.id,t.name,t.scopes,t.expires_at FROM api_tokens t JOIN users u ON u.id=t.created_by WHERE t.token_hash=%s AND t.revoked_at IS NULL AND u.disabled=false", p(1))
 	err := s.db.QueryRowContext(ctx, query, hash[:]).Scan(&user.ID, &user.Username, &user.Role, &token.ID, &token.Name, &token.Scopes, &expires)
 	if err != nil {
 		return User{}, APIToken{}, ErrAuthentication
@@ -286,3 +289,67 @@ func (s *Store) SetTheme(ctx context.Context, userID int64, theme string) error 
 func validTheme(theme string) bool { return theme == "light" || theme == "dark" || theme == "auto" }
 
 func validRole(role string) bool { return role == "admin" || role == "operator" || role == "viewer" }
+
+func (s *Store) DisableUser(ctx context.Context, id int64) error {
+	p := s.placeholder
+	query := fmt.Sprintf("UPDATE users SET disabled=true WHERE id=%s AND disabled=false", p(1))
+	result, err := s.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return ErrAuthentication
+	}
+	// Revoke all sessions for this user
+	delQuery := fmt.Sprintf("DELETE FROM sessions WHERE user_id=%s", p(1))
+	_, _ = s.db.ExecContext(ctx, delQuery, id)
+	return nil
+}
+
+func (s *Store) UpdateUserPassword(ctx context.Context, id int64, password string) error {
+	if len(password) < 12 {
+		return fmt.Errorf("password must be at least 12 characters")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	p := s.placeholder
+	query := fmt.Sprintf("UPDATE users SET password_hash=%s WHERE id=%s AND disabled=false", p(1), p(2))
+	result, err := s.db.ExecContext(ctx, query, string(hash), id)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return ErrAuthentication
+	}
+	return nil
+}
+
+func (s *Store) UpdateUserRole(ctx context.Context, id int64, role string) error {
+	if !validRole(role) {
+		return fmt.Errorf("invalid role")
+	}
+	p := s.placeholder
+	query := fmt.Sprintf("UPDATE users SET role=%s WHERE id=%s AND disabled=false", p(1), p(2))
+	result, err := s.db.ExecContext(ctx, query, role, id)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return ErrAuthentication
+	}
+	return nil
+}

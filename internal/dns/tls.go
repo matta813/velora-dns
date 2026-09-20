@@ -82,8 +82,13 @@ func StartTLS(address string, handler wire.Handler, config *tls.Config, options 
 
 func network(address string) string {
 	host, _, err := net.SplitHostPort(address)
-	if err == nil && net.ParseIP(host).To4() != nil {
-		return "tcp4"
+	if err == nil {
+		if ip := net.ParseIP(host); ip != nil && ip.To4() != nil {
+			return "tcp4"
+		}
+		if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
+			return "tcp6"
+		}
 	}
-	return "tcp6"
+	return "tcp"
 }

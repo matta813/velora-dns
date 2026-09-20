@@ -9,7 +9,7 @@ func (r *Resolver) blocked(q *wire.Msg) Result {
 	m := new(wire.Msg)
 	m.SetRcode(q, wire.RcodeNameError)
 	m.RecursionAvailable = true
-	if r.BlockMode == "ZERO" {
+	if r.getBlockMode() == "ZERO" {
 		m.Rcode = wire.RcodeSuccess
 		header := wire.RR_Header{Name: q.Question[0].Name, Rrtype: q.Question[0].Qtype, Class: wire.ClassINET, Ttl: 0}
 		switch header.Rrtype {

@@ -15,6 +15,20 @@ func TestPostgresMigrationAdaptationUsesBinaryType(t *testing.T) {
 	}
 }
 
+func TestPostgresMigrationAdaptationUsesBooleanTypes(t *testing.T) {
+	s := &Store{driver: "postgres"}
+	adapted := s.adaptMigration("enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)), disabled INTEGER NOT NULL DEFAULT 0 CHECK(disabled IN (0, 1)), cache_hit INTEGER NOT NULL DEFAULT 0")
+	if !strings.Contains(adapted, "enabled BOOLEAN NOT NULL DEFAULT true") || !strings.Contains(adapted, "CHECK(enabled IN (false, true))") {
+		t.Fatalf("enabled bool migration not adapted: %s", adapted)
+	}
+	if !strings.Contains(adapted, "disabled BOOLEAN NOT NULL DEFAULT false") || !strings.Contains(adapted, "CHECK(disabled IN (false, true))") {
+		t.Fatalf("disabled bool migration not adapted: %s", adapted)
+	}
+	if !strings.Contains(adapted, "cache_hit BOOLEAN NOT NULL DEFAULT false") {
+		t.Fatalf("cache_hit bool migration not adapted: %s", adapted)
+	}
+}
+
 func TestOpenReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "data", "test.db")
 	for range 2 {
