@@ -19,9 +19,13 @@ func TestParseHosts(t *testing.T) {
 	}
 }
 
-func TestParseHostsRejectsUnderscore(t *testing.T) {
-	if _, err := ParseHosts([]byte("0.0.0.0 invalid_thing\n")); err == nil {
-		t.Fatal("expected error for underscore domain")
+func TestParseHostsAllowsUnderscore(t *testing.T) {
+	got, err := ParseHosts([]byte("0.0.0.0 _dmarc.example\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != "_dmarc.example" {
+		t.Fatalf("%v", got)
 	}
 }
 

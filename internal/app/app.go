@@ -138,7 +138,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		}
 	}
 	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer, Validator: validator}
-	resolver := &dns.Resolver{Cache: memory, Forwarder: forwarder, Local: local, Filter: matcher, BlockMode: c.Filtering.BlockMode}
+	resolver := dns.NewResolver(local, matcher, memory, forwarder, c.Filtering.BlockMode)
 	cookieSecret := make([]byte, 32)
 	if _, err = rand.Read(cookieSecret); err != nil {
 		return fmt.Errorf("initialize DNS cookie secret: %w", err)
@@ -162,6 +162,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 			newAllowed = append(newAllowed, prefix)
 		}
 		dnsHandler.UpdateConfig(newAllowed, updated.DNS.MaxConcurrent)
+		resolver.SetBlockMode(updated.Filtering.BlockMode)
 		return nil
 	}
 	listener, err := dns.StartWithOptions(c.DNS.Listen, dnsHandler, dns.ServerOptions{MaxTCPConnections: c.DNS.MaxTCPConns, Observer: observer})

@@ -3,6 +3,7 @@ package dns
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/matta813/velora-dns/internal/cache"
 	wire "github.com/miekg/dns"
@@ -20,11 +21,25 @@ type Local interface {
 }
 type Filter interface{ Blocked(string) bool }
 type Resolver struct {
-	BlockMode string
+	blockMode atomic.Value // stores string
 	Local     Local
 	Filter    Filter
 	Cache     *cache.Cache
 	Forwarder Upstream
+}
+
+func NewResolver(local Local, filter Filter, cache *cache.Cache, forwarder Upstream, blockMode string) *Resolver {
+	r := &Resolver{Local: local, Filter: filter, Cache: cache, Forwarder: forwarder}
+	r.blockMode.Store(blockMode)
+	return r
+}
+
+func (r *Resolver) SetBlockMode(mode string) { r.blockMode.Store(mode) }
+func (r *Resolver) getBlockMode() string {
+	if v := r.blockMode.Load(); v != nil {
+		return v.(string)
+	}
+	return ""
 }
 
 func (r *Resolver) Resolve(ctx context.Context, q *wire.Msg) (Result, error) {
