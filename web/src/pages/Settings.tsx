@@ -9,7 +9,7 @@ import {
 } from "../api";
 import { SUPPORTED_LANGUAGES, languageName, type Language } from "../i18n";
 import { useI18n } from "../i18n-context";
-import { themeLabel, SUPPORTED_THEMES, type Theme } from "../theme";
+import { SUPPORTED_THEMES, type Theme } from "../theme";
 import { useTheme } from "../theme-context";
 
 interface ConfigFormData {
@@ -154,7 +154,7 @@ export function Settings({ data }: { data: Snapshot }) {
             >
               {SUPPORTED_THEMES.map((code) => (
                 <option key={code} value={code}>
-                  {themeLabel(code)}
+                  {t(`settings.theme_${code}`)}
                 </option>
               ))}
             </select>

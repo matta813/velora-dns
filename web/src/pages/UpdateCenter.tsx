@@ -15,6 +15,11 @@ interface Props {
 
 export function UpdateCenter({ readOnly }: Props) {
   const { t } = useI18n();
+  const stateLabel = (state: string) => {
+    const key = `updates.state_${state}`;
+    const translated = t(key);
+    return translated === key ? state : translated;
+  };
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [history, setHistory] = useState<UpdateEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +100,7 @@ export function UpdateCenter({ readOnly }: Props) {
               )}
               <strong>
                 {status.updating
-                  ? `${t("updates.updating")} ${status.state}`
+                  ? `${t("updates.updating")} ${stateLabel(status.state)}`
                   : `${t("updates.installed")} ${status.installed}`}
               </strong>
             </div>
@@ -187,7 +192,7 @@ export function UpdateCenter({ readOnly }: Props) {
                               : ""
                       }`}
                     >
-                      {entry.state}
+                      {stateLabel(entry.state)}
                     </span>
                     {entry.rollback_used && t("updates.rolled_back")}
                   </td>
