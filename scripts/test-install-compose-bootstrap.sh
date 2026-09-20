@@ -23,6 +23,21 @@ if [ "$1" = git ] && [ "$2" = clone ]; then
   exit 0
 fi
 if [ "$1" = env ]; then shift; exec env "$@"; fi
+if [ "$1" = install ]; then
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -d) shift ;;
+      -m) shift ;;
+      *) mkdir -p "$1" 2>/dev/null || touch "$1"; break ;;
+    esac
+  done
+  exit 0
+fi
+if [ "$1" = mktemp ]; then echo "$MOCK_COMPOSE_ENV"; exit 0; fi
+if [ "$1" = chmod ]; then exit 0; fi
+if [ "$1" = rm ]; then exit 0; fi
+if [ "$1" = tee ]; then cat > "$2"; exit 0; fi
 exit 0
 EOF
 
@@ -40,9 +55,9 @@ EOF
 chmod +x "$mock_bin"/*
 cp "$root/scripts/install-compose.sh" "$tmp_dir/remote/install-compose.sh"
 
-TEST_INSTALLER_LOG="$log_file" PATH="$mock_bin:$PATH" VELORA_INSTALL_DIR="$tmp_dir/source" VELORA_CHANNEL=beta VELORA_HTTP_HOST=0.0.0.0 VELORA_DNS_HOST=0.0.0.0 \
+TEST_INSTALLER_LOG="$log_file" MOCK_COMPOSE_ENV="$tmp_dir/compose.env" PATH="$mock_bin:$PATH" VELORA_INSTALL_DIR="$tmp_dir/source" VELORA_CHANNEL=beta VELORA_HTTP_HOST=0.0.0.0 VELORA_DNS_HOST=0.0.0.0 \
   sh "$tmp_dir/remote/install-compose.sh"
 
-assert_logged "sudo env VELORA_BOOTSTRAP_USERNAME=admin VELORA_BOOTSTRAP_PASSWORD=generated-password-which-is-long-enough VELORA_CHANNEL=beta VELORA_HTTP_HOST=0.0.0.0 VELORA_DNS_HOST=0.0.0.0 docker compose up --build -d"
+assert_logged "sudo docker compose --env-file $tmp_dir/compose.env up --build -d"
 assert_logged "sudo docker compose ps"
 printf '%s\n' 'Compose installer test passed'
