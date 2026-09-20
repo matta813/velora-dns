@@ -92,3 +92,30 @@ func TestLanguagePreferenceRoundTrip(t *testing.T) {
 		t.Fatal("unsupported language accepted")
 	}
 }
+
+func TestThemePreferenceRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(ctx, "sqlite", filepath.Join(t.TempDir(), "auth.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	user, err := store.CreateUser(ctx, "admin", "correct horse battery staple", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	theme, err := store.GetTheme(ctx, user.ID)
+	if err != nil || theme != "auto" {
+		t.Fatalf("default theme: %v %v", theme, err)
+	}
+	if err = store.SetTheme(ctx, user.ID, "dark"); err != nil {
+		t.Fatal(err)
+	}
+	theme, err = store.GetTheme(ctx, user.ID)
+	if err != nil || theme != "dark" {
+		t.Fatalf("updated theme: %v %v", theme, err)
+	}
+	if err = store.SetTheme(ctx, user.ID, "sepia"); err == nil {
+		t.Fatal("unsupported theme accepted")
+	}
+}

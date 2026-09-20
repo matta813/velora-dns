@@ -60,6 +60,9 @@ const en: Record<string, string> = {
   "settings.read_only_hint":
     "Read-only in this foundation. Update YAML or environment variables and restart the server to apply changes.",
   "settings.language": "Language",
+  "settings.theme": "Theme",
+  "settings.theme_hint":
+    "Auto follows your operating system's light or dark color scheme.",
   "settings.dns_listeners": "DNS listeners",
   "settings.allowed_clients": "Allowed client networks",
   "settings.upstreams": "Upstreams",
@@ -428,6 +431,9 @@ const de: Record<string, string> = {
   "settings.read_only_hint":
     "In dieser Foundation schreibgeschützt. YAML oder Umgebungsvariablen aktualisieren und den Server neu starten, um Änderungen anzuwenden.",
   "settings.language": "Sprache",
+  "settings.theme": "Farbschema",
+  "settings.theme_hint":
+    "Auto folgt dem hellen oder dunklen Farbschema Ihres Betriebssystems.",
   "settings.dns_listeners": "DNS-Listener",
   "settings.allowed_clients": "Erlaubte Client-Netzwerke",
   "settings.upstreams": "Upstream-Server",

@@ -102,10 +102,11 @@ func TestLanguagePreferencesEndpoint(t *testing.T) {
 	var got struct {
 		Data struct {
 			Language string `json:"language"`
+			Theme    string `json:"theme"`
 		} `json:"data"`
 	}
-	if err = json.Unmarshal(w.Body.Bytes(), &got); err != nil || got.Data.Language != "en" {
-		t.Fatalf("default language: %v %s", got.Data.Language, w.Body.String())
+	if err = json.Unmarshal(w.Body.Bytes(), &got); err != nil || got.Data.Language != "en" || got.Data.Theme != "auto" {
+		t.Fatalf("default preferences: %v %s", got.Data.Language, w.Body.String())
 	}
 	w = authRequest(h, "PUT", "/api/v1/preferences", `{"language":"de"}`, cookie, csrf)
 	if w.Code != 200 {
@@ -115,12 +116,20 @@ func TestLanguagePreferencesEndpoint(t *testing.T) {
 	if w.Code != 400 {
 		t.Fatalf("unsupported language: %d %s", w.Code, w.Body.String())
 	}
+	w = authRequest(h, "PUT", "/api/v1/preferences", `{"theme":"dark"}`, cookie, csrf)
+	if w.Code != 200 {
+		t.Fatalf("set theme: %d %s", w.Code, w.Body.String())
+	}
+	w = authRequest(h, "PUT", "/api/v1/preferences", `{"theme":"sepia"}`, cookie, csrf)
+	if w.Code != 400 {
+		t.Fatalf("unsupported theme: %d %s", w.Code, w.Body.String())
+	}
 	w = authRequest(h, "GET", "/api/v1/preferences", "", cookie, "")
 	if w.Code != 200 {
 		t.Fatalf("get preferences after update: %d %s", w.Code, w.Body.String())
 	}
-	if err = json.Unmarshal(w.Body.Bytes(), &got); err != nil || got.Data.Language != "de" {
-		t.Fatalf("updated language: %v %s", got.Data.Language, w.Body.String())
+	if err = json.Unmarshal(w.Body.Bytes(), &got); err != nil || got.Data.Language != "de" || got.Data.Theme != "dark" {
+		t.Fatalf("updated preferences: %v %s", got.Data.Language, w.Body.String())
 	}
 }
 

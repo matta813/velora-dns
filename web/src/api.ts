@@ -33,7 +33,7 @@ export interface Config {
     max_concurrent: number;
   };
   cache: { max_entries: number };
-  http: { listen: string; web_dir: string };
+  http: { listen: string; web_dir: string; allowed_hosts: string[] };
   log_level: string;
 }
 export interface Snapshot {
@@ -89,9 +89,11 @@ export interface AuthUser {
   role: "admin" | "operator" | "viewer";
   csrf_token: string;
   language?: string;
+  theme?: string;
 }
 export interface Preferences {
   language: string;
+  theme: string;
 }
 export interface RateLimitSettings {
   enabled: boolean;
@@ -211,4 +213,8 @@ export async function requestUpdate(signal?: AbortSignal): Promise<{ status: str
   return request<{ status: string; message: string }>("/api/v1/update/request", signal, "POST", {
     body: { action: "update" },
   });
+}
+
+export async function saveConfig(config: Config, signal?: AbortSignal): Promise<{ status: string; message: string }> {
+  return request<{ status: string; message: string }>("/api/v1/config", signal, "PUT", { body: config });
 }

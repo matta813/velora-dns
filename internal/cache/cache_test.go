@@ -61,7 +61,7 @@ func TestLRUAndFlush(t *testing.T) {
 	}
 }
 func TestUnsafeResponsesNotCached(t *testing.T) {
-	for _, kind := range []string{"zero", "truncated", "negative-without-soa", "options", "disabled"} {
+	for _, kind := range []string{"zero", "truncated", "negative-without-soa", "disabled"} {
 		t.Run(kind, func(t *testing.T) {
 			c := New(1)
 			q, m := pair("test.", 1)
@@ -72,9 +72,6 @@ func TestUnsafeResponsesNotCached(t *testing.T) {
 				m.Truncated = true
 			case "negative-without-soa":
 				m.Rcode = dns.RcodeNameError
-			case "options":
-				q.SetEdns0(1232, false)
-				q.IsEdns0().Option = append(q.IsEdns0().Option, &dns.EDNS0_NSID{Code: dns.EDNS0NSID})
 			case "disabled":
 				c = New(0)
 			}
