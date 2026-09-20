@@ -54,6 +54,7 @@ type Dependencies struct {
 	Backup      BackupStore
 	Settings    SettingsStore
 	RateLimit   *dns.RateLimitState
+	DHCP        DHCPStore
 	ApplyConfig func(config.Config) error
 }
 type Error struct {
@@ -116,6 +117,10 @@ func New(d Dependencies) http.Handler {
 	}
 	if d.Settings != nil {
 		registerSettings(mux, d.Settings, d.RateLimit)
+	}
+	if d.DHCP != nil {
+		registerDHCP(mux, d.DHCP)
+		capabilities = append(capabilities, "dhcp")
 	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
