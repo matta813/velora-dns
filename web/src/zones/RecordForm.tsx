@@ -94,7 +94,7 @@ export function RecordForm({
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="router or @"
+              placeholder={t("zones.router_or_at")}
               autoFocus
               maxLength={253}
               autoComplete="off"

@@ -40,6 +40,7 @@ const en: Record<string, string> = {
   "app.refresh": "Refresh",
   "app.error.showing_last": "Showing the last successful snapshot from",
   "app.error.check_server": "Check that the Velora server is running.",
+  "app.error.reach_server": "Unable to reach server",
   "app.viewer_readonly": "You are signed in as a viewer. Management actions are read-only.",
   "app.connecting_panel": "Connecting to your resolver…",
   "app.not_found": "Page not found.",
@@ -87,6 +88,38 @@ const en: Record<string, string> = {
   "settings.rate_limit_save_failed": "Unable to save rate limit settings",
   "settings.rate_limit_saved": "Rate limit settings saved.",
   "settings.rate_limit_loading": "Loading rate limit settings…",
+  "settings.edit_hint":
+    "These settings correspond to the quickstart installer options. Changes require a server restart to take effect.",
+  "settings.dns_section": "DNS settings",
+  "settings.dns_listen_label": "DNS listen address",
+  "settings.dns_listen_localhost": "Localhost only (127.0.0.1:53)",
+  "settings.dns_listen_all": "All interfaces (0.0.0.0:53) — LAN access",
+  "settings.dns_listen_warning":
+    "Warning: 0.0.0.0 exposes DNS to your network. Ensure the firewall allows only trusted clients.",
+  "settings.upstreams_label": "Upstream DNS servers (comma-separated)",
+  "settings.upstreams_hint":
+    "Format: IP:PORT (e.g. 1.1.1.1:53). DoH upstreams use https://host/dns-query",
+  "settings.allowed_clients_label": "Allowed client networks (comma-separated CIDRs)",
+  "settings.allowed_clients_hint":
+    "Only these networks can query the resolver. Example: 192.168.1.0/24, 10.0.0.0/8",
+  "settings.web_section": "Web UI settings",
+  "settings.web_listen_label": "Web UI listen address",
+  "settings.web_listen_localhost": "Localhost only (127.0.0.1:8080)",
+  "settings.web_listen_all": "All interfaces (0.0.0.0:8080) — LAN access",
+  "settings.web_listen_warning":
+    "Warning: 0.0.0.0 exposes the Web UI to your network. Use a firewall or authentication.",
+  "settings.allowed_hosts_label": "Allowed hosts (comma-separated)",
+  "settings.allowed_hosts_hint":
+    "Host headers allowed to access the management API. Use * to allow all (not recommended on a LAN).",
+  "settings.logging_section": "Logging & other",
+  "settings.enable_query_log": "Enable query logging",
+  "settings.save_configuration": "Save configuration",
+  "settings.saving": "Saving…",
+  "settings.save_success":
+    "Configuration saved. Restart required for changes to take effect.",
+  "settings.save_failed": "Failed to save configuration",
+  "settings.yaml_note":
+    "Note: configuration is saved to the YAML config file. The server must be restarted for changes to take effect. The installer also manages the release channel (stable/beta/alpha) and bootstrap credentials separately via environment files.",
 
   // Dashboard
   "dashboard.total_queries": "Total queries",
@@ -132,6 +165,7 @@ const en: Record<string, string> = {
   "dashboard.retained_last_24h": "Retained queries during the last 24 hours",
   "dashboard.unavailable_no_logging": "Unavailable while query logging is disabled.",
   "dashboard.loading_stats": "Loading query statistics…",
+  "dashboard.stats_load_failed": "Unable to load query statistics",
   "dashboard.no_retained": "No retained queries in this window.",
 
   // Cache
@@ -298,6 +332,7 @@ const en: Record<string, string> = {
   "zones.contact_mailbox": "Contact (DNS mailbox)",
   "zones.creating": "Creating…",
   "zones.create_zone": "Create zone",
+  "zones.create_zone_aria": "Create DNS zone",
   "zones.create_failed": "Unable to create zone",
   "zones.load_failed": "Unable to load zones",
 
@@ -368,9 +403,6 @@ const en: Record<string, string> = {
   "onboarding.update_policy": "Configure update policy",
   "onboarding.update_policy_text":
     "Review the update center to understand how to keep your installation current.",
-
-  // Stat
-  "stat.generic": "",
 };
 
 const de: Record<string, string> = {
@@ -411,6 +443,7 @@ const de: Record<string, string> = {
   "app.refresh": "Aktualisieren",
   "app.error.showing_last": "Zeige den letzten erfolgreichen Stand von",
   "app.error.check_server": "Prüfen Sie, ob der Velora-Server läuft.",
+  "app.error.reach_server": "Server nicht erreichbar",
   "app.viewer_readonly": "Sie sind als Betrachter angemeldet. Verwaltungsaktionen sind schreibgeschützt.",
   "app.connecting_panel": "Verbinde mit Ihrem Resolver…",
   "app.not_found": "Seite nicht gefunden.",
@@ -458,6 +491,38 @@ const de: Record<string, string> = {
   "settings.rate_limit_save_failed": "Ratenbegrenzungs-Einstellungen konnten nicht gespeichert werden",
   "settings.rate_limit_saved": "Ratenbegrenzungs-Einstellungen gespeichert.",
   "settings.rate_limit_loading": "Ratenbegrenzungs-Einstellungen werden geladen…",
+  "settings.edit_hint":
+    "Diese Einstellungen entsprechen den Optionen des Quickstart-Installers. Änderungen erfordern einen Neustart des Servers.",
+  "settings.dns_section": "DNS-Einstellungen",
+  "settings.dns_listen_label": "DNS-Listen-Adresse",
+  "settings.dns_listen_localhost": "Nur localhost (127.0.0.1:53)",
+  "settings.dns_listen_all": "Alle Schnittstellen (0.0.0.0:53) — LAN-Zugriff",
+  "settings.dns_listen_warning":
+    "Warnung: 0.0.0.0 macht DNS in Ihrem Netzwerk verfügbar. Stellen Sie sicher, dass die Firewall nur vertrauenswürdige Clients zulässt.",
+  "settings.upstreams_label": "Upstream-DNS-Server (kommagetrennt)",
+  "settings.upstreams_hint":
+    "Format: IP:PORT (z. B. 1.1.1.1:53). DoH-Upstreams verwenden https://host/dns-query",
+  "settings.allowed_clients_label": "Erlaubte Client-Netzwerke (kommagetrennte CIDRs)",
+  "settings.allowed_clients_hint":
+    "Nur diese Netzwerke dürfen den Resolver abfragen. Beispiel: 192.168.1.0/24, 10.0.0.0/8",
+  "settings.web_section": "Web-UI-Einstellungen",
+  "settings.web_listen_label": "Web-UI-Listen-Adresse",
+  "settings.web_listen_localhost": "Nur localhost (127.0.0.1:8080)",
+  "settings.web_listen_all": "Alle Schnittstellen (0.0.0.0:8080) — LAN-Zugriff",
+  "settings.web_listen_warning":
+    "Warnung: 0.0.0.0 macht die Web-UI in Ihrem Netzwerk verfügbar. Verwenden Sie eine Firewall oder Authentifizierung.",
+  "settings.allowed_hosts_label": "Erlaubte Hosts (kommagetrennt)",
+  "settings.allowed_hosts_hint":
+    "Host-Header, die auf die Verwaltungs-API zugreifen dürfen. Verwenden Sie *, um alle zuzulassen (im LAN nicht empfohlen).",
+  "settings.logging_section": "Protokollierung & Sonstiges",
+  "settings.enable_query_log": "Abfrageprotokoll aktivieren",
+  "settings.save_configuration": "Konfiguration speichern",
+  "settings.saving": "Wird gespeichert…",
+  "settings.save_success":
+    "Konfiguration gespeichert. Für Änderungen ist ein Neustart erforderlich.",
+  "settings.save_failed": "Konfiguration konnte nicht gespeichert werden",
+  "settings.yaml_note":
+    "Hinweis: Die Konfiguration wird in der YAML-Konfigurationsdatei gespeichert. Der Server muss neu gestartet werden, damit Änderungen wirksam werden. Der Installer verwaltet außerdem den Release-Kanal (stable/beta/alpha) und die Bootstrap-Anmeldedaten separat über Umgebungsdateien.",
 
   // Dashboard
   "dashboard.total_queries": "Abfragen gesamt",
@@ -503,6 +568,7 @@ const de: Record<string, string> = {
   "dashboard.retained_last_24h": "Gespeicherte Abfragen der letzten 24 Stunden",
   "dashboard.unavailable_no_logging": "Nicht verfügbar, solange das Abfrageprotokoll deaktiviert ist.",
   "dashboard.loading_stats": "Abfragestatistiken werden geladen…",
+  "dashboard.stats_load_failed": "Abfragestatistiken konnten nicht geladen werden",
   "dashboard.no_retained": "Keine gespeicherten Abfragen in diesem Zeitraum.",
 
   // Cache
@@ -742,7 +808,7 @@ const de: Record<string, string> = {
     "Prüfen Sie das Update-Center, um zu verstehen, wie Sie Ihre Installation aktuell halten.",
 };
 
-const dictionaries: Record<Language, Record<string, string>> = { en, de };
+export const dictionaries: Record<Language, Record<string, string>> = { en, de };
 
 export function translate(language: Language, key: string): string {
   const dict = dictionaries[language];

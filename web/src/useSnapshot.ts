@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { loadSnapshot, type Snapshot } from "./api";
+import { useI18n } from "./i18n-context";
 
 export function useSnapshot() {
+  const { t } = useI18n();
   const [data, setData] = useState<Snapshot | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -19,7 +21,7 @@ export function useSnapshot() {
         setHistory((v) => [...v.slice(-29), next.stats.queries_per_second]);
       } catch (e) {
         if (!controller.signal.aborted)
-          setError(e instanceof Error ? e.message : "Unable to reach server");
+          setError(e instanceof Error ? e.message : t("app.error.reach_server"));
       } finally {
         if (!controller.signal.aborted) timer = setTimeout(poll, 5000);
       }
@@ -29,6 +31,6 @@ export function useSnapshot() {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [revision]);
+  }, [revision, t]);
   return { data, error, history, refresh };
 }
