@@ -46,6 +46,9 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 		}
 		users = append(users, u)
 	}
+	if users == nil {
+		users = []User{}
+	}
 	return users, rows.Err()
 }
 

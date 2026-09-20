@@ -10,7 +10,7 @@ import (
 
 func (s *Store) SaveNode(ctx context.Context, n node.Node) error {
 	p := s.placeholder
-	insertSQL := fmt.Sprintf("INSERT INTO nodes(id,name,address,capabilities version,status,last_seen_at) VALUES(%s,%s,%s,%s,%s,%s,%s)%s", p(1), p(2), p(3), p(4), p(5), p(6), p(7), s.insertReturning())
+	insertSQL := fmt.Sprintf("INSERT INTO nodes(id,name,address,capabilities,version,status,last_seen_at) VALUES(%s,%s,%s,%s,%s,%s,%s)%s", p(1), p(2), p(3), p(4), p(5), p(6), p(7), s.insertReturning())
 	if s.driver == "postgres" {
 		_, err := s.db.ExecContext(ctx, insertSQL, n.ID, n.Name, n.Address, fmt.Sprintf("%v", n.Capabilities), n.Version, n.Status, n.LastSeenAt.UTC().Format(time.RFC3339))
 		return err
