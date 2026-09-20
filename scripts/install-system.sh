@@ -80,6 +80,14 @@ npm --prefix web ci
 npm --prefix web run build
 CGO_ENABLED=0 go build -trimpath -o bin/velora-dns ./cmd/server
 
+if sudo test -x /opt/velora/velora-dns; then
+  existing_install=true
+  printf '%s\n' 'Existing Velora DNS installation detected; updating it.'
+  sudo cp /opt/velora/velora-dns /opt/velora/velora-dns.old
+else
+  existing_install=false
+fi
+
 bootstrap_user=${VELORA_BOOTSTRAP_USERNAME:-admin}
 bootstrap_password=${VELORA_BOOTSTRAP_PASSWORD:-}
 if sudo test -f /etc/velora/velora.env; then
@@ -215,7 +223,11 @@ fi
 sudo systemctl --no-pager --full status velora-dns
 
 printf '%s\n' "Velora DNS is running. Open http://${http_host}:8080"
-if [ "$existing_bootstrap_env" = true ]; then
+if [ "$existing_install" = true ]; then
+  printf '%s\n' 'Existing installation updated. The previous binary is kept at /opt/velora/velora-dns.old.'
+  printf '%s\n' 'Remove it after you confirm the update works:'
+  printf '%s\n' '  sudo rm /opt/velora/velora-dns.old'
+elif [ "$existing_bootstrap_env" = true ]; then
   printf '%s\n' 'Existing bootstrap credentials were retained; no password was changed or displayed.'
 elif [ "$generated_password" = true ]; then
   printf '%s\n' "Bootstrap username: $bootstrap_user"
