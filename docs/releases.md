@@ -1,12 +1,12 @@
 # Release workflow
 
-**Publication is disabled and no release has been made.** Repository variable
-`RELEASE_ENABLED=false` gates the Release workflow's first job. It must remain disabled
-until the maintainer explicitly authorizes publishing. Do not create tags, releases or
-registry images as part of normal development. `RELEASE` is preparation metadata only.
+Beta pre-releases have been published; see [GitHub Releases](https://github.com/matta813/velora-dns/releases)
+for the current artifacts. Publication is controlled by the repository variable
+`RELEASE_ENABLED`. Do not create tags, releases, or registry images as part of normal
+development. `RELEASE` changes require a separately reviewed release PR.
 
-The pipeline follows the administrative reference: a future reviewed PR changes `RELEASE`,
-containing one SemVer line without `v`. After explicit enablement, only a main push changing
+The pipeline follows the administrative reference: a reviewed PR changes `RELEASE`,
+containing one SemVer line without `v`. When publication is enabled, only a main push changing
 that file triggers publication; tag pushes do not. Feature merges leave RELEASE unchanged.
 
 Validation resolves a single source commit and its timestamp, runs backend/frontend and
@@ -31,7 +31,7 @@ immutable Action pins. Local builds report `dev`, `unknown`, `unknown`; build ar
 
 Run `make release-test` to validate logic without creating any publication. These tests
 create disposable local Git repositories and fixture tags only; they never tag this project
-or push test tags. The disabled publication gate is also tested.
+or push test tags. The publication gate is also tested.
 
 ## Release channel policy
 
