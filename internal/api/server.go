@@ -138,7 +138,21 @@ func New(d Dependencies) http.Handler {
 		respond(w, 200, map[string]string{"status": "ready"})
 	})
 	mux.HandleFunc("GET /api/v1/status", func(w http.ResponseWriter, r *http.Request) {
-		respond(w, 200, map[string]any{"ready": d.DNS.Ready(), "uptime_seconds": time.Since(d.Started).Seconds(), "dns_listen": d.DNS.Addresses(), "version": d.Version, "capabilities": capabilities})
+		status := map[string]any{
+			"ready":          d.DNS.Ready(),
+			"uptime_seconds": time.Since(d.Started).Seconds(),
+			"dns_listen":     d.DNS.Addresses(),
+			"version":        d.Version,
+			"capabilities":   capabilities,
+		}
+		if d.Cluster != nil {
+			nodes, err := d.Cluster.ListNodes(r.Context())
+			if err == nil {
+				status["cluster_nodes"] = len(nodes)
+				status["cluster_healthy"] = len(nodes) > 0
+			}
+		}
+		respond(w, 200, status)
 	})
 	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Version) })
 	mux.HandleFunc("GET /api/v1/stats", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Metrics.Snapshot()) })
