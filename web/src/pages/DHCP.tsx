@@ -52,7 +52,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
     } finally {
       setLoading(false);
     }
-  }, [selectedPool]);
+  }, [selectedPool, t]);
 
   useEffect(() => {
     let active = true;
@@ -75,7 +75,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [t]);
 
   async function handleCreatePool() {
     try {
