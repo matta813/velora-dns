@@ -557,6 +557,19 @@ footer {
 }
 .rate-limit-grid .check-row input { margin: 0; }
 .rate-limit-fieldset .form-actions { margin-top: 18px; }
+.backup-file-label { display: grid; gap: 7px; font-size: 12px; }
+.backup-file-controls { display: flex; gap: 8px; min-width: 0; }
+.backup-file-controls input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--border, #d4e1d9);
+  border-radius: 6px;
+  background: var(--bg, #fff);
+  color: var(--text, #223b40);
+  font: inherit;
+}
+.backup-file-hint { font-size: 12px; color: var(--text-muted, #6f8386); }
 @media (max-width: 650px) {
   .settings-preferences,
   .rate-limit-grid { grid-template-columns: 1fr; }
