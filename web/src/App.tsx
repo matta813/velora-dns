@@ -170,7 +170,7 @@ export default function App() {
                 : t("app.error.check_server")}
             </div>
           )}
-          {readOnly && ["/zones", "/blocklists", "/cache"].includes(pathname) && (
+          {readOnly && ["/zones", "/blocklists", "/cache", "/settings"].includes(pathname) && (
             <div className="notice" role="status">
               {t("app.viewer_readonly")}
             </div>
@@ -204,7 +204,7 @@ export default function App() {
                 }
               />
               <Route path="/blocklists" element={<Blocklists readOnly={readOnly} />} />
-              <Route path="/settings" element={<Settings data={data} />} />
+              <Route path="/settings" element={<Settings data={data} readOnly={readOnly} />} />
               <Route path="/updates" element={<UpdateCenter readOnly={readOnly} />} />
               <Route path="/backup" element={<BackupAssistant readOnly={readOnly} />} />
               <Route path="*" element={<p>{t("app.not_found")}</p>} />

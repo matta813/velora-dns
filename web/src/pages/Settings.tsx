@@ -22,7 +22,13 @@ interface ConfigFormData {
   log_level: string;
 }
 
-export function Settings({ data }: { data: Snapshot }) {
+export function Settings({
+  data,
+  readOnly = false,
+}: {
+  data: Snapshot;
+  readOnly?: boolean;
+}) {
   const { t, language, setLanguage } = useI18n();
   const { theme, setTheme } = useTheme();
   const [formData, setFormData] = useState<ConfigFormData>({
@@ -172,121 +178,123 @@ export function Settings({ data }: { data: Snapshot }) {
           </div>
         )}
 
-        <div style={{ display: "grid", gap: "1.5rem" }}>
-          <div className="panel" style={{ padding: "1rem" }}>
-            <h3 style={{ marginBottom: "1rem" }}>{t("settings.dns_section")}</h3>
-            <div style={{ display: "grid", gap: "1rem" }}>
-              <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>{t("settings.dns_listen_label")}</span>
-                <select
-                  value={formData.dns_listen[0] || "127.0.0.1:53"}
-                  onChange={(e) => handleChange("dns_listen", [e.target.value])}
-                  style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                >
-                  {dnsListenOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-                <small style={{ opacity: 0.6 }}>{t("settings.dns_listen_warning")}</small>
-              </label>
+        <fieldset disabled={readOnly} style={{ border: "none", padding: 0, margin: 0 }}>
+          <div style={{ display: "grid", gap: "1.5rem" }}>
+            <div className="panel" style={{ padding: "1rem" }}>
+              <h3 style={{ marginBottom: "1rem" }}>{t("settings.dns_section")}</h3>
+              <div style={{ display: "grid", gap: "1rem" }}>
+                <label style={{ display: "grid", gap: "0.5rem" }}>
+                  <span>{t("settings.dns_listen_label")}</span>
+                  <select
+                    value={formData.dns_listen[0] || "127.0.0.1:53"}
+                    onChange={(e) => handleChange("dns_listen", [e.target.value])}
+                    style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
+                  >
+                    {dnsListenOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <small style={{ opacity: 0.6 }}>{t("settings.dns_listen_warning")}</small>
+                </label>
 
-              <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>{t("settings.upstreams_label")}</span>
-                <input
-                  type="text"
-                  value={formData.dns_upstreams.join(", ")}
-                  onChange={(e) => handleArrayChange("dns_upstreams", e.target.value)}
-                  placeholder="1.1.1.1:53, 9.9.9.9:53"
-                  style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                />
-                <small style={{ opacity: 0.6 }}>{t("settings.upstreams_hint")}</small>
-              </label>
+                <label style={{ display: "grid", gap: "0.5rem" }}>
+                  <span>{t("settings.upstreams_label")}</span>
+                  <input
+                    type="text"
+                    value={formData.dns_upstreams.join(", ")}
+                    onChange={(e) => handleArrayChange("dns_upstreams", e.target.value)}
+                    placeholder="1.1.1.1:53, 9.9.9.9:53"
+                    style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
+                  />
+                  <small style={{ opacity: 0.6 }}>{t("settings.upstreams_hint")}</small>
+                </label>
 
-              <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>{t("settings.allowed_clients_label")}</span>
-                <input
-                  type="text"
-                  value={formData.dns_allowed_clients.join(", ")}
-                  onChange={(e) => handleArrayChange("dns_allowed_clients", e.target.value)}
-                  placeholder="127.0.0.0/8, ::1/128"
-                  style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                />
-                <small style={{ opacity: 0.6 }}>{t("settings.allowed_clients_hint")}</small>
-              </label>
+                <label style={{ display: "grid", gap: "0.5rem" }}>
+                  <span>{t("settings.allowed_clients_label")}</span>
+                  <input
+                    type="text"
+                    value={formData.dns_allowed_clients.join(", ")}
+                    onChange={(e) => handleArrayChange("dns_allowed_clients", e.target.value)}
+                    placeholder="127.0.0.0/8, ::1/128"
+                    style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
+                  />
+                  <small style={{ opacity: 0.6 }}>{t("settings.allowed_clients_hint")}</small>
+                </label>
+              </div>
+            </div>
+
+            <div className="panel" style={{ padding: "1rem" }}>
+              <h3 style={{ marginBottom: "1rem" }}>{t("settings.web_section")}</h3>
+              <div style={{ display: "grid", gap: "1rem" }}>
+                <label style={{ display: "grid", gap: "0.5rem" }}>
+                  <span>{t("settings.web_listen_label")}</span>
+                  <select
+                    value={formData.http_listen}
+                    onChange={(e) => handleChange("http_listen", e.target.value)}
+                    style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
+                  >
+                    {httpListenOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <small style={{ opacity: 0.6 }}>{t("settings.web_listen_warning")}</small>
+                </label>
+
+                <label style={{ display: "grid", gap: "0.5rem" }}>
+                  <span>{t("settings.allowed_hosts_label")}</span>
+                  <input
+                    type="text"
+                    value={formData.http_allowed_hosts.join(", ")}
+                    onChange={(e) => handleArrayChange("http_allowed_hosts", e.target.value)}
+                    placeholder="localhost, 127.0.0.1, ::1"
+                    style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
+                  />
+                  <small style={{ opacity: 0.6 }}>{t("settings.allowed_hosts_hint")}</small>
+                </label>
+              </div>
+            </div>
+
+            <div className="panel" style={{ padding: "1rem" }}>
+              <h3 style={{ marginBottom: "1rem" }}>{t("settings.logging_section")}</h3>
+              <div style={{ display: "grid", gap: "1rem" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.query_log_enabled}
+                    onChange={(e) => handleChange("query_log_enabled", e.target.checked)}
+                  />
+                  <span>{t("settings.enable_query_log")}</span>
+                </label>
+
+                <label style={{ display: "grid", gap: "0.5rem" }}>
+                  <span>{t("settings.log_level")}</span>
+                  <select
+                    value={formData.log_level}
+                    onChange={(e) => handleChange("log_level", e.target.value)}
+                    style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
+                  >
+                    {logLevelOptions.map((level) => (
+                      <option key={level} value={level}>{level}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             </div>
           </div>
 
-          <div className="panel" style={{ padding: "1rem" }}>
-            <h3 style={{ marginBottom: "1rem" }}>{t("settings.web_section")}</h3>
-            <div style={{ display: "grid", gap: "1rem" }}>
-              <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>{t("settings.web_listen_label")}</span>
-                <select
-                  value={formData.http_listen}
-                  onChange={(e) => handleChange("http_listen", e.target.value)}
-                  style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                >
-                  {httpListenOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-                <small style={{ opacity: 0.6 }}>{t("settings.web_listen_warning")}</small>
-              </label>
-
-              <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>{t("settings.allowed_hosts_label")}</span>
-                <input
-                  type="text"
-                  value={formData.http_allowed_hosts.join(", ")}
-                  onChange={(e) => handleArrayChange("http_allowed_hosts", e.target.value)}
-                  placeholder="localhost, 127.0.0.1, ::1"
-                  style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                />
-                <small style={{ opacity: 0.6 }}>{t("settings.allowed_hosts_hint")}</small>
-              </label>
-            </div>
+          <div style={{ marginTop: "1.5rem", display: "flex", gap: "1rem" }}>
+            <button
+              className="button primary"
+              onClick={handleSave}
+              disabled={saving || readOnly}
+              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+            >
+              <Save size={18} />
+              {saving ? t("settings.saving") : t("settings.save_configuration")}
+            </button>
+            {message?.type === "success" && <CheckCircle size={18} style={{ color: "var(--success, #22c55e)" }} />}
           </div>
-
-          <div className="panel" style={{ padding: "1rem" }}>
-            <h3 style={{ marginBottom: "1rem" }}>{t("settings.logging_section")}</h3>
-            <div style={{ display: "grid", gap: "1rem" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <input
-                  type="checkbox"
-                  checked={formData.query_log_enabled}
-                  onChange={(e) => handleChange("query_log_enabled", e.target.checked)}
-                />
-                <span>{t("settings.enable_query_log")}</span>
-              </label>
-
-              <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>{t("settings.log_level")}</span>
-                <select
-                  value={formData.log_level}
-                  onChange={(e) => handleChange("log_level", e.target.value)}
-                  style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                >
-                  {logLevelOptions.map((level) => (
-                    <option key={level} value={level}>{level}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ marginTop: "1.5rem", display: "flex", gap: "1rem" }}>
-          <button
-            className="button primary"
-            onClick={handleSave}
-            disabled={saving}
-            style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-          >
-            <Save size={18} />
-            {saving ? t("settings.saving") : t("settings.save_configuration")}
-          </button>
-          {message?.type === "success" && <CheckCircle size={18} style={{ color: "var(--success, #22c55e)" }} />}
-        </div>
+        </fieldset>
       </section>
 
       <section className="panel padded">
@@ -295,7 +303,7 @@ export function Settings({ data }: { data: Snapshot }) {
         {loadingRateLimit ? (
           <p role="status">{t("settings.rate_limit_loading")}</p>
         ) : rateLimit ? (
-          <fieldset>
+          <fieldset disabled={readOnly}>
             <div className="form-grid">
               <label className="check-row">
                 <input
@@ -351,7 +359,7 @@ export function Settings({ data }: { data: Snapshot }) {
               <p className="notice success" role="status">{t("settings.rate_limit_saved")}</p>
             )}
             <div className="form-actions">
-              <button className="button primary" onClick={() => void saveRateLimit()}>
+              <button className="button primary" disabled={readOnly} onClick={() => void saveRateLimit()}>
                 {t("settings.save")}
               </button>
             </div>

@@ -105,3 +105,24 @@ it("loads and updates rate limit settings", async () => {
     rate_limit_burst: 100,
   });
 });
+
+it("disables server configuration and rate limiting in read-only mode", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            data: { enabled: false, global_qps: 1000, client_qps: 100, rate_limit_burst: 100 },
+          }),
+      }),
+    ),
+  );
+  render(withI18n(<Settings data={data} readOnly={true} />));
+
+  expect(screen.getByRole("button", { name: /save configuration/i })).toBeDisabled();
+  const toggle = await screen.findByRole("checkbox", { name: /enable rate limiting/i });
+  expect(toggle).toBeDisabled();
+  expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+});
