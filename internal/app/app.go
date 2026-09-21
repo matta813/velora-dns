@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"os"
 	"sync"
 	"time"
 
@@ -114,11 +115,15 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	auditWG.Go(func() { audit.Run(auditCtx) })
 	defer func() { auditCancel(); auditWG.Wait() }()
 
-	updateManager := update.NewManager(update.DefaultConfig())
-	if err := updateManager.LoadState(); err != nil {
-		return fmt.Errorf("load update state: %w", err)
+	updateSocket := "/run/velora-updater.sock"
+	if value, ok := os.LookupEnv("VELORA_UPDATER_SOCKET"); ok {
+		updateSocket = value
+	} else if mode, _ := os.LookupEnv("VELORA_DEPLOYMENT_MODE"); mode == "compose" {
+		updateSocket = "/run/velora-compose-updater.sock"
 	}
-	defer func() { _ = updateManager.SaveState() }()
+	// Stay below the management server's write timeout so callers receive a
+	// structured updater error instead of a truncated HTTP response.
+	updateClient := update.Client{SocketPath: updateSocket, Timeout: 8 * time.Second}
 
 	backupManager := backup.NewManager(db, c.DatabasePath)
 
@@ -272,7 +277,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, Update: updateManager, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, ApplyConfig: applyConfig}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, ApplyConfig: applyConfig}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)

@@ -198,6 +198,20 @@ export interface UpdateStatus {
   started_at?: string;
   last_completed?: string;
   updating: boolean;
+  error?: string;
+  rollback_used?: boolean;
+  readiness_ok?: boolean;
+}
+
+export interface UpdateCheck {
+  installed_version: string;
+  latest_version: string;
+  update_available: boolean;
+  channel: string;
+  release_date?: string;
+  release_notes?: string;
+  architecture: string;
+  download_size?: number;
 }
 
 export interface UpdateEntry {
@@ -220,6 +234,10 @@ export async function loadUpdateStatus(signal?: AbortSignal): Promise<UpdateStat
 
 export async function loadUpdateHistory(signal?: AbortSignal): Promise<UpdateEntry[]> {
   return request<UpdateEntry[]>("/api/v1/update/history", signal);
+}
+
+export async function checkForUpdates(signal?: AbortSignal): Promise<UpdateCheck> {
+  return request<UpdateCheck>("/api/v1/update/check", signal);
 }
 
 export async function requestUpdate(signal?: AbortSignal): Promise<{ status: string; message: string }> {

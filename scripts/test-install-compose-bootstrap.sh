@@ -24,20 +24,18 @@ if [ "$1" = git ] && [ "$2" = clone ]; then
 fi
 if [ "$1" = env ]; then shift; exec env "$@"; fi
 if [ "$1" = install ]; then
-  shift
-  while [ $# -gt 0 ]; do
-    case "$1" in
-      -d) shift ;;
-      -m) shift ;;
-      *) mkdir -p "$1" 2>/dev/null || touch "$1"; break ;;
-    esac
-  done
   exit 0
 fi
-if [ "$1" = mktemp ]; then echo "$MOCK_COMPOSE_ENV"; exit 0; fi
+if [ "$1" = mktemp ]; then
+  case "$2" in
+    /run/velora/*) echo "$MOCK_COMPOSE_ENV" ;;
+    *) echo "$MOCK_UPDATER_TMP" ;;
+  esac
+  exit 0
+fi
 if [ "$1" = chmod ]; then exit 0; fi
 if [ "$1" = rm ]; then exit 0; fi
-if [ "$1" = tee ]; then cat > "$2"; exit 0; fi
+if [ "$1" = tee ]; then cat >/dev/null; exit 0; fi
 exit 0
 EOF
 
@@ -52,12 +50,20 @@ cat > "$mock_bin/openssl" <<'EOF'
 printf '%s\n' generated-password-which-is-long-enough
 EOF
 
+cat > "$mock_bin/getent" <<'EOF'
+#!/bin/sh
+printf '%s\n' 'velora:x:10001:'
+EOF
+
 chmod +x "$mock_bin"/*
 cp "$root/scripts/install-compose.sh" "$tmp_dir/remote/install-compose.sh"
 
-TEST_INSTALLER_LOG="$log_file" MOCK_COMPOSE_ENV="$tmp_dir/compose.env" PATH="$mock_bin:$PATH" VELORA_INSTALL_DIR="$tmp_dir/source" VELORA_CHANNEL=beta VELORA_HTTP_HOST=0.0.0.0 VELORA_DNS_HOST=0.0.0.0 \
+TEST_INSTALLER_LOG="$log_file" MOCK_COMPOSE_ENV="$tmp_dir/compose.env" MOCK_UPDATER_TMP="$tmp_dir/updater" PATH="$mock_bin:$PATH" VELORA_INSTALL_DIR="$tmp_dir/source" VELORA_CHANNEL=beta VELORA_HTTP_HOST=0.0.0.0 VELORA_DNS_HOST=0.0.0.0 \
   sh "$tmp_dir/remote/install-compose.sh"
 
-assert_logged "sudo docker compose --env-file $tmp_dir/compose.env up --build -d"
+assert_logged "sudo docker compose --env-file $tmp_dir/compose.env build"
+assert_logged "sudo docker create velora-dns:local"
+assert_logged "sudo systemctl enable --now velora-compose-updater"
+assert_logged "sudo docker compose --env-file $tmp_dir/compose.env up -d"
 assert_logged "sudo docker compose ps"
 printf '%s\n' 'Compose installer test passed'

@@ -110,16 +110,27 @@ case "$bootstrap_user:$bootstrap_password" in
 esac
 
 sudo install -d -m 0755 /etc/velora
-if ! sudo test -f /etc/velora/updater.env; then
-  printf 'VELORA_CHANNEL=%s\n' "$channel" | sudo tee /etc/velora/updater.env >/dev/null
-  sudo chmod 0644 /etc/velora/updater.env
-fi
+if ! getent group velora >/dev/null; then sudo groupadd --system velora; fi
+updater_gid=$(getent group velora | cut -d: -f3)
+printf 'VELORA_CHANNEL=%s\nVELORA_COMPOSE_DIR=%s\nVELORA_COMPOSE_PROJECT=velora-dns\nVELORA_SERVICE_NAME=velora\nVELORA_UPDATER_GID=%s\n' "$channel" "$repo_dir" "$updater_gid" | sudo tee /etc/velora/updater.env >/dev/null
+sudo chmod 0644 /etc/velora/updater.env
 
-sudo install -d -m 0700 /run/velora
+sudo install -d -o root -g velora -m 0770 /run/velora
 compose_env=$(sudo mktemp /run/velora/.env.XXXXXX)
 sudo chmod 0600 "$compose_env"
-printf 'VELORA_BOOTSTRAP_USERNAME=%s\nVELORA_BOOTSTRAP_PASSWORD=%s\nVELORA_CHANNEL=%s\nVELORA_HTTP_HOST=%s\nVELORA_DNS_HOST=%s\n' "$bootstrap_user" "$bootstrap_password" "$channel" "$http_host" "$dns_host" | sudo tee "$compose_env" >/dev/null
-sudo docker compose --env-file "$compose_env" up --build -d
+printf 'VELORA_BOOTSTRAP_USERNAME=%s\nVELORA_BOOTSTRAP_PASSWORD=%s\nVELORA_CHANNEL=%s\nVELORA_HTTP_HOST=%s\nVELORA_DNS_HOST=%s\nVELORA_UPDATER_GID=%s\n' "$bootstrap_user" "$bootstrap_password" "$channel" "$http_host" "$dns_host" "$updater_gid" | sudo tee "$compose_env" >/dev/null
+sudo docker compose --env-file "$compose_env" build
+updater_container=$(sudo docker create velora-dns:local)
+updater_tmp=$(sudo mktemp /tmp/velora-compose-updater.XXXXXX)
+sudo docker cp "$updater_container:/usr/local/bin/velora-compose-updater" "$updater_tmp"
+sudo docker rm "$updater_container" >/dev/null
+sudo install -d -o root -g root -m 0755 /opt/velora
+sudo install -o root -g root -m 0755 "$updater_tmp" /opt/velora/velora-compose-updater
+sudo rm -f "$updater_tmp"
+sudo install -o root -g root -m 0644 scripts/velora-compose-updater.service /etc/systemd/system/velora-compose-updater.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now velora-compose-updater
+sudo docker compose --env-file "$compose_env" up -d
 sudo rm -f "$compose_env"
 sudo docker compose ps
 

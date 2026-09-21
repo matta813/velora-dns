@@ -12,11 +12,14 @@ output_file=$2
 [ -d "$bundle_dir" ] || die "bundle directory not found: $bundle_dir"
 
 cd "$bundle_dir"
-> "$output_file"
-for checksum_file in *.sha256sum; do
-  [ -f "$checksum_file" ] || continue
-  cat "$checksum_file" >> "$output_file"
+temp_file="${output_file}.tmp"
+> "$temp_file"
+for archive in *.tar.gz; do
+  [ -f "$archive" ] || continue
+  sha256sum "$archive" >> "$temp_file"
 done
+[ -s "$temp_file" ] || die "no release archives found"
+mv "$temp_file" "$output_file"
 
 printf '%s\n' "Checksums manifest: $output_file"
 cat "$output_file"

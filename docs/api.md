@@ -18,6 +18,10 @@ metrics require an authenticated session or scoped API token.
 | DELETE | /api/v1/tokens/{id} | Revoke a token owned by the current user |
 | GET | /api/v1/status | Listener readiness, uptime, version and implemented capabilities |
 | GET | /api/v1/version | Build version, source commit and build timestamp |
+| GET | /api/v1/update/check | Installed/latest version, channel, release details and availability |
+| GET | /api/v1/update/status | Current updater phase, errors and rollback/readiness result |
+| GET | /api/v1/update/history | Persistent update attempts and final results |
+| POST | /api/v1/update/request | Start the release selected by the configured updater agent |
 | GET | /api/v1/stats | Lifetime queries and rolling 60-second QPS; cache hit ratio |
 | GET | /api/v1/cache | Live entries, capacity, lifetime hits and misses |
 | DELETE | /api/v1/cache | Clear cached answers; preserve lifetime counters |
@@ -71,6 +75,11 @@ write and idle timeouts. Cross-site browser requests and mismatched Origin are r
 HTTP Host must match the configured allowlist to reject DNS rebinding.
 Cache mutation requires `application/json`. Reverse proxies should preserve the public
 Host and Origin consistently; no permissive CORS is provided.
+
+Update reads require an authenticated user. Starting an update requires a writable
+admin/operator session or token and the normal CSRF protection. The management process
+forwards these requests over a `0660`, `root:velora` Unix socket; it never accepts a
+download URL or filesystem path from the browser.
 
 ## Metrics
 

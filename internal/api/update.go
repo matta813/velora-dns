@@ -1,59 +1,46 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"net/http"
-	"time"
 
 	"github.com/matta813/velora-dns/internal/update"
 )
 
 type UpdateStore interface {
-	Current() *update.Entry
-	History() []update.Entry
-	IsUpdating() bool
+	Status(context.Context) (update.Status, error)
+	History(context.Context) ([]update.Entry, error)
+	Check(context.Context) (update.CheckResult, error)
+	Request(context.Context) (update.RequestResponse, error)
 }
 
-func registerUpdate(mux *http.ServeMux, store UpdateStore, version Version) {
+func registerUpdate(mux *http.ServeMux, store UpdateStore, _ Version) {
 	mux.HandleFunc("GET /api/v1/update/status", func(w http.ResponseWriter, r *http.Request) {
-		current := store.Current()
-		if current == nil {
-			history := store.History()
-			lastState := "idle"
-			var lastCompleted time.Time
-			if len(history) > 0 {
-				last := history[len(history)-1]
-				lastState = string(last.State)
-				lastCompleted = last.CompletedAt
-			}
-			respond(w, 200, map[string]any{
-				"state":          lastState,
-				"installed":      version.Version,
-				"last_completed": lastCompleted,
-				"updating":       false,
-			})
+		status, err := store.Status(r.Context())
+		if err != nil {
+			updaterFailure(w, err)
 			return
 		}
-		respond(w, 200, map[string]any{
-			"state":        string(current.State),
-			"installed":    version.Version,
-			"from_version": current.FromVersion,
-			"to_version":   current.ToVersion,
-			"started_at":   current.StartedAt,
-			"updating":     true,
-		})
+		respond(w, http.StatusOK, status)
 	})
-
 	mux.HandleFunc("GET /api/v1/update/history", func(w http.ResponseWriter, r *http.Request) {
-		history := store.History()
-		respond(w, 200, history)
-	})
-
-	mux.HandleFunc("POST /api/v1/update/request", func(w http.ResponseWriter, r *http.Request) {
-		if store.IsUpdating() {
-			failure(w, 409, "update_in_progress", "An update is already in progress")
+		history, err := store.History(r.Context())
+		if err != nil {
+			updaterFailure(w, err)
 			return
 		}
-
+		respond(w, http.StatusOK, history)
+	})
+	mux.HandleFunc("GET /api/v1/update/check", func(w http.ResponseWriter, r *http.Request) {
+		result, err := store.Check(r.Context())
+		if err != nil {
+			updaterFailure(w, err)
+			return
+		}
+		respond(w, http.StatusOK, result)
+	})
+	mux.HandleFunc("POST /api/v1/update/request", func(w http.ResponseWriter, r *http.Request) {
 		type updateRequest struct {
 			Action string `json:"action"`
 		}
@@ -62,13 +49,27 @@ func registerUpdate(mux *http.ServeMux, store UpdateStore, version Version) {
 			return
 		}
 		if req.Action != "update" {
-			failure(w, 400, "invalid_action", "Only 'update' action is supported")
+			failure(w, http.StatusBadRequest, "invalid_action", "Only 'update' action is supported")
 			return
 		}
-
-		respond(w, 202, map[string]string{
-			"status":  "accepted",
-			"message": "Update request accepted. Check status for progress.",
-		})
+		result, err := store.Request(r.Context())
+		if err != nil {
+			updaterFailure(w, err)
+			return
+		}
+		respond(w, http.StatusAccepted, result)
 	})
+}
+
+func updaterFailure(w http.ResponseWriter, err error) {
+	var agentErr *update.AgentError
+	if errors.As(err, &agentErr) {
+		code := "updater_rejected"
+		if agentErr.StatusCode == http.StatusConflict {
+			code = "update_in_progress"
+		}
+		failure(w, agentErr.StatusCode, code, agentErr.Message)
+		return
+	}
+	failure(w, http.StatusServiceUnavailable, "updater_unavailable", err.Error())
 }

@@ -7,6 +7,7 @@ Wants=network-online.target
 Type=simple
 ExecStart=/opt/velora/velora-compose-updater
 EnvironmentFile=-/etc/velora/updater.env
+Environment=VELORA_UPDATER_SOCKET=/run/velora/compose-updater.sock
 Restart=on-failure
 RestartSec=10s
 NoNewPrivileges=true

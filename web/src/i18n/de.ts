@@ -380,6 +380,15 @@ const de: Record<string, string> = {
   "updates.state_failed": "Fehlgeschlagen",
   "updates.load_failed": "Update-Status konnte nicht geladen werden",
   "updates.request_failed": "Update konnte nicht angefordert werden",
+  "updates.check": "Nach Updates suchen",
+  "updates.available": "Update verfügbar",
+  "updates.up_to_date": "Das System ist aktuell.",
+  "updates.channel": "Kanal",
+  "updates.release_date": "Veröffentlicht",
+  "updates.download_size": "Downloadgröße",
+  "updates.progress": "Update-Fortschritt",
+  "updates.rollback_used": "Die vorherige Version wurde wiederhergestellt.",
+  "updates.rollback_recovered": "Die vorherige Version wurde wiederhergestellt und ist fehlerfrei.",
 
   // Backup
   "backup.loading": "Backup-Status wird geladen...",

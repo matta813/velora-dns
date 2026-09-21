@@ -245,6 +245,11 @@ func (m *Manager) Complete(id string) error {
 
 // Rollback marks the update as rolled back.
 func (m *Manager) Rollback(id string) error {
+	return m.RollbackWithError(id, nil)
+}
+
+// RollbackWithError records why the new version failed and that the restored version recovered.
+func (m *Manager) RollbackWithError(id string, cause error) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -255,6 +260,10 @@ func (m *Manager) Rollback(id string) error {
 	m.current.State = StateRolledBack
 	m.current.CompletedAt = time.Now()
 	m.current.RollbackUsed = true
+	m.current.ReadinessOK = true
+	if cause != nil {
+		m.current.Error = cause.Error()
+	}
 	m.archive()
 	return nil
 }

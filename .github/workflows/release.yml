@@ -256,8 +256,6 @@ jobs:
         run: ./scripts/build-release-bundle.sh "$VERSION" arm64 dist-bundles
       - name: Verify all checksums
         run: ./scripts/verify-release-checksums.sh dist-bundles
-      - name: Generate checksums manifest
-        run: ./scripts/generate-checksums-manifest.sh dist-bundles dist-bundles/CHECKSUMS.sha256
       - id: bundles
         name: Collect bundle artifacts
         env:
@@ -271,6 +269,8 @@ jobs:
             bundles="${bundles}${bundles:+, }dist-bundles/${name}.tar.gz"
           done
           echo "bundles=$bundles" >> "$GITHUB_OUTPUT"
+      - name: Generate checksums manifest
+        run: ./scripts/generate-checksums-manifest.sh dist-bundles dist-bundles/CHECKSUMS.sha256
       - id: checksums
         name: Collect checksums
         run: echo "checksums=dist-bundles/CHECKSUMS.sha256" >> "$GITHUB_OUTPUT"

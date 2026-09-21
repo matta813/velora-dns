@@ -163,6 +163,8 @@ done
 
 chmod +x "$mock_bin"/*
 cp "$root/scripts/install-system.sh" "$tmp_dir/remote/install-system.sh"
+mkdir -p "$tmp_dir/scripts"
+cp "$root/scripts/velora-updater.service" "$tmp_dir/scripts/velora-updater.service"
 
 # A fake already-installed binary; the installer must back it up.
 printf 'old-binary' > "$fake_root/opt/velora/velora-dns"
