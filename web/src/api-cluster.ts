@@ -18,7 +18,7 @@ export interface ConfigVersion {
 }
 
 export async function loadClusterNodes(signal?: AbortSignal): Promise<ClusterNode[]> {
-  return request("/api/v1/cluster/nodes", signal);
+  return (await request<ClusterNode[] | null>("/api/v1/cluster/nodes", signal)) ?? [];
 }
 
 export async function deleteClusterNode(id: string): Promise<void> {
@@ -29,5 +29,10 @@ export async function loadConfigVersions(
   limit = 10,
   signal?: AbortSignal,
 ): Promise<ConfigVersion[]> {
-  return request(`/api/v1/cluster/config-versions?limit=${limit}`, signal);
+  return (
+    (await request<ConfigVersion[] | null>(
+      `/api/v1/cluster/config-versions?limit=${limit}`,
+      signal,
+    )) ?? []
+  );
 }
