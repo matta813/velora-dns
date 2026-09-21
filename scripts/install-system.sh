@@ -79,6 +79,8 @@ printf '%s\n' 'Building the Velora DNS binary and dashboard…'
 npm --prefix web ci
 npm --prefix web run build
 CGO_ENABLED=0 go build -trimpath -o bin/velora-dns ./cmd/server
+CGO_ENABLED=0 go build -trimpath -o bin/velora-updater ./cmd/velora-updater
+installed_version=$(cat RELEASE 2>/dev/null || git describe --tags --always 2>/dev/null || echo dev)
 
 if sudo test -x /opt/velora/velora-dns; then
   existing_install=true
@@ -123,6 +125,7 @@ fi
 sudo install -d -o root -g velora -m 0750 /etc/velora
 sudo install -d -o velora -g velora -m 0750 /var/lib/velora
 sudo install -o root -g root -m 0755 bin/velora-dns /opt/velora/velora-dns
+printf '%s\n' "$installed_version" | sudo tee /opt/velora/VERSION >/dev/null
 sudo rm -rf /opt/velora/web
 sudo install -d -o root -g root -m 0755 /opt/velora/web
 sudo cp -R web/dist /opt/velora/web/dist
@@ -167,6 +170,8 @@ sudo chmod 0660 /etc/velora/config.yaml
 
 printf 'VELORA_CHANNEL=%s\n' "$channel" | sudo tee /etc/velora/updater.env >/dev/null
 sudo chmod 0644 /etc/velora/updater.env
+sudo install -o root -g root -m 0755 bin/velora-updater /opt/velora/velora-updater
+sudo install -o root -g root -m 0644 scripts/velora-updater.service /etc/systemd/system/velora-updater.service
 
 if ! sudo test -f /etc/velora/velora.env; then
   sudo tee /etc/velora/velora.env >/dev/null <<EOF
@@ -219,6 +224,7 @@ SCRIPT
 sudo chmod 0755 /opt/velora/velora-dns-check.sh
 
 sudo systemctl daemon-reload
+sudo systemctl enable --now velora-updater
 if systemctl is-active --quiet velora-dns; then
   sudo systemctl restart velora-dns
 else

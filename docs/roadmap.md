@@ -9,12 +9,6 @@ and progress; substantial new work should get its own issue before implementatio
 
 ## Now — tracked priorities
 
-### Updates and operations
-
-- Complete the UI-driven update flow for systemd and Docker Compose: release
-  discovery by channel, trusted download and checksum verification, real updater
-  execution, progress, diagnostics, and rollback. See [#156](https://github.com/matta813/velora-dns/issues/156).
-
 ### Web UI and internationalisation
 
 - Split translations into per-language files, retain a fallback, and test key

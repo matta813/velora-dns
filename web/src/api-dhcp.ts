@@ -34,7 +34,7 @@ export interface DHCPLease {
 }
 
 export async function loadPools(signal?: AbortSignal): Promise<DHCPPool[]> {
-  return request("/api/v1/dhcp/pools", signal);
+  return (await request<DHCPPool[] | null>("/api/v1/dhcp/pools", signal)) ?? [];
 }
 
 export async function createPool(
@@ -51,7 +51,12 @@ export async function loadReservations(
   poolId: number,
   signal?: AbortSignal,
 ): Promise<DHCPReservation[]> {
-  return request(`/api/v1/dhcp/pools/${poolId}/reservations`, signal);
+  return (
+    (await request<DHCPReservation[] | null>(
+      `/api/v1/dhcp/pools/${poolId}/reservations`,
+      signal,
+    )) ?? []
+  );
 }
 
 export async function createReservation(
@@ -68,7 +73,7 @@ export async function deleteReservation(id: number): Promise<void> {
 }
 
 export async function loadLeases(signal?: AbortSignal): Promise<DHCPLease[]> {
-  return request("/api/v1/dhcp/leases", signal);
+  return (await request<DHCPLease[] | null>("/api/v1/dhcp/leases", signal)) ?? [];
 }
 
 export async function deleteLease(id: number): Promise<void> {

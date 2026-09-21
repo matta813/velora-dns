@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"os/user"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -18,6 +20,7 @@ const (
 	defaultServiceName    = "velora"
 	defaultReadinessURL   = "http://127.0.0.1:8080/ready"
 	defaultStateFile      = "/var/lib/velora/update-state.json"
+	defaultSocketPath     = "/run/velora-compose-updater.sock"
 )
 
 type AgentConfig struct {
@@ -28,9 +31,11 @@ type AgentConfig struct {
 	Repository     string
 	ReadinessURL   string
 	StateFile      string
+	VersionFile    string
 	Channel        string
 	Timeout        time.Duration
 	Logger         *slog.Logger
+	SocketPath     string
 }
 
 func main() {
@@ -44,9 +49,11 @@ func main() {
 		Repository:     envOrDefault("VELORA_REPOSITORY", "matta813/velora-dns"),
 		ReadinessURL:   envOrDefault("VELORA_READINESS_URL", defaultReadinessURL),
 		StateFile:      envOrDefault("VELORA_UPDATE_STATE_FILE", defaultStateFile),
+		VersionFile:    envOrDefault("VELORA_UPDATE_VERSION_FILE", "/var/lib/velora/compose-version"),
 		Channel:        envOrDefault("VELORA_CHANNEL", "stable"),
 		Timeout:        10 * time.Minute,
 		Logger:         logger,
+		SocketPath:     envOrDefault("VELORA_UPDATER_SOCKET", defaultSocketPath),
 	}
 
 	if config.ComposeDir == "" {
@@ -78,4 +85,16 @@ func envOrDefault(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func veloraGID() int {
+	group, err := user.LookupGroup("velora")
+	if err != nil {
+		return -1
+	}
+	gid, err := strconv.Atoi(group.Gid)
+	if err != nil {
+		return -1
+	}
+	return gid
 }
