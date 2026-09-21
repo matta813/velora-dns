@@ -39,10 +39,13 @@ npm --prefix web run build
 bundle_name="velora-dns-${version}-linux-${arch}"
 bundle_dir="${output_dir}/${bundle_name}"
 mkdir -p "$bundle_dir"
+printf '%s\n' "$version" > "$bundle_dir/VERSION"
 
 CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath \
   -ldflags "-s -w -X main.version=${version} -X main.commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.built=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   -o "$bundle_dir/velora-dns" ./cmd/server
+CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -ldflags "-s -w" \
+  -o "$bundle_dir/velora-updater" ./cmd/velora-updater
 
 # Copy web assets.
 cp -R web/dist "$bundle_dir/web-dist"
@@ -73,6 +76,7 @@ ReadWritePaths=/var/lib/velora /etc/velora
 [Install]
 WantedBy=multi-user.target
 SERVICEEOF
+cp scripts/velora-updater.service "$bundle_dir/velora-updater.service"
 
 # Copy installation helper.
 cat > "$bundle_dir/install.sh" <<'INSTALLEOF'
@@ -91,12 +95,16 @@ if ! id -u velora >/dev/null 2>&1; then
 fi
 sudo install -d -o velora -g velora -m 0750 /var/lib/velora
 sudo install -o root -g root -m 0755 "$bundle_dir/velora-dns" /opt/velora/velora-dns
+sudo install -o root -g root -m 0644 "$bundle_dir/VERSION" /opt/velora/VERSION
+sudo install -o root -g root -m 0755 "$bundle_dir/velora-updater" /opt/velora/velora-updater
 sudo rm -rf /opt/velora/web
 sudo install -d -o root -g root -m 0755 /opt/velora/web
 sudo cp -R "$bundle_dir/web-dist" /opt/velora/web/dist
 sudo chown -R root:root /opt/velora/web
 sudo install -o root -g root -m 0644 "$bundle_dir/velora-dns.service" /etc/systemd/system/velora-dns.service
+sudo install -o root -g root -m 0644 "$bundle_dir/velora-updater.service" /etc/systemd/system/velora-updater.service
 sudo systemctl daemon-reload
+sudo systemctl enable --now velora-updater
 printf '%s\n' "Installed Velora DNS ${version} for linux/${arch}"
 printf '%s\n' "Create /etc/velora/config.yaml and /etc/velora/velora.env, then: sudo systemctl enable --now velora-dns"
 INSTALLEOF

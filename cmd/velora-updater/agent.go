@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 type Agent struct {
 	config  AgentConfig
 	manager *update.Manager
+	resolve func(context.Context, string) (update.Release, error)
 }
 
 func NewAgent(config AgentConfig) (*Agent, error) {
@@ -54,6 +57,8 @@ func (a *Agent) Run(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /update", a.handleUpdate)
 	mux.HandleFunc("GET /status", a.handleStatus)
+	mux.HandleFunc("GET /history", a.handleHistory)
+	mux.HandleFunc("GET /check", a.handleCheck)
 	server := &http.Server{
 		Handler:           mux,
 		ReadHeaderTimeout: 3 * time.Second,
@@ -89,12 +94,22 @@ func (a *Agent) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentVersion := a.readCurrentVersion()
-	entry, err := a.manager.Begin(currentVersion, "latest", "systemd", a.config.Channel)
+	release, err := a.resolveRelease(r.Context(), currentVersion)
+	if err != nil {
+		status := http.StatusBadGateway
+		if errors.Is(err, update.ErrNoEligibleRelease) {
+			status = http.StatusConflict
+		}
+		a.writeJSON(w, status, UpdateResponse{Status: "error", Error: err.Error()})
+		return
+	}
+	entry, err := a.manager.Begin(currentVersion, release.Version, "systemd", a.config.Channel)
 	if err != nil {
 		a.writeJSON(w, 409, UpdateResponse{Status: "busy", Error: err.Error()})
 		return
 	}
-	go a.executeUpdate(entry)
+	_ = a.saveState()
+	go a.executeUpdate(entry, release)
 	a.writeJSON(w, 202, UpdateResponse{Status: "accepted", Version: entry.ToVersion})
 }
 
@@ -106,10 +121,47 @@ func (a *Agent) handleStatus(w http.ResponseWriter, r *http.Request) {
 		if len(history) > 0 {
 			lastState = string(history[len(history)-1].State)
 		}
-		a.writeJSON(w, 200, map[string]string{"state": lastState})
+		status := update.Status{State: update.State(lastState), Installed: a.readCurrentVersion()}
+		if len(history) > 0 {
+			last := history[len(history)-1]
+			status.LastCompleted = last.CompletedAt
+			status.Error = last.Error
+			status.RollbackUsed = last.RollbackUsed
+			status.ReadinessOK = last.ReadinessOK
+		}
+		a.writeJSON(w, 200, status)
 		return
 	}
-	a.writeJSON(w, 200, current)
+	a.writeJSON(w, 200, update.Status{State: current.State, Installed: a.readCurrentVersion(), FromVersion: current.FromVersion, ToVersion: current.ToVersion, Channel: current.Channel, StartedAt: current.StartedAt, Updating: true, Error: current.Error, RollbackUsed: current.RollbackUsed, ReadinessOK: current.ReadinessOK})
+}
+
+func (a *Agent) handleHistory(w http.ResponseWriter, _ *http.Request) {
+	a.writeJSON(w, 200, a.manager.History())
+}
+
+func (a *Agent) handleCheck(w http.ResponseWriter, r *http.Request) {
+	installed := a.readCurrentVersion()
+	release, err := a.resolveRelease(r.Context(), installed)
+	if errors.Is(err, update.ErrNoEligibleRelease) {
+		a.writeJSON(w, 200, update.CheckResult{Installed: installed, Latest: installed, Channel: a.config.Channel, Architecture: runtime.GOOS + "/" + runtime.GOARCH})
+		return
+	}
+	if err != nil {
+		a.writeJSON(w, 502, UpdateResponse{Status: "error", Error: err.Error()})
+		return
+	}
+	a.writeJSON(w, 200, update.CheckResult{Installed: installed, Latest: release.Version, UpdateAvailable: true, Channel: release.Channel, ReleaseDate: release.PublishedAt, ReleaseNotes: release.Notes, Architecture: release.Architecture, DownloadSize: release.DownloadSize})
+}
+
+func (a *Agent) resolver() update.Resolver {
+	return update.Resolver{Repository: a.config.Repository, Channel: a.config.Channel}
+}
+
+func (a *Agent) resolveRelease(ctx context.Context, installed string) (update.Release, error) {
+	if a.resolve != nil {
+		return a.resolve(ctx, installed)
+	}
+	return a.resolver().Resolve(ctx, installed)
 }
 
 func (a *Agent) writeJSON(w http.ResponseWriter, status int, data any) {

@@ -13,7 +13,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/velora /run
+ReadWritePaths=/var/lib/velora /run /opt/velora /etc/systemd/system
 SupplementaryGroups=velora
 
 [Install]

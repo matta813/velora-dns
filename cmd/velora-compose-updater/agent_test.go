@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -46,5 +47,25 @@ func TestComposeEnvOrDefault(t *testing.T) {
 	}
 	if got := envOrDefault("VELORA_ABSENT_VALUE", "default"); got != "default" {
 		t.Fatalf("default value = %q", got)
+	}
+}
+
+func TestComposeCheckAndConcurrentRequest(t *testing.T) {
+	agent := &Agent{config: AgentConfig{Channel: "beta"}, manager: update.NewManager(update.DefaultConfig())}
+	agent.resolve = func(context.Context, string) (update.Release, error) {
+		return update.Release{Version: "2.0.0-beta.1", Channel: "beta", Architecture: "linux/arm64"}, nil
+	}
+	recorder := httptest.NewRecorder()
+	agent.handleCheck(recorder, httptest.NewRequest(http.MethodGet, "/check", nil))
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"latest_version":"2.0.0-beta.1"`) {
+		t.Fatalf("check: %d %s", recorder.Code, recorder.Body.String())
+	}
+	if _, err := agent.manager.Begin("1.0.0", "2.0.0-beta.1", "compose", "beta"); err != nil {
+		t.Fatal(err)
+	}
+	recorder = httptest.NewRecorder()
+	agent.handleUpdate(recorder, httptest.NewRequest(http.MethodPost, "/update", strings.NewReader(`{"action":"update"}`)))
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("concurrent: %d %s", recorder.Code, recorder.Body.String())
 	}
 }

@@ -282,9 +282,9 @@ SupplementaryGroups=velora
 4. Agent verifies the SHA-256 checksum of the downloaded bundle
 5. Agent backs up current binary and web assets (`.prev` suffix)
 6. Agent installs the new binary and web assets
-7. Agent waits for readiness (up to 5 minutes)
-8. On success: agent restarts `velora-dns` service
-9. On failure: agent restores from backup and rolls back
+7. Agent reloads systemd, restarts `velora-dns`, and waits for readiness (up to 5 minutes)
+8. On success: agent records the new version as completed
+9. On failure: agent restores the backup, restarts it, and verifies that it recovered
 
 ### Status endpoint
 
@@ -292,9 +292,40 @@ SupplementaryGroups=velora
 # Check agent status
 curl --unix-socket /run/velora-updater.sock http://localhost/status
 
+# Discover the latest eligible release
+curl --unix-socket /run/velora-updater.sock http://localhost/check
+
+# Inspect persistent history
+curl --unix-socket /run/velora-updater.sock http://localhost/history
+
 # Trigger an update
 curl -X POST --unix-socket /run/velora-updater.sock \
   -H "Content-Type: application/json" \
   -d '{"action":"update"}' \
   http://localhost/update
 ```
+
+The agent selects releases for `VELORA_CHANNEL` from `VELORA_REPOSITORY`. Native
+artifacts must be named `velora-dns-<version>-linux-<arch>.tar.gz`; the release must
+also contain `CHECKSUMS.sha256`, generated after the archives so their hashes are
+covered. URLs are restricted to that repository's GitHub release-download prefix.
+
+## Docker Compose updater agent
+
+Compose installations use the same discovery, status, history, concurrency, and
+state-machine contract through `/run/velora/compose-updater.sock`. The installer
+builds and installs `velora-compose-updater` as a root-owned systemd service, while
+the application container joins the socket's numeric `velora` group without gaining
+root privileges.
+
+For an update, the agent pulls `ghcr.io/<repository>:<version>`, resolves the local
+immutable `sha256:` image ID, and starts only the configured service pinned to that
+ID. It records the previous image ID first. Failed readiness restores that exact
+image and verifies recovery before reporting `rolled_back`; a failed recovery is
+reported as `failed`. The persisted installed version is kept in
+`/var/lib/velora/compose-version`.
+
+The Compose service reads `/etc/velora/updater.env`. Relevant values are
+`VELORA_CHANNEL`, `VELORA_REPOSITORY`, `VELORA_COMPOSE_DIR`,
+`VELORA_COMPOSE_PROJECT`, `VELORA_SERVICE_NAME`, and
+`VELORA_COMPOSE_UPDATER_SOCKET`. The browser cannot override any of them.
