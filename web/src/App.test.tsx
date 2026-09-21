@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
@@ -110,4 +110,47 @@ it("updates the document title for the current route", async () => {
   );
   expect(await screen.findByText("Server configuration")).toBeInTheDocument();
   expect(document.title).toBe("Velora DNS · Settings");
+});
+
+it.each([
+  ["/dhcp", "DHCP Server", "/api/v1/dhcp/pools"],
+  ["/cluster", "Cluster Overview", "/api/v1/cluster/nodes"],
+])("renders the %s application route", async (route, title, endpoint) => {
+  const responses: Record<string, unknown> = {
+    "/api/v1/status": {
+      ready: true,
+      uptime_seconds: 1,
+      dns_listen: ["127.0.0.1:5353"],
+      version: { version: "dev" },
+      capabilities: ["dhcp", "cluster"],
+    },
+    "/api/v1/stats": {
+      queries_total: 0,
+      queries_per_second: 0,
+      cache_hit_rate: 0,
+      blocked_queries: 0,
+    },
+    "/api/v1/cache": { entries: 0, capacity: 100, hits: 0, misses: 0 },
+    "/api/v1/config": { query_log: { enabled: false } },
+    "/api/v1/dhcp/pools": [],
+    "/api/v1/dhcp/leases": [],
+    "/api/v1/cluster/nodes": [],
+    "/api/v1/cluster/config-versions?limit=20": [],
+  };
+  const fetchMock = vi.fn((path: string) =>
+    Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ data: responses[path] }),
+    }),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(
+    <MemoryRouter initialEntries={[route]}>
+      {withI18n(<App />)}
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByRole("heading", { level: 1, name: title })).toBeInTheDocument();
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(endpoint, expect.anything()));
 });
