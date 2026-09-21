@@ -15,7 +15,7 @@ configured upstream resolvers; it is not an iterative resolver.
 > Review the [production assessment](docs/production-assessment.md) before relying
 > on it for critical DNS service.
 
-![Velora DNS dashboard](docs/assets/overview.png)
+![Velora DNS dashboard showing resolver health, query statistics, and retained-query summaries](docs/assets/overview.png)
 
 ## What it does
 

@@ -26,9 +26,13 @@ are documented; future features are listed in the roadmap.
 
 Screenshots of the management interface are in `assets/`:
 
+They are generated with the deterministic demo fixtures in
+`web/scripts/screenshot.mjs`. The fixtures use reserved documentation addresses
+and contain no credentials, tokens, or production data.
+
 | File | Description |
 |---|---|
 | `overview.png` | Dashboard overview with stats and query activity |
 | `zones.png` | Local zone management (desktop) |
-| `mobile.png` | Dashboard overview (mobile) |
-| `zones-mobile.png` | Zone management (mobile) |
+| `query-log.png` | Retained query filters and results (desktop) |
+| `update-center.png` | Release discovery and update history (desktop) |
