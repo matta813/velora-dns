@@ -113,9 +113,9 @@ it("updates the document title for the current route", async () => {
 });
 
 it.each([
-  ["/dhcp", "DHCP Server", "/api/v1/dhcp/pools"],
-  ["/cluster", "Cluster Overview", "/api/v1/cluster/nodes"],
-])("renders the %s application route", async (route, title, endpoint) => {
+  ["/dhcp", "DHCP Server", "/api/v1/dhcp/pools", "No DHCP pools configured"],
+  ["/cluster", "Cluster Overview", "/api/v1/cluster/nodes", "No cluster nodes registered"],
+])("renders the %s application route", async (route, title, endpoint, emptyState) => {
   const responses: Record<string, unknown> = {
     "/api/v1/status": {
       ready: true,
@@ -132,10 +132,10 @@ it.each([
     },
     "/api/v1/cache": { entries: 0, capacity: 100, hits: 0, misses: 0 },
     "/api/v1/config": { query_log: { enabled: false } },
-    "/api/v1/dhcp/pools": [],
-    "/api/v1/dhcp/leases": [],
-    "/api/v1/cluster/nodes": [],
-    "/api/v1/cluster/config-versions?limit=20": [],
+    "/api/v1/dhcp/pools": null,
+    "/api/v1/dhcp/leases": null,
+    "/api/v1/cluster/nodes": null,
+    "/api/v1/cluster/config-versions?limit=20": null,
   };
   const fetchMock = vi.fn((path: string) =>
     Promise.resolve({
@@ -153,4 +153,5 @@ it.each([
 
   expect(await screen.findByRole("heading", { level: 1, name: title })).toBeInTheDocument();
   await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(endpoint, expect.anything()));
+  expect(await screen.findByText(new RegExp(emptyState))).toBeInTheDocument();
 });
