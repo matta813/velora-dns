@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -46,6 +47,31 @@ func TestStatusHandlerReportsIdle(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	agent.handleStatus(recorder, httptest.NewRequest(http.MethodGet, "/status", nil))
 	if recorder.Code != http.StatusOK || !bytes.Contains(recorder.Body.Bytes(), []byte(`"state":"idle"`)) {
+		t.Fatalf("status=%d response=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestCheckHandlerReportsAvailableRelease(t *testing.T) {
+	agent := testAgent(t)
+	agent.config.Channel = "stable"
+	agent.resolve = func(context.Context, string) (update.Release, error) {
+		return update.Release{Version: "1.2.0", Channel: "stable", Architecture: "linux/amd64", DownloadSize: 42}, nil
+	}
+	recorder := httptest.NewRecorder()
+	agent.handleCheck(recorder, httptest.NewRequest(http.MethodGet, "/check", nil))
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"update_available":true`) || !strings.Contains(recorder.Body.String(), `"latest_version":"1.2.0"`) {
+		t.Fatalf("status=%d response=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestUpdateHandlerRejectsConcurrentRequest(t *testing.T) {
+	agent := testAgent(t)
+	if _, err := agent.manager.Begin("1.0.0", "1.1.0", "systemd", "stable"); err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	agent.handleUpdate(recorder, httptest.NewRequest(http.MethodPost, "/update", strings.NewReader(`{"action":"update"}`)))
+	if recorder.Code != http.StatusConflict {
 		t.Fatalf("status=%d response=%s", recorder.Code, recorder.Body.String())
 	}
 }

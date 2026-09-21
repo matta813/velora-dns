@@ -380,6 +380,15 @@ const en: Record<string, string> = {
   "updates.state_failed": "Failed",
   "updates.load_failed": "Failed to load update status",
   "updates.request_failed": "Failed to request update",
+  "updates.check": "Check for updates",
+  "updates.available": "Update available",
+  "updates.up_to_date": "The system is up to date.",
+  "updates.channel": "Channel",
+  "updates.release_date": "Released",
+  "updates.download_size": "Download size",
+  "updates.progress": "Update progress",
+  "updates.rollback_used": "The previous version was restored.",
+  "updates.rollback_recovered": "The previous version was restored and is healthy.",
 
   // Backup
   "backup.loading": "Loading backup status...",
