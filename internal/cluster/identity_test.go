@@ -37,3 +37,22 @@ func TestJoinTokensAreOpaqueAndHashed(t *testing.T) {
 		t.Fatal("token digest is not deterministic")
 	}
 }
+
+func TestIssueNodeIdentityBindsControlAddress(t *testing.T) {
+	authority, err := NewAuthority("cluster-a", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	certificatePEM, keyPEM, err := IssueNodeIdentity(authority, "cluster-a", "node-a", "127.0.0.1:9443", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	block, _ := pem.Decode(certificatePEM)
+	certificate, err := x509.ParseCertificate(block.Bytes)
+	if err != nil || len(certificate.IPAddresses) != 1 || !certificate.IPAddresses[0].Equal([]byte{127, 0, 0, 1}) {
+		t.Fatalf("certificate = %#v, %v", certificate, err)
+	}
+	if _, err := parsePrivateKey(keyPEM); err != nil {
+		t.Fatal(err)
+	}
+}

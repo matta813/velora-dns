@@ -16,6 +16,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
+	"strings"
 	"time"
 )
 
@@ -89,6 +91,58 @@ func NewJoinToken() (raw string, digest []byte, err error) {
 func TokenDigest(raw string) []byte {
 	sum := sha256.Sum256([]byte(raw))
 	return sum[:]
+}
+
+// IssueNodeIdentity issues a leaf certificate that is valid for both sides of
+// the peer control-plane connection. The advertised address is bound as a SAN
+// so a token cannot be replayed to impersonate a different endpoint.
+func IssueNodeIdentity(authority Authority, clusterID, nodeID, controlAddress string, now time.Time) (certificatePEM, privateKeyPEM []byte, err error) {
+	caBlock, _ := pem.Decode(authority.CertificatePEM)
+	if caBlock == nil {
+		return nil, nil, fmt.Errorf("invalid CA certificate PEM")
+	}
+	caCertificate, err := x509.ParseCertificate(caBlock.Bytes)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse CA certificate: %w", err)
+	}
+	caKey, err := parsePrivateKey(authority.PrivateKeyPEM)
+	if err != nil {
+		return nil, nil, err
+	}
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, nil, fmt.Errorf("generate node key: %w", err)
+	}
+	serial, err := randomSerial()
+	if err != nil {
+		return nil, nil, err
+	}
+	host, _, err := net.SplitHostPort(controlAddress)
+	if err != nil || host == "" {
+		return nil, nil, fmt.Errorf("invalid control address %q", controlAddress)
+	}
+	template := &x509.Certificate{
+		SerialNumber: serial,
+		Subject:      pkix.Name{CommonName: nodeID, Organization: []string{"Velora " + clusterID}},
+		NotBefore:    now.Add(-time.Minute),
+		NotAfter:     now.AddDate(1, 0, 0),
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+	}
+	if ip := net.ParseIP(strings.Trim(host, "[]")); ip != nil {
+		template.IPAddresses = []net.IP{ip}
+	} else {
+		template.DNSNames = []string{host}
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, caCertificate, &key.PublicKey, caKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create node certificate: %w", err)
+	}
+	keyDER, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		return nil, nil, fmt.Errorf("marshal node key: %w", err)
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}), nil
 }
 
 func randomSerial() (*big.Int, error) {
