@@ -56,7 +56,7 @@ func (m *Manager) resolveBackupPath(inputPath string) (string, error) {
 	if trimmed == "" {
 		return "", errors.New("backup path is required")
 	}
-	if filepath.IsAbs(trimmed) || strings.ContainsAny(trimmed, `/\`) || filepath.Base(trimmed) != trimmed {
+	if filepath.IsAbs(trimmed) || strings.Contains(trimmed, "/") || strings.Contains(trimmed, "\\") || strings.Contains(trimmed, "..") {
 		return "", errors.New("backup path must be a file name without directory components")
 	}
 
@@ -65,12 +65,11 @@ func (m *Manager) resolveBackupPath(inputPath string) (string, error) {
 		return "", fmt.Errorf("resolve backup base directory: %w", err)
 	}
 
-	name := filepath.Clean(trimmed)
-	if name == "." || name == ".." || name == string(filepath.Separator) {
+	if trimmed == "." || trimmed == string(filepath.Separator) {
 		return "", errors.New("invalid backup path")
 	}
 
-	return filepath.Join(baseDir, name), nil
+	return filepath.Join(baseDir, trimmed), nil
 }
 
 func (m *Manager) VerifyBackup(path string) (*api.BackupVerification, error) {
