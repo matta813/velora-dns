@@ -1,17 +1,73 @@
 package cluster
 
 import (
+	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"strings"
 	"time"
 )
+
+func Join(ctx context.Context, bundle JoinBundle, nodeID, nodeName, controlAddress string) (State, error) {
+	if bundle.Token == "" || bundle.LeaderAddress == "" || len(bundle.CACertificate) == 0 || !bundle.ExpiresAt.After(time.Now()) {
+		return State{}, fmt.Errorf("invalid or expired join bundle")
+	}
+	csr, key, err := NewCSR(nodeID, controlAddress)
+	if err != nil {
+		return State{}, err
+	}
+	host, _, err := net.SplitHostPort(bundle.LeaderAddress)
+	if err != nil {
+		return State{}, fmt.Errorf("invalid leader address: %w", err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(bundle.CACertificate) {
+		return State{}, fmt.Errorf("invalid cluster CA certificate")
+	}
+	payload, err := json.Marshal(JoinRequest{Token: bundle.Token, NodeID: nodeID, NodeName: nodeName, ControlAddress: controlAddress, CSR: csr})
+	if err != nil {
+		return State{}, err
+	}
+	client := &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: pool, ServerName: strings.Trim(host, "[]")}}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://"+bundle.LeaderAddress+"/control/v1/join", bytes.NewReader(payload))
+	if err != nil {
+		return State{}, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(req)
+	if err != nil {
+		return State{}, fmt.Errorf("contact cluster leader: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return State{}, fmt.Errorf("cluster leader rejected join")
+	}
+	var accepted JoinResponse
+	if err = json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&accepted); err != nil {
+		return State{}, fmt.Errorf("decode join response: %w", err)
+	}
+	certificate, err := certificateFromPEM(accepted.Certificate)
+	if err != nil {
+		return State{}, err
+	}
+	roots := x509.NewCertPool()
+	roots.AppendCertsFromPEM(accepted.CACertificate)
+	if _, err = certificate.Verify(x509.VerifyOptions{Roots: roots, CurrentTime: time.Now(), KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}); err != nil {
+		return State{}, fmt.Errorf("verify joined node certificate: %w", err)
+	}
+	return State{ClusterID: accepted.ClusterID, NodeID: nodeID, NodeName: nodeName, ControlAddress: controlAddress, Role: "voter", CACertificate: accepted.CACertificate, Certificate: accepted.Certificate, PrivateKey: key, CreatedAt: time.Now().UTC()}, nil
+}
 
 // JoinBundle is shown exactly once to an administrator. Its token is a bearer
 // credential, while the embedded CA pins the leader during bootstrap.
