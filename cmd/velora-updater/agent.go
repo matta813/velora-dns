@@ -37,6 +37,10 @@ func NewAgent(config AgentConfig) (*Agent, error) {
 }
 
 func (a *Agent) Run(ctx context.Context) error {
+	groupID, err := veloraGID()
+	if err != nil {
+		return fmt.Errorf("resolve velora socket group: %w", err)
+	}
 	if err := os.Remove(a.config.SocketPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove stale socket: %w", err)
 	}
@@ -48,17 +52,18 @@ func (a *Agent) Run(ctx context.Context) error {
 		listener.Close()
 		os.Remove(a.config.SocketPath)
 	}()
-	if err := os.Chown(a.config.SocketPath, 0, veloraGID()); err != nil {
-		a.config.Logger.Warn("failed to chown socket", "error", err)
+	if err := os.Chown(a.config.SocketPath, 0, groupID); err != nil {
+		return fmt.Errorf("set socket ownership: %w", err)
 	}
 	if err := os.Chmod(a.config.SocketPath, socketPermissions); err != nil {
-		a.config.Logger.Warn("failed to chmod socket", "error", err)
+		return fmt.Errorf("set socket permissions: %w", err)
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /update", a.handleUpdate)
 	mux.HandleFunc("GET /status", a.handleStatus)
 	mux.HandleFunc("GET /history", a.handleHistory)
 	mux.HandleFunc("GET /check", a.handleCheck)
+	mux.HandleFunc("GET /healthz", a.handleHealth)
 	server := &http.Server{
 		Handler:           mux,
 		ReadHeaderTimeout: 3 * time.Second,
@@ -77,6 +82,10 @@ func (a *Agent) Run(ctx context.Context) error {
 	case err := <-errCh:
 		return fmt.Errorf("server: %w", err)
 	}
+}
+
+func (a *Agent) handleHealth(w http.ResponseWriter, _ *http.Request) {
+	a.writeJSON(w, http.StatusOK, map[string]bool{"ready": true})
 }
 
 func (a *Agent) handleUpdate(w http.ResponseWriter, r *http.Request) {
