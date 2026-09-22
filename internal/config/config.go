@@ -181,7 +181,7 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 		}
 	}
 	if v, ok := lookup("VELORA_CACHE_UPSTREAM_TTL"); ok {
-		n, err := strconv.ParseUint(v, 10, 32)
+		n, err := strconv.Atoi(v)
 		if err != nil {
 			return c, fmt.Errorf("invalid VELORA_CACHE_UPSTREAM_TTL")
 		}

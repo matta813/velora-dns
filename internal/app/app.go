@@ -30,6 +30,15 @@ import (
 
 type transferClientAdapter struct{ client *dns.TransferClient }
 
+const maxCacheUpstreamTTL = 604800
+
+func cacheUpstreamTTL(seconds int) (uint32, error) {
+	if seconds < 0 || seconds > maxCacheUpstreamTTL {
+		return 0, fmt.Errorf("cache upstream TTL must be between 0 and %d seconds", maxCacheUpstreamTTL)
+	}
+	return uint32(seconds), nil
+}
+
 func (a transferClientAdapter) AXFR(ctx context.Context, zone, primaryAddr, tsigKeyName string) (*zones.TransferResult, error) {
 	result, err := a.client.AXFR(ctx, zone, dns.ParseTransferAddress(primaryAddr), tsigKeyName)
 	if result == nil {
@@ -85,7 +94,11 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	memory := cache.New(c.Cache.MaxEntries)
-	memory.SetUpstreamTTL(uint32(c.Cache.UpstreamTTL))
+	upstreamTTL, err := cacheUpstreamTTL(c.Cache.UpstreamTTL)
+	if err != nil {
+		return err
+	}
+	memory.SetUpstreamTTL(upstreamTTL)
 	local, err := zones.New(initCtx, db, memory.Flush)
 	if err != nil {
 		return fmt.Errorf("load local zones: %w", err)
@@ -192,7 +205,11 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	}
 	dnsHandler := &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), RateLimit: rateLimitState, Observer: observer, Audit: audit, CookieSecret: cookieSecret}
 	applyConfig := func(updated config.Config) error {
-		memory.SetUpstreamTTL(uint32(updated.Cache.UpstreamTTL))
+		upstreamTTL, err := cacheUpstreamTTL(updated.Cache.UpstreamTTL)
+		if err != nil {
+			return err
+		}
+		memory.SetUpstreamTTL(upstreamTTL)
 		audit.SetEnabled(updated.QueryLog.Enabled)
 		rateLimitState.Configure(updated.DNS.RateLimitEnabled, updated.DNS.GlobalQPS, updated.DNS.ClientQPS, updated.DNS.RateLimitBurst)
 		newAllowed := make([]netip.Prefix, 0, len(updated.DNS.AllowedClients))
