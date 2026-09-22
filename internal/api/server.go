@@ -36,27 +36,28 @@ type Version struct {
 	Built   string `json:"built"`
 }
 type Dependencies struct {
-	Database    Database
-	Zones       ZoneStore
-	Filtering   BlocklistStore
-	Queries     QueryStore
-	Auth        AuthStore
-	DNS         DNS
-	Cache       *cache.Cache
-	Metrics     *metrics.Metrics
-	Config      config.Config
-	ConfigPath  string
-	Version     Version
-	Started     time.Time
-	TSIG        TSIGStore
-	Update      UpdateStore
-	Onboarding  OnboardingStore
-	Backup      BackupStore
-	Settings    SettingsStore
-	RateLimit   *dns.RateLimitState
-	DHCP        DHCPStore
-	Cluster     ClusterStore
-	ApplyConfig func(config.Config) error
+	Database       Database
+	Zones          ZoneStore
+	Filtering      BlocklistStore
+	Queries        QueryStore
+	Auth           AuthStore
+	DNS            DNS
+	Cache          *cache.Cache
+	Metrics        *metrics.Metrics
+	Config         config.Config
+	ConfigPath     string
+	Version        Version
+	Started        time.Time
+	TSIG           TSIGStore
+	Update         UpdateStore
+	Onboarding     OnboardingStore
+	Backup         BackupStore
+	Settings       SettingsStore
+	RateLimit      *dns.RateLimitState
+	DHCP           DHCPStore
+	Cluster        ClusterStore
+	ClusterControl ClusterControl
+	ApplyConfig    func(config.Config) error
 }
 type Error struct {
 	Code    string `json:"code"`
@@ -124,7 +125,7 @@ func New(d Dependencies) http.Handler {
 		capabilities = append(capabilities, "dhcp")
 	}
 	if d.Cluster != nil {
-		registerCluster(mux, d.Cluster)
+		registerCluster(mux, d.Cluster, d.ClusterControl)
 		capabilities = append(capabilities, "cluster")
 	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })

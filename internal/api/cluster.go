@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/matta813/velora-dns/internal/cluster"
 	"github.com/matta813/velora-dns/internal/node"
 	"github.com/matta813/velora-dns/internal/replication"
 )
@@ -19,8 +20,46 @@ type ClusterStore interface {
 	GetLatestVersion(ctx context.Context) (replication.ConfigVersion, error)
 	ListVersions(ctx context.Context, limit int) ([]replication.ConfigVersion, error)
 }
+type ClusterControl interface {
+	Status(context.Context) (cluster.PublicState, bool, error)
+	Create(context.Context, string, string) (cluster.PublicState, error)
+	CreateJoinBundle(context.Context) (cluster.JoinBundle, error)
+}
 
-func registerCluster(mux *http.ServeMux, store ClusterStore) {
+func registerCluster(mux *http.ServeMux, store ClusterStore, control ClusterControl) {
+	if control != nil {
+		mux.HandleFunc("GET /api/v1/cluster", func(w http.ResponseWriter, r *http.Request) {
+			state, configured, err := control.Status(r.Context())
+			if err != nil {
+				failure(w, 503, "storage_unavailable", "Cluster state unavailable")
+				return
+			}
+			respond(w, 200, map[string]any{"configured": configured, "cluster": state})
+		})
+		mux.HandleFunc("POST /api/v1/cluster", func(w http.ResponseWriter, r *http.Request) {
+			var in struct {
+				Name           string `json:"name"`
+				ControlAddress string `json:"control_address"`
+			}
+			if !readJSON(w, r, &in) {
+				return
+			}
+			state, err := control.Create(r.Context(), in.Name, in.ControlAddress)
+			if err != nil {
+				failure(w, 409, "cluster_create_failed", err.Error())
+				return
+			}
+			respond(w, 201, state)
+		})
+		mux.HandleFunc("POST /api/v1/cluster/join-tokens", func(w http.ResponseWriter, r *http.Request) {
+			bundle, err := control.CreateJoinBundle(r.Context())
+			if err != nil {
+				failure(w, 409, "join_token_failed", err.Error())
+				return
+			}
+			respond(w, 201, bundle)
+		})
+	}
 	mux.HandleFunc("GET /api/v1/cluster/nodes", func(w http.ResponseWriter, r *http.Request) {
 		nodes, err := store.ListNodes(r.Context())
 		if err != nil {
