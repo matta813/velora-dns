@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net"
 	"time"
+
+	"github.com/matta813/velora-dns/internal/node"
 )
 
 const joinTokenLifetime = 15 * time.Minute
@@ -17,6 +19,45 @@ type Store interface {
 	HasClusterState(context.Context) (bool, error)
 	CreateClusterJoinToken(context.Context, []byte, time.Time) error
 	ConsumeClusterJoinToken(context.Context, []byte) error
+	SaveNode(context.Context, node.Node) error
+}
+
+type JoinRequest struct {
+	Token          string `json:"token"`
+	NodeID         string `json:"node_id"`
+	NodeName       string `json:"node_name"`
+	ControlAddress string `json:"control_address"`
+	CSR            []byte `json:"csr"`
+}
+type JoinResponse struct {
+	ClusterID     string `json:"cluster_id"`
+	LeaderAddress string `json:"leader_address"`
+	CACertificate []byte `json:"ca_certificate"`
+	Certificate   []byte `json:"certificate"`
+}
+
+func (c *Controller) AcceptJoin(ctx context.Context, request JoinRequest) (JoinResponse, error) {
+	state, err := c.store.GetClusterState(ctx)
+	if err != nil {
+		return JoinResponse{}, fmt.Errorf("load cluster state: %w", err)
+	}
+	if state.Role != "leader" {
+		return JoinResponse{}, fmt.Errorf("only the cluster leader accepts joins")
+	}
+	if request.Token == "" || request.NodeID == "" || request.NodeName == "" || request.ControlAddress == "" || len(request.CSR) == 0 {
+		return JoinResponse{}, fmt.Errorf("invalid join request")
+	}
+	if err = c.store.ConsumeClusterJoinToken(ctx, TokenDigest(request.Token)); err != nil {
+		return JoinResponse{}, err
+	}
+	certificate, err := SignCSR(Authority{CertificatePEM: state.CACertificate, PrivateKeyPEM: state.PrivateKey}, state.ClusterID, request.NodeID, request.ControlAddress, request.CSR, c.now())
+	if err != nil {
+		return JoinResponse{}, err
+	}
+	if err = c.store.SaveNode(ctx, node.Node{ID: request.NodeID, Name: request.NodeName, Address: request.ControlAddress, Status: "healthy", LastSeenAt: c.now().UTC()}); err != nil {
+		return JoinResponse{}, fmt.Errorf("save joined node: %w", err)
+	}
+	return JoinResponse{ClusterID: state.ClusterID, LeaderAddress: state.ControlAddress, CACertificate: state.CACertificate, Certificate: certificate}, nil
 }
 
 type Controller struct {

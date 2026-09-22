@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/matta813/velora-dns/internal/node"
 )
 
 type memoryStore struct {
@@ -33,6 +35,7 @@ func (s *memoryStore) CreateClusterJoinToken(_ context.Context, d []byte, e time
 	return nil
 }
 func (s *memoryStore) ConsumeClusterJoinToken(context.Context, []byte) error { return nil }
+func (s *memoryStore) SaveNode(context.Context, node.Node) error             { return nil }
 func TestControllerCreatesClusterAndJoinBundle(t *testing.T) {
 	s := &memoryStore{}
 	c := NewController(s)
