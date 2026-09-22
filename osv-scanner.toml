@@ -1,0 +1,3 @@
+[[IgnoredVulns]]
+id = "GO-2026-5932"
+reason = "Velora uses golang.org/x/crypto/bcrypt only; the affected, unmaintained openpgp packages are not imported or reachable in the build."
