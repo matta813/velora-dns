@@ -45,6 +45,8 @@ is nanoseconds, matching other duration fields. The UI renders it in millisecond
 The Query log page supports all four filters and older pages. History includes private
 network activity: restrict access to the management interface and database backups.
 
+![Query log filters and retained demo queries using reserved documentation addresses](assets/query-log.png)
+
 ## Aggregate dashboard
 
 `GET /api/v1/query-stats` returns total and blocked counts plus top domains and clients.

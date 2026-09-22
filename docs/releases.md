@@ -132,6 +132,8 @@ Or build both architectures:
 
 ## Transactional updates
 
+![Update Center showing an available beta release and completed update history](assets/update-center.png)
+
 All update mechanisms (systemd agent, Compose agent) follow a shared transactional contract
 defined in `internal/update/update.go`. This ensures consistent behavior regardless of the
 deployment mode.

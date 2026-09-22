@@ -13,6 +13,8 @@ deletion. Zone deletion requires confirmation and removes its records. Filter th
 zone list by name. Reload fetches the current revision; close an open editor first.
 Conflicts preserve the draft without overwriting another writer's changes.
 
+![Local zone list and records populated with documentation-only demo data](assets/zones.png)
+
 ## Create a zone
 
 ```bash
