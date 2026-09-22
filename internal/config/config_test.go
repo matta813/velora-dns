@@ -41,6 +41,15 @@ func TestUpstreamCacheTTLDefaultAndValidation(t *testing.T) {
 	}
 }
 
+func TestUpstreamCacheTTLEnvironmentRejectsIntegerOverflow(t *testing.T) {
+	lookup := func(key string) (string, bool) {
+		return "18446744073709551615", key == "VELORA_CACHE_UPSTREAM_TTL"
+	}
+	if _, err := Parse(nil, lookup); err == nil {
+		t.Fatal("accepted upstream TTL that overflows int")
+	}
+}
+
 func TestQueryLogEnvironmentAndBounds(t *testing.T) {
 	env := map[string]string{"VELORA_QUERY_LOG_ENABLED": "true", "VELORA_QUERY_LOG_RETENTION": "24h", "VELORA_QUERY_LOG_QUEUE_SIZE": "32", "VELORA_QUERY_LOG_MAX_ROWS": "250"}
 	c, err := Parse(nil, func(k string) (string, bool) { v, ok := env[k]; return v, ok })
