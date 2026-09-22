@@ -17,10 +17,11 @@ export interface ConfigVersion {
   applied_at: string;
 }
 export interface ClusterState { configured: boolean; cluster: { cluster_id: string; node_id: string; node_name: string; control_address: string; role: string } }
-export interface JoinBundle { leader_address: string; ca_certificate: number[]; token: string; expires_at: string }
+export interface JoinBundle { leader_address: string; ca_certificate: string; token: string; expires_at: string }
 export async function loadClusterState(): Promise<ClusterState> { return request<ClusterState>("/api/v1/cluster"); }
 export async function createCluster(name: string, control_address: string) { return request<ClusterState["cluster"]>("/api/v1/cluster", undefined, "POST", { body: { name, control_address } }); }
 export async function createClusterJoinToken(): Promise<JoinBundle> { return request<JoinBundle>("/api/v1/cluster/join-tokens", undefined, "POST"); }
+export async function joinCluster(name: string, control_address: string, bundle: JoinBundle) { return request<ClusterState["cluster"]>("/api/v1/cluster/join", undefined, "POST", { body: { name, control_address, bundle } }); }
 
 export async function loadClusterNodes(signal?: AbortSignal): Promise<ClusterNode[]> {
   return (await request<ClusterNode[] | null>("/api/v1/cluster/nodes", signal)) ?? [];

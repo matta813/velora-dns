@@ -451,6 +451,8 @@ const nl: Record<string, string> = {
   "cluster.join": "Add a node",
   "cluster.create_join_token": "Create join token",
   "cluster.join_token_once": "Copy this single-use token now. It expires after 15 minutes and is never shown again.",
+  "cluster.join_bundle": "Join bundle",
+  "cluster.join_failed": "Could not join the cluster",
 };
 
 export default nl;

@@ -505,6 +505,8 @@ const de: Record<string, string> = {
   "cluster.join": "Knoten hinzufügen",
   "cluster.create_join_token": "Join-Token erstellen",
   "cluster.join_token_once": "Dieses Einmal-Token jetzt kopieren. Es läuft nach 15 Minuten ab und wird nicht erneut angezeigt.",
+  "cluster.join_bundle": "Join-Bundle",
+  "cluster.join_failed": "Cluster-Beitritt fehlgeschlagen",
 };
 
 export default de;

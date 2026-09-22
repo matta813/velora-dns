@@ -12,7 +12,7 @@ import {
   type ConfigVersion,
   loadClusterNodes,
   loadConfigVersions,
-  loadClusterState, createCluster, createClusterJoinToken, type JoinBundle,
+  loadClusterState, createCluster, createClusterJoinToken, joinCluster, type JoinBundle,
 } from "../api-cluster";
 import { useI18n } from "../i18n-context";
 
@@ -26,6 +26,7 @@ export function Cluster() {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [joinBundle, setJoinBundle] = useState<JoinBundle | null>(null);
+  const [joinInput, setJoinInput] = useState("");
 
   const refresh = useCallback(async () => {
     try {
@@ -93,6 +94,7 @@ export function Cluster() {
 
   const setup = async () => { try { await createCluster(name, address); await refresh(); } catch (e) { setError(e instanceof Error ? e.message : t("cluster.load_failed")); } };
   const issueToken = async () => { try { setJoinBundle(await createClusterJoinToken()); } catch (e) { setError(e instanceof Error ? e.message : t("cluster.load_failed")); } };
+  const join = async () => { try { await joinCluster(name, address, JSON.parse(joinInput) as JoinBundle); await refresh(); } catch (e) { setError(e instanceof Error ? e.message : t("cluster.join_failed")); } };
 
   return (
     <>
@@ -132,8 +134,8 @@ export function Cluster() {
         </div>
       </div>
 
-      {!clusterConfigured && <section className="panel padded"><h2>{t("cluster.create")}</h2><p className="muted">{t("cluster.create_help")}</p><div style={{display:"grid",gap:"0.5rem",maxWidth:"32rem"}}><input aria-label={t("cluster.name")} value={name} onChange={(e)=>setName(e.target.value)} placeholder={t("cluster.name")} /><input aria-label={t("cluster.control_address")} value={address} onChange={(e)=>setAddress(e.target.value)} placeholder="node.example:9443" /><button className="button" disabled={!name.trim() || !address.trim()} onClick={()=>void setup()}>{t("cluster.create")}</button></div></section>}
-      {clusterConfigured && <section className="panel padded"><div className="panel-header"><h2>{t("cluster.join")}</h2><button className="button secondary" onClick={()=>void issueToken()}>{t("cluster.create_join_token")}</button></div>{joinBundle && <div className="notice" role="status"><p>{t("cluster.join_token_once")}</p><code style={{wordBreak:"break-all"}}>{joinBundle.token}</code><p>{joinBundle.leader_address} · {new Date(joinBundle.expires_at).toLocaleString()}</p></div>}</section>}
+      {!clusterConfigured && <section className="panel padded"><h2>{t("cluster.create")}</h2><p className="muted">{t("cluster.create_help")}</p><div style={{display:"grid",gap:"0.5rem",maxWidth:"32rem"}}><input aria-label={t("cluster.name")} value={name} onChange={(e)=>setName(e.target.value)} placeholder={t("cluster.name")} /><input aria-label={t("cluster.control_address")} value={address} onChange={(e)=>setAddress(e.target.value)} placeholder="node.example:9443" /><button className="button" disabled={!name.trim() || !address.trim()} onClick={()=>void setup()}>{t("cluster.create")}</button><textarea aria-label={t("cluster.join_bundle")} value={joinInput} onChange={(e)=>setJoinInput(e.target.value)} placeholder={t("cluster.join_bundle")} rows={5}/><button className="button secondary" disabled={!name.trim()||!address.trim()||!joinInput.trim()} onClick={()=>void join()}>{t("cluster.join")}</button></div></section>}
+      {clusterConfigured && <section className="panel padded"><div className="panel-header"><h2>{t("cluster.join")}</h2><button className="button secondary" onClick={()=>void issueToken()}>{t("cluster.create_join_token")}</button></div>{joinBundle && <div className="notice" role="status"><p>{t("cluster.join_token_once")}</p><code style={{wordBreak:"break-all"}}>{JSON.stringify(joinBundle)}</code><p>{joinBundle.leader_address} · {new Date(joinBundle.expires_at).toLocaleString()}</p></div>}</section>}
 
       <section className="panel padded">
         <div className="panel-header">

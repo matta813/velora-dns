@@ -215,6 +215,40 @@ func (c *Controller) CreateJoinBundle(ctx context.Context) (JoinBundle, error) {
 	return JoinBundle{LeaderAddress: state.ControlAddress, CACertificate: state.CACertificate, Token: raw, ExpiresAt: expires}, nil
 }
 
+func (c *Controller) JoinCluster(ctx context.Context, bundle JoinBundle, nodeName, controlAddress string) (PublicState, error) {
+	if nodeName == "" {
+		return PublicState{}, fmt.Errorf("node name is required")
+	}
+	if _, _, err := net.SplitHostPort(controlAddress); err != nil {
+		return PublicState{}, fmt.Errorf("invalid control address: %w", err)
+	}
+	exists, err := c.store.HasClusterState(ctx)
+	if err != nil {
+		return PublicState{}, err
+	}
+	if exists {
+		return PublicState{}, fmt.Errorf("cluster already exists")
+	}
+	nodeID, err := randomID()
+	if err != nil {
+		return PublicState{}, err
+	}
+	state, err := Join(ctx, bundle, nodeID, nodeName, controlAddress)
+	if err != nil {
+		return PublicState{}, err
+	}
+	if err = c.store.SaveClusterState(ctx, state); err != nil {
+		return PublicState{}, fmt.Errorf("save joined cluster identity: %w", err)
+	}
+	if err = c.store.SaveNode(ctx, node.Node{ID: state.NodeID, Name: state.NodeName, Address: state.ControlAddress, Status: "healthy", LastSeenAt: c.now().UTC()}); err != nil {
+		return PublicState{}, fmt.Errorf("save local cluster node: %w", err)
+	}
+	if err = c.startBootstrap(state); err != nil {
+		return PublicState{}, err
+	}
+	return publicState(state), nil
+}
+
 func randomID() (string, error) {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {

@@ -24,6 +24,7 @@ type ClusterControl interface {
 	Status(context.Context) (cluster.PublicState, bool, error)
 	Create(context.Context, string, string) (cluster.PublicState, error)
 	CreateJoinBundle(context.Context) (cluster.JoinBundle, error)
+	JoinCluster(context.Context, cluster.JoinBundle, string, string) (cluster.PublicState, error)
 }
 
 func registerCluster(mux *http.ServeMux, store ClusterStore, control ClusterControl) {
@@ -58,6 +59,22 @@ func registerCluster(mux *http.ServeMux, store ClusterStore, control ClusterCont
 				return
 			}
 			respond(w, 201, bundle)
+		})
+		mux.HandleFunc("POST /api/v1/cluster/join", func(w http.ResponseWriter, r *http.Request) {
+			var in struct {
+				Name           string             `json:"name"`
+				ControlAddress string             `json:"control_address"`
+				Bundle         cluster.JoinBundle `json:"bundle"`
+			}
+			if !readJSON(w, r, &in) {
+				return
+			}
+			state, err := control.JoinCluster(r.Context(), in.Bundle, in.Name, in.ControlAddress)
+			if err != nil {
+				failure(w, 409, "cluster_join_failed", err.Error())
+				return
+			}
+			respond(w, 201, state)
 		})
 	}
 	mux.HandleFunc("GET /api/v1/cluster/nodes", func(w http.ResponseWriter, r *http.Request) {
