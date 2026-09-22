@@ -3,9 +3,12 @@ package cluster
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/hex"
 	"fmt"
 	"net"
+	"net/http"
+	"sync"
 	"time"
 
 	"github.com/matta813/velora-dns/internal/node"
@@ -61,11 +64,67 @@ func (c *Controller) AcceptJoin(ctx context.Context, request JoinRequest) (JoinR
 }
 
 type Controller struct {
-	store Store
-	now   func() time.Time
+	store      Store
+	now        func() time.Time
+	mu         sync.Mutex
+	runtimeCtx context.Context
+	server     *http.Server
+	listener   net.Listener
 }
 
 func NewController(store Store) *Controller { return &Controller{store: store, now: time.Now} }
+
+func (c *Controller) Start(ctx context.Context) error {
+	c.mu.Lock()
+	c.runtimeCtx = ctx
+	c.mu.Unlock()
+	state, err := c.store.GetClusterState(ctx)
+	if err != nil {
+		configured, checkErr := c.store.HasClusterState(ctx)
+		if checkErr != nil {
+			return checkErr
+		}
+		if !configured {
+			return nil
+		}
+		return err
+	}
+	return c.startBootstrap(state)
+}
+
+func (c *Controller) Stop(ctx context.Context) error {
+	c.mu.Lock()
+	server := c.server
+	c.server = nil
+	c.listener = nil
+	c.mu.Unlock()
+	if server == nil {
+		return nil
+	}
+	return server.Shutdown(ctx)
+}
+
+func (c *Controller) startBootstrap(state State) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.server != nil {
+		return nil
+	}
+	config, err := BootstrapTLSConfig(state)
+	if err != nil {
+		return err
+	}
+	listener, err := net.Listen("tcp", state.ControlAddress)
+	if err != nil {
+		return fmt.Errorf("listen on cluster control address: %w", err)
+	}
+	tlsListener := tls.NewListener(listener, config)
+	server := &http.Server{Handler: BootstrapHandler(c), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	c.server = server
+	c.listener = tlsListener
+	go func() { _ = server.Serve(tlsListener) }()
+	return nil
+}
 
 type PublicState struct {
 	ClusterID      string `json:"cluster_id"`
@@ -125,6 +184,14 @@ func (c *Controller) Create(ctx context.Context, nodeName, controlAddress string
 	state := State{ClusterID: clusterID, NodeID: nodeID, NodeName: nodeName, ControlAddress: controlAddress, Role: "leader", CACertificate: authority.CertificatePEM, Certificate: certificate, PrivateKey: key, CreatedAt: now}
 	if err := c.store.SaveClusterState(ctx, state); err != nil {
 		return PublicState{}, err
+	}
+	c.mu.Lock()
+	runtimeReady := c.runtimeCtx != nil
+	c.mu.Unlock()
+	if runtimeReady {
+		if err := c.startBootstrap(state); err != nil {
+			return PublicState{}, err
+		}
 	}
 	return publicState(state), nil
 }

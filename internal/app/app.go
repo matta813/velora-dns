@@ -279,6 +279,14 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
 	clusterControl := cluster.NewController(db)
+	if err := clusterControl.Start(runCtx); err != nil {
+		return fmt.Errorf("start cluster control plane: %w", err)
+	}
+	defer func() {
+		shutdown, done := context.WithTimeout(context.Background(), 5*time.Second)
+		defer done()
+		result = errors.Join(result, clusterControl.Stop(shutdown))
+	}()
 	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, ClusterControl: clusterControl, ApplyConfig: applyConfig}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
