@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"crypto/tls"
 	"testing"
 	"time"
 )
@@ -23,5 +24,9 @@ func TestMutualTLSConfigsUseClusterAuthority(t *testing.T) {
 	client, err := ClientTLSConfig(state, "127.0.0.1")
 	if err != nil || client.ServerName != "127.0.0.1" {
 		t.Fatalf("client=%#v err=%v", client, err)
+	}
+	bootstrap, err := BootstrapTLSConfig(state)
+	if err != nil || bootstrap.ClientAuth != tls.NoClientCert {
+		t.Fatalf("bootstrap=%#v err=%v", bootstrap, err)
 	}
 }

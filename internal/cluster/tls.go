@@ -16,6 +16,17 @@ func ServerTLSConfig(state State) (*tls.Config, error) {
 	return &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{certificate}, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: pool}, nil
 }
 
+// BootstrapTLSConfig is used only for the first token-gated join request.
+// The joining node pins the CA supplied in its bundle; it cannot present a
+// client certificate until this exchange has completed.
+func BootstrapTLSConfig(state State) (*tls.Config, error) {
+	certificate, _, err := tlsMaterial(state)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{certificate}}, nil
+}
+
 // ClientTLSConfig verifies that the peer certificate is signed by this
 // cluster's CA and matches the advertised peer name or IP address.
 func ClientTLSConfig(state State, serverName string) (*tls.Config, error) {
