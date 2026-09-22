@@ -56,13 +56,16 @@ func (m *Manager) resolveBackupPath(inputPath string) (string, error) {
 	if trimmed == "" {
 		return "", errors.New("backup path is required")
 	}
+	if filepath.IsAbs(trimmed) || strings.ContainsAny(trimmed, `/\`) || filepath.Base(trimmed) != trimmed {
+		return "", errors.New("backup path must be a file name without directory components")
+	}
 
 	baseDir, err := filepath.Abs(filepath.Dir(m.databasePath))
 	if err != nil {
 		return "", fmt.Errorf("resolve backup base directory: %w", err)
 	}
 
-	name := filepath.Base(filepath.Clean(trimmed))
+	name := filepath.Clean(trimmed)
 	if name == "." || name == ".." || name == string(filepath.Separator) {
 		return "", errors.New("invalid backup path")
 	}
@@ -79,10 +82,17 @@ func (m *Manager) VerifyBackup(path string) (*api.BackupVerification, error) {
 		}, nil
 	}
 
-	if _, err := os.Stat(validatedPath); err != nil {
+	stat, err := os.Lstat(validatedPath)
+	if err != nil {
 		return &api.BackupVerification{
 			Valid: false,
 			Error: fmt.Sprintf("backup file not found: %v", err),
+		}, nil
+	}
+	if stat.Mode()&os.ModeSymlink != 0 || !stat.Mode().IsRegular() {
+		return &api.BackupVerification{
+			Valid: false,
+			Error: "backup path must refer to a regular file",
 		}, nil
 	}
 
