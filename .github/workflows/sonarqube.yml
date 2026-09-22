@@ -18,16 +18,38 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
-          cache: true
+          cache-dependency-path: go.sum
 
       - name: Download dependencies
         run: go mod download
 
-      - name: Run tests
+      - name: Run Go tests
         run: go test ./... -coverprofile=coverage.out
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix web
+
+      - name: Lint frontend
+        run: npm --prefix web run lint
+
+      - name: Type-check frontend
+        run: npm --prefix web run typecheck
+
+      - name: Run frontend tests
+        run: npm --prefix web test -- --run
+
+      - name: Build frontend
+        run: npm --prefix web run build
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
