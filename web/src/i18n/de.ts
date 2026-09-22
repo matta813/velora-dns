@@ -499,6 +499,12 @@ const de: Record<string, string> = {
   "cluster.applied_by": "Angewendet von",
   "cluster.applied_at": "Angewendet am",
   "cluster.just_now": "gerade eben",
+  "cluster.create": "Cluster erstellen",
+  "cluster.create_help": "Erstellt den lokalen Leader und die sichere Cluster-Identität.",
+  "cluster.control_address": "Control-Adresse",
+  "cluster.join": "Knoten hinzufügen",
+  "cluster.create_join_token": "Join-Token erstellen",
+  "cluster.join_token_once": "Dieses Einmal-Token jetzt kopieren. Es läuft nach 15 Minuten ab und wird nicht erneut angezeigt.",
 };
 
 export default de;

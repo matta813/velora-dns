@@ -12,6 +12,7 @@ import {
   type ConfigVersion,
   loadClusterNodes,
   loadConfigVersions,
+  loadClusterState, createCluster, createClusterJoinToken, type JoinBundle,
 } from "../api-cluster";
 import { useI18n } from "../i18n-context";
 
@@ -21,15 +22,21 @@ export function Cluster() {
   const [versions, setVersions] = useState<ConfigVersion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [clusterConfigured, setClusterConfigured] = useState(true);
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [joinBundle, setJoinBundle] = useState<JoinBundle | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const [n, v] = await Promise.all([
+      const [n, v, state] = await Promise.all([
         loadClusterNodes(),
         loadConfigVersions(20),
+        loadClusterState(),
       ]);
       setNodes(n);
       setVersions(v);
+      setClusterConfigured(state.configured);
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : t("cluster.load_failed"));
@@ -40,11 +47,12 @@ export function Cluster() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([loadClusterNodes(), loadConfigVersions(20)])
-      .then(([n, v]) => {
+    Promise.all([loadClusterNodes(), loadConfigVersions(20), loadClusterState()])
+      .then(([n, v, state]) => {
         if (active) {
           setNodes(n);
           setVersions(v);
+          setClusterConfigured(state.configured);
           setError("");
         }
       })
@@ -83,6 +91,9 @@ export function Cluster() {
 
   const healthyNodes = nodes.filter((n) => n.status === "healthy");
 
+  const setup = async () => { try { await createCluster(name, address); await refresh(); } catch (e) { setError(e instanceof Error ? e.message : t("cluster.load_failed")); } };
+  const issueToken = async () => { try { setJoinBundle(await createClusterJoinToken()); } catch (e) { setError(e instanceof Error ? e.message : t("cluster.load_failed")); } };
+
   return (
     <>
       {error && (
@@ -120,6 +131,9 @@ export function Cluster() {
           </div>
         </div>
       </div>
+
+      {!clusterConfigured && <section className="panel padded"><h2>{t("cluster.create")}</h2><p className="muted">{t("cluster.create_help")}</p><div style={{display:"grid",gap:"0.5rem",maxWidth:"32rem"}}><input aria-label={t("cluster.name")} value={name} onChange={(e)=>setName(e.target.value)} placeholder={t("cluster.name")} /><input aria-label={t("cluster.control_address")} value={address} onChange={(e)=>setAddress(e.target.value)} placeholder="node.example:9443" /><button className="button" disabled={!name.trim() || !address.trim()} onClick={()=>void setup()}>{t("cluster.create")}</button></div></section>}
+      {clusterConfigured && <section className="panel padded"><div className="panel-header"><h2>{t("cluster.join")}</h2><button className="button secondary" onClick={()=>void issueToken()}>{t("cluster.create_join_token")}</button></div>{joinBundle && <div className="notice" role="status"><p>{t("cluster.join_token_once")}</p><code style={{wordBreak:"break-all"}}>{joinBundle.token}</code><p>{joinBundle.leader_address} · {new Date(joinBundle.expires_at).toLocaleString()}</p></div>}</section>}
 
       <section className="panel padded">
         <div className="panel-header">

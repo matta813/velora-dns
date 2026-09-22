@@ -445,6 +445,12 @@ const nl: Record<string, string> = {
   "cluster.applied_by": 'Toegepast door',
   "cluster.applied_at": 'Toegepast op',
   "cluster.just_now": 'zojuist',
+  "cluster.create": "Create cluster",
+  "cluster.create_help": "Create the local leader and secure cluster identity.",
+  "cluster.control_address": "Control address",
+  "cluster.join": "Add a node",
+  "cluster.create_join_token": "Create join token",
+  "cluster.join_token_once": "Copy this single-use token now. It expires after 15 minutes and is never shown again.",
 };
 
 export default nl;
