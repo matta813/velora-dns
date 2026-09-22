@@ -18,7 +18,7 @@ ARG BUILD_TIME=unknown
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT_SHA} -X main.built=${BUILD_TIME}" -o /out/velora-dns ./cmd/server
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/velora-compose-updater ./cmd/velora-compose-updater
 
-FROM alpine:3.24@sha256:e7c4abb69531cb09e2a2bbb56fad3367ab694865c49df898c1c683185cc4376c
+FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 RUN addgroup -g 10001 velora && adduser -D -H -u 10001 -G velora velora && mkdir /data && chown velora:velora /data
 WORKDIR /app
 COPY --from=backend /out/velora-dns /usr/local/bin/velora-dns
