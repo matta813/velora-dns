@@ -26,6 +26,20 @@ type Authority struct {
 	PrivateKeyPEM  []byte
 }
 
+// State is the private, local identity of a control-plane member. It must
+// never be serialized in a browser-facing response.
+type State struct {
+	ClusterID      string
+	NodeID         string
+	NodeName       string
+	ControlAddress string
+	Role           string
+	CACertificate  []byte
+	Certificate    []byte
+	PrivateKey     []byte
+	CreatedAt      time.Time
+}
+
 // NewAuthority creates a private CA for one cluster. The private key must
 // remain local to the elected leader and must never be returned by an API.
 func NewAuthority(clusterID string, now time.Time) (Authority, error) {
