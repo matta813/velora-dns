@@ -224,7 +224,11 @@ SCRIPT
 sudo chmod 0755 /opt/velora/velora-dns-check.sh
 
 sudo systemctl daemon-reload
-sudo systemctl enable --now velora-updater
+if systemctl is-active --quiet velora-updater; then
+  sudo systemctl restart velora-updater
+else
+  sudo systemctl enable --now velora-updater
+fi
 if systemctl is-active --quiet velora-dns; then
   sudo systemctl restart velora-dns
 else

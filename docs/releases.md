@@ -290,7 +290,16 @@ SupplementaryGroups=velora
 
 ### Status endpoint
 
+The management API exposes the updater health check at
+`GET /api/v1/update/health`. A healthy agent responds with `{"ready":true}`.
+For a native installation, the socket must be owned by `root:velora` with mode
+`0660`; the installer creates the `velora` group and the agent recreates those
+permissions each time it starts.
+
 ```bash
+# Verify that the agent is reachable through its socket
+curl --unix-socket /run/velora-updater.sock http://localhost/healthz
+
 # Check agent status
 curl --unix-socket /run/velora-updater.sock http://localhost/status
 

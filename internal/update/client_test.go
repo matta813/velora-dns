@@ -17,6 +17,7 @@ func TestClientUsesUpdaterUnixSocket(t *testing.T) {
 		t.Fatal(err)
 	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"ready":true}`)) })
 	mux.HandleFunc("GET /status", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(Status{State: StateIdle, Installed: "1.0.0"})
 	})
@@ -38,6 +39,10 @@ func TestClientUsesUpdaterUnixSocket(t *testing.T) {
 	go func() { _ = server.Serve(listener) }()
 
 	client := Client{SocketPath: socket}
+	health, err := client.Health(context.Background())
+	if err != nil || !health.Ready {
+		t.Fatalf("health = %#v, %v", health, err)
+	}
 	status, err := client.Status(context.Background())
 	if err != nil || status.Installed != "1.0.0" {
 		t.Fatalf("status = %#v, %v", status, err)

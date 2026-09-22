@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -19,6 +20,9 @@ func TestUpdateAPIForwardsToAgentSocket(t *testing.T) {
 		t.Fatal(err)
 	}
 	agentMux := http.NewServeMux()
+	agentMux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(update.Health{Ready: true})
+	})
 	agentMux.HandleFunc("GET /check", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(update.CheckResult{Installed: "1.0.0", Latest: "1.1.0", UpdateAvailable: true, Channel: "stable"})
 	})
@@ -41,6 +45,7 @@ func TestUpdateAPIForwardsToAgentSocket(t *testing.T) {
 		method, path, body, contains string
 		status                       int
 	}{
+		{http.MethodGet, "/api/v1/update/health", "", `"ready":true`, http.StatusOK},
 		{http.MethodGet, "/api/v1/update/check", "", `"latest_version":"1.1.0"`, http.StatusOK},
 		{http.MethodPost, "/api/v1/update/request", `{"action":"update"}`, `"version":"1.1.0"`, http.StatusAccepted},
 	} {
@@ -52,6 +57,22 @@ func TestUpdateAPIForwardsToAgentSocket(t *testing.T) {
 		mux.ServeHTTP(recorder, request)
 		if recorder.Code != tc.status || !strings.Contains(recorder.Body.String(), tc.contains) {
 			t.Fatalf("%s %s: status=%d body=%s", tc.method, tc.path, recorder.Code, recorder.Body.String())
+		}
+	}
+}
+
+func TestUpdaterFailureExplainsSocketProblems(t *testing.T) {
+	for _, tc := range []struct {
+		err     error
+		message string
+	}{
+		{os.ErrPermission, "socket access was denied"},
+		{os.ErrNotExist, "not running"},
+	} {
+		recorder := httptest.NewRecorder()
+		updaterFailure(recorder, tc.err)
+		if recorder.Code != http.StatusServiceUnavailable || !strings.Contains(recorder.Body.String(), tc.message) {
+			t.Fatalf("error %v: status=%d response=%s", tc.err, recorder.Code, recorder.Body.String())
 		}
 	}
 }

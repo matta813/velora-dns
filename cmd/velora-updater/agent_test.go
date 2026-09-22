@@ -76,7 +76,7 @@ func TestUpdateHandlerRejectsConcurrentRequest(t *testing.T) {
 	}
 }
 
-func TestEnvOrDefaultAndSplitLines(t *testing.T) {
+func TestEnvOrDefault(t *testing.T) {
 	t.Setenv("VELORA_TEST_VALUE", "configured")
 	if got := envOrDefault("VELORA_TEST_VALUE", "default"); got != "configured" {
 		t.Fatalf("configured value = %q", got)
@@ -84,7 +84,13 @@ func TestEnvOrDefaultAndSplitLines(t *testing.T) {
 	if got := envOrDefault("VELORA_ABSENT_VALUE", "default"); got != "default" {
 		t.Fatalf("default value = %q", got)
 	}
-	if got := splitLines("one\ntwo\nthree"); len(got) != 3 || got[2] != "three" {
-		t.Fatalf("splitLines = %#v", got)
+}
+
+func TestHealthHandlerReportsReady(t *testing.T) {
+	agent := testAgent(t)
+	recorder := httptest.NewRecorder()
+	agent.handleHealth(recorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"ready":true`) {
+		t.Fatalf("status=%d response=%s", recorder.Code, recorder.Body.String())
 	}
 }
