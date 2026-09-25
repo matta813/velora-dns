@@ -143,7 +143,6 @@ export default function App() {
             {t("app.github_repo")} <ArrowUpRight size={15} />
           </a>
           <button className="button secondary" onClick={signOut}>{t("app.sign_out")}</button>
-          <small>{data?.status.version.version ?? t("app.connecting")}</small>
         </div>
       </aside>
       <div className="main-wrap">
@@ -232,6 +231,11 @@ export default function App() {
             <span>
               {t("app.footer.independent")}
             </span>
+            {data?.status.version?.version && (
+              <span className="running-version" data-testid="running-version">
+                Velora DNS {data.status.version.version}
+              </span>
+            )}
             <span>
               {data
                 ? `${t("app.footer.last_updated")} ${data.checked.toLocaleTimeString()}`
