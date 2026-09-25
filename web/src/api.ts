@@ -114,6 +114,14 @@ export interface RateLimitSettings {
   client_qps: number;
   rate_limit_burst: number;
 }
+export interface RateLimitStatus {
+  enabled: boolean;
+  rejected_total: number;
+  last_rejected_at?: string;
+}
+export async function loadRateLimitStatus(signal?: AbortSignal): Promise<RateLimitStatus> {
+  return request<RateLimitStatus>("/api/v1/settings/rate-limit/status", signal);
+}
 export async function loadRateLimitSettings(signal?: AbortSignal): Promise<RateLimitSettings> {
   return request<RateLimitSettings>("/api/v1/settings/rate-limit", signal);
 }

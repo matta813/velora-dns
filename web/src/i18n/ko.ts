@@ -62,6 +62,8 @@ const ko: Record<string, string> = {
   "settings.rate_limit_global_qps": '글로벌 쿼리/초',
   "settings.rate_limit_client_qps": '클라이언트별 쿼리/초',
   "settings.rate_limit_burst": '버스트 허용량',
+  "settings.rate_limit_rejected_total": "거부된 쿼리",
+  "settings.rate_limit_last_rejected": "최근 거부",
   "settings.save": '저장',
   "settings.rate_limit_load_failed": '레이트 리밋 설정을 불러오지 못했습니다',
   "settings.rate_limit_save_failed": '레이트 리밋 설정을 저장하지 못했습니다',

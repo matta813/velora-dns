@@ -62,6 +62,8 @@ const nl: Record<string, string> = {
   "settings.rate_limit_global_qps": 'Globaal queries per seconde',
   "settings.rate_limit_client_qps": 'Queries per seconde per client',
   "settings.rate_limit_burst": 'Piektolerantie',
+  "settings.rate_limit_rejected_total": "Geweigerde query’s",
+  "settings.rate_limit_last_rejected": "Laatste weigering",
   "settings.save": 'Opslaan',
   "settings.rate_limit_load_failed": 'Kan snelheidsbeperkingsinstellingen niet laden',
   "settings.rate_limit_save_failed": 'Kan snelheidsbeperkingsinstellingen niet opslaan',

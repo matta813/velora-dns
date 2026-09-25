@@ -69,6 +69,8 @@ const de: Record<string, string> = {
   "settings.rate_limit_global_qps": "Globale Abfragen pro Sekunde",
   "settings.rate_limit_client_qps": "Abfragen pro Sekunde pro Client",
   "settings.rate_limit_burst": "Burst-Erlaubnis",
+  "settings.rate_limit_rejected_total": "Abgewiesene Anfragen",
+  "settings.rate_limit_last_rejected": "Letzte Abweisung",
   "settings.save": "Speichern",
   "settings.rate_limit_load_failed": "Ratenbegrenzungs-Einstellungen konnten nicht geladen werden",
   "settings.rate_limit_save_failed": "Ratenbegrenzungs-Einstellungen konnten nicht gespeichert werden",

@@ -23,6 +23,7 @@ metrics require an authenticated session or scoped API token.
 | GET | /api/v1/update/history | Persistent update attempts and final results |
 | POST | /api/v1/update/request | Start the release selected by the configured updater agent |
 | GET | /api/v1/stats | Lifetime queries and rolling 60-second QPS; cache hit ratio |
+| GET | /api/v1/settings/rate-limit/status | Enabled state, process-lifetime rejection count and last rejection time; no client addresses |
 | GET | /api/v1/cache | Live entries, capacity, lifetime hits and misses |
 | DELETE | /api/v1/cache | Clear cached answers; preserve lifetime counters |
 | GET | /api/v1/config | Current config, excluding database path and secrets |

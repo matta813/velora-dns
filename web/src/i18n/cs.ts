@@ -62,6 +62,8 @@ const cs: Record<string, string> = {
   "settings.rate_limit_global_qps": 'Globální dotazy za sekundu',
   "settings.rate_limit_client_qps": 'Dotazy za sekundu na klienta',
   "settings.rate_limit_burst": 'Povolený nárůst',
+  "settings.rate_limit_rejected_total": "Odmítnuté dotazy",
+  "settings.rate_limit_last_rejected": "Poslední odmítnutí",
   "settings.save": 'Uložit',
   "settings.rate_limit_load_failed": 'Nelze načíst nastavení omezení rychlosti',
   "settings.rate_limit_save_failed": 'Nelze uložit nastavení omezení rychlosti',

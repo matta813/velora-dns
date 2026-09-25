@@ -3,9 +3,11 @@ import { Save, AlertCircle, CheckCircle } from "lucide-react";
 import type { Snapshot, Config } from "../api";
 import {
   loadRateLimitSettings,
+  loadRateLimitStatus,
   saveConfig,
   saveRateLimitSettings,
   type RateLimitSettings,
+  type RateLimitStatus,
 } from "../api";
 import { SUPPORTED_LANGUAGES, languageName, type Language } from "../i18n";
 import { useI18n } from "../i18n-context";
@@ -43,6 +45,7 @@ export function Settings({ data }: { data: Snapshot }) {
   const [loadingRateLimit, setLoadingRateLimit] = useState(true);
   const [rateLimitError, setRateLimitError] = useState("");
   const [rateLimitSaved, setRateLimitSaved] = useState(false);
+  const [rateLimitStatus, setRateLimitStatus] = useState<RateLimitStatus | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     void loadRateLimitSettings(controller.signal)
@@ -61,6 +64,23 @@ export function Settings({ data }: { data: Snapshot }) {
       });
     return () => controller.abort();
   }, [t]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const status = await loadRateLimitStatus(controller.signal);
+        if (!controller.signal.aborted && Number.isFinite(status.rejected_total)) setRateLimitStatus(status);
+      } catch {
+        if (!controller.signal.aborted) setRateLimitStatus(null);
+      } finally {
+        if (!controller.signal.aborted) timer = setTimeout(poll, 5000);
+      }
+    };
+    void poll();
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, []);
 
   async function saveRateLimit() {
     if (!rateLimit) return;
@@ -313,6 +333,14 @@ export function Settings({ data }: { data: Snapshot }) {
       <section className="panel padded">
         <h2>{t("settings.rate_limiting")}</h2>
         <p>{t("settings.rate_limit_hint")}</p>
+        {rateLimitStatus && (
+          <p role="status">
+            {t("settings.rate_limit_rejected_total")}: {rateLimitStatus.rejected_total.toLocaleString(language)}
+            {rateLimitStatus.last_rejected_at && (
+              <> · {t("settings.rate_limit_last_rejected")}: {new Date(rateLimitStatus.last_rejected_at).toLocaleString(language)}</>
+            )}
+          </p>
+        )}
         {loadingRateLimit ? (
           <p role="status">{t("settings.rate_limit_loading")}</p>
         ) : rateLimit ? (
