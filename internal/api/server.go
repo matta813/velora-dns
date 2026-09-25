@@ -328,7 +328,7 @@ func New(d Dependencies) http.Handler {
 			token, isToken := r.Context().Value(tokenContextKey{}).(database.APIToken)
 			tokenScopes := token.Scopes
 			unsafe := r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
-			if strings.HasPrefix(r.URL.Path, "/api/v1/users") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
+			if (strings.HasPrefix(r.URL.Path, "/api/v1/users") || r.URL.Path == "/api/v1/audit") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
 				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
 				return
 			}
@@ -341,14 +341,18 @@ func New(d Dependencies) http.Handler {
 				return
 			}
 			if unsafe {
-				detail := r.URL.Path
-				if isToken {
-					detail = fmt.Sprintf("token=%d path=%s", token.ID, r.URL.Path)
-				}
-				if err := d.Auth.Audit(r.Context(), &user.ID, r.Method, detail); err != nil {
+				id, err := d.Auth.BeginAudit(r.Context(), user.ID, user.Role, r.Method, r.URL.Path)
+				if err != nil {
 					failure(w, http.StatusServiceUnavailable, "audit_unavailable", "Audit event could not be recorded")
 					return
 				}
+				tracked := &auditResponseWriter{ResponseWriter: w, status: http.StatusOK}
+				w = tracked
+				defer func() {
+					ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+					defer cancel()
+					_ = d.Auth.CompleteAudit(ctx, id, tracked.status)
+				}()
 			}
 		}
 		select {
@@ -361,6 +365,22 @@ func New(d Dependencies) http.Handler {
 		mux.ServeHTTP(w, r)
 	})
 }
+
+type auditResponseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *auditResponseWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *auditResponseWriter) Write(data []byte) (int, error) {
+	return w.ResponseWriter.Write(data)
+}
+
+func (w *auditResponseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func hasScope(scopes, wanted string) bool {
 	for _, scope := range strings.Split(scopes, ",") {

@@ -23,6 +23,9 @@ type AuthStore interface {
 	Session(context.Context, []byte) (database.User, []byte, error)
 	RevokeSession(context.Context, []byte) error
 	Audit(context.Context, *int64, string, string) error
+	BeginAudit(context.Context, int64, string, string, string) (int64, error)
+	CompleteAudit(context.Context, int64, int) error
+	ListAudit(context.Context, database.AuditFilter) ([]database.AuditEvent, error)
 	CreateAPIToken(context.Context, int64, string, string, []byte, time.Time) (database.APIToken, error)
 	AuthenticateAPIToken(context.Context, []byte) (database.User, database.APIToken, error)
 	RevokeAPIToken(context.Context, int64, int64) error
@@ -40,6 +43,36 @@ type csrfContextKey struct{}
 type tokenContextKey struct{}
 
 func registerAuth(mux *http.ServeMux, store AuthStore) {
+	mux.HandleFunc("GET /api/v1/audit", func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		filter := database.AuditFilter{Actor: query.Get("actor"), Action: query.Get("action"), Result: query.Get("result"), Limit: 50}
+		if len(filter.Actor) > 64 || len(filter.Action) > 64 || (filter.Result != "" && filter.Result != "success" && filter.Result != "failure" && filter.Result != "pending" && filter.Result != "unknown") {
+			failure(w, 400, "invalid_filter", "Invalid audit filter")
+			return
+		}
+		if raw := query.Get("limit"); raw != "" {
+			value, err := strconv.Atoi(raw)
+			if err != nil || value < 1 || value > 200 {
+				failure(w, 400, "invalid_filter", "Audit limit must be 1–200")
+				return
+			}
+			filter.Limit = value
+		}
+		if raw := query.Get("before"); raw != "" {
+			value, err := strconv.ParseInt(raw, 10, 64)
+			if err != nil || value < 1 {
+				failure(w, 400, "invalid_filter", "Audit cursor must be positive")
+				return
+			}
+			filter.Before = value
+		}
+		events, err := store.ListAudit(r.Context(), filter)
+		if err != nil {
+			failure(w, 503, "storage_unavailable", "Audit log is unavailable")
+			return
+		}
+		respond(w, 200, events)
+	})
 	mux.HandleFunc("POST /api/v1/tokens", func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
 			Name           string   `json:"name"`

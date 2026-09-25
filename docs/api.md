@@ -18,6 +18,7 @@ metrics require an authenticated session or scoped API token.
 | DELETE | /api/v1/tokens/{id} | Revoke a token owned by the current user |
 | GET | /api/v1/status | Listener readiness, uptime, version and implemented capabilities |
 | GET | /api/v1/diagnostics | Sanitized system health and support report |
+| GET | /api/v1/audit | Admin-only audit events with actor, action, result and cursor filters |
 | GET | /api/v1/version | Build version, source commit and build timestamp |
 | GET | /api/v1/update/check | Installed/latest version, channel, release details and availability |
 | GET | /api/v1/update/status | Current updater phase, errors and rollback/readiness result |
@@ -72,6 +73,13 @@ API tokens use `Authorization: Bearer velora_<secret>`. Valid scopes are `read`,
 `write` and `admin`; expiration is mandatory and limited to one year. Only a SHA-256
 token digest is stored, and the secret is returned only by the creation response.
 Cookie-authenticated mutations require `X-CSRF-Token`; bearer requests do not.
+
+The admin-only audit view supports `actor`, `action`, `result`, `limit` (1–200)
+and `before` (event ID) filters. Administrative requests are recorded before
+dispatch and updated with their HTTP result afterward; incomplete requests
+remain marked `pending`. Events retain the actor's role at the time of the
+request and are removed after 90 days. Only the method and route path are
+stored, never request bodies, passwords, session tokens or CSRF tokens.
 
 Bodies are limited to 1 MiB, headers to 16 KiB, concurrent HTTP requests to 32, with read,
 write and idle timeouts. Cross-site browser requests and mismatched Origin are rejected.
