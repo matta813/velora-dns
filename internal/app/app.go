@@ -209,9 +209,6 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		if err != nil {
 			return err
 		}
-		memory.SetUpstreamTTL(upstreamTTL)
-		audit.SetEnabled(updated.QueryLog.Enabled)
-		rateLimitState.Configure(updated.DNS.RateLimitEnabled, updated.DNS.GlobalQPS, updated.DNS.ClientQPS, updated.DNS.RateLimitBurst)
 		newAllowed := make([]netip.Prefix, 0, len(updated.DNS.AllowedClients))
 		for _, cidr := range updated.DNS.AllowedClients {
 			prefix, err := netip.ParsePrefix(cidr)
@@ -220,6 +217,9 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 			}
 			newAllowed = append(newAllowed, prefix)
 		}
+		memory.SetUpstreamTTL(upstreamTTL)
+		audit.SetEnabled(updated.QueryLog.Enabled)
+		rateLimitState.Configure(updated.DNS.RateLimitEnabled, updated.DNS.GlobalQPS, updated.DNS.ClientQPS, updated.DNS.RateLimitBurst)
 		dnsHandler.UpdateConfig(newAllowed, updated.DNS.MaxConcurrent)
 		resolver.SetBlockMode(updated.Filtering.BlockMode)
 		return nil
