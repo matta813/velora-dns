@@ -1,4 +1,4 @@
-.PHONY: dev backend frontend install go-tools test lint build check docker-build docker-up release-test screenshot
+.PHONY: dev backend frontend install go-tools test test-e2e lint build check docker-build docker-up release-test screenshot
 
 install:
 	npm --prefix web ci
@@ -17,6 +17,9 @@ dev: docker-up
 test:
 	go test -race ./cmd/... ./internal/... ./tests/...
 	npm --prefix web test -- --run
+
+test-e2e:
+	go test -race -v ./tests -run '^TestManagementDNSWorkflow$$' -count=1
 
 lint:
 	test -z "$$(gofmt -l cmd internal tests)"
