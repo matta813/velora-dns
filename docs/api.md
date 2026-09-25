@@ -24,6 +24,7 @@ metrics require an authenticated session or scoped API token.
 | DELETE | /api/v1/tokens/{id} | Revoke a token owned by the current user |
 | GET | /api/v1/status | Listener readiness, uptime, version and implemented capabilities |
 | GET | /api/v1/diagnostics | Sanitized system health and support report |
+| POST | /api/v1/backup/create | Admin-only encrypted SQLite configuration and state bundle download |
 | GET | /api/v1/audit | Admin-only audit events with actor, action, result and cursor filters |
 | GET | /api/v1/events | Recent system events and unread count, filtered by role |
 | POST | /api/v1/events/{id}/read | Mark an accessible event as read for the current user |

@@ -265,7 +265,7 @@ export default function App() {
               <Route path="/blocklists" element={<Blocklists readOnly={readOnly} />} />
               <Route path="/settings" element={<Settings data={data} />} />
               <Route path="/updates" element={<UpdateCenter readOnly={readOnly} />} />
-              <Route path="/backup" element={<BackupAssistant readOnly={readOnly} />} />
+              <Route path="/backup" element={<BackupAssistant readOnly={readOnly} canCreate={user?.role === "admin"} />} />
               <Route path="/dhcp" element={<DHCP readOnly={readOnly} />} />
               <Route path="/cluster" element={<Cluster />} />
               <Route path="/diagnostics" element={<Diagnostics />} />

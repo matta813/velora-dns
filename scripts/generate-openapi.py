@@ -58,7 +58,7 @@ SCHEMAS = {
     "SystemEvent": obj({"id": INT, "severity": {"type": "string", "enum": ["info", "warning", "critical"]}, "title": STRING, "message": STRING, "link": STRING, "occurred_at": TIME, "repeat_count": INT, "read": BOOL}, ("id", "severity", "title", "message", "occurred_at", "repeat_count", "read")),
     "SystemEventPage": obj({"events": arr(ref("SystemEvent")), "unread_count": INT}, ("events", "unread_count")),
     "EventReadResult": obj({"read": BOOL}, ("read",)),
-    "BackupStatus": obj({"last_backup_time": TIME, "last_backup_size": INT, "backup_age": STRING, "verification_state": STRING, "database_path": STRING}, ("verification_state", "database_path")),
+    "BackupStatus": obj({"supported": BOOL, "last_backup_time": TIME, "last_backup_size": INT, "backup_age": STRING, "verification_state": STRING, "database_path": STRING}, ("supported", "verification_state", "database_path")),
     "BackupVerification": obj({"valid": BOOL, "schema_version": INT, "record_count": INT, "error": STRING}, ("valid", "schema_version", "record_count")),
     "User": obj({"id": INT, "username": STRING, "role": {"type": "string", "enum": ["admin", "operator", "viewer"]}, "disabled": BOOL}, ("id", "username", "role")),
     "Session": obj({"username": STRING, "role": STRING, "csrf_token": STRING, "language": STRING, "theme": STRING}, ("username", "role", "csrf_token", "language", "theme")),
@@ -120,6 +120,7 @@ REQUEST_MODELS = {
     ("PUT", "/api/v1/blocklists/{id}"): obj({"enabled": BOOL}, ("enabled",)),
     ("PUT", "/api/v1/blocklists/{id}/content"): obj({"content": STRING}, ("content",)),
     ("POST", "/api/v1/backup/verify"): obj({"path": STRING}, ("path",)),
+    ("POST", "/api/v1/backup/create"): obj({"passphrase": {"type": "string", "format": "password", "writeOnly": True, "minLength": 12}}, ("passphrase",)),
     ("POST", "/api/v1/update/request"): obj({"action": {"type": "string", "enum": ["update"]}}, ("action",)),
     ("POST", "/api/v1/users"): obj({"username": STRING, "password": {"type": "string", "format": "password", "writeOnly": True}, "role": STRING}, ("username", "password", "role")),
     ("POST", "/api/v1/tokens"): ref("TokenInput"),
@@ -130,6 +131,8 @@ REQUEST_MODELS = {
 
 
 def response_model(method, path):
+    if path == "/api/v1/backup/create":
+        return {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}
     if path.endswith("/export"):
         return {"text/dns": {"schema": STRING}}
     if path in RESPONSE_MODELS:
@@ -177,7 +180,7 @@ def operation(method, path):
         op["security"] = [{"bearerAuth": []}, {"sessionCookie": []}]
     if path == "/api/v1/auth/login":
         op["x-required-role"] = "anonymous"
-    elif path.startswith("/api/v1/users") or path == "/api/v1/audit" or path == "/api/v1/stats/reset":
+    elif path.startswith("/api/v1/users") or path == "/api/v1/audit" or path == "/api/v1/stats/reset" or path == "/api/v1/backup/create":
         op["x-required-role"] = "admin"
     elif method in ("POST", "PUT", "DELETE", "PATCH"):
         op["x-required-role"] = "operator-or-admin"

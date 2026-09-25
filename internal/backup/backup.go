@@ -9,15 +9,29 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/matta813/velora-dns/internal/api"
+	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/database"
 )
 
 type Manager struct {
-	db           *database.Store
-	databasePath string
+	db             *database.Store
+	databasePath   string
+	mu             sync.RWMutex
+	config         config.Config
+	version        string
+	lastBackupTime time.Time
+	lastBackupSize int64
+}
+
+func (m *Manager) SetConfig(c config.Config, version string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.config = c.Clone()
+	m.version = version
 }
 
 func NewManager(db *database.Store, databasePath string) *Manager {
@@ -25,30 +39,17 @@ func NewManager(db *database.Store, databasePath string) *Manager {
 }
 
 func (m *Manager) BackupStatus() (*api.BackupStatus, error) {
-	dbFile := m.databasePath
-
-	stat, err := os.Stat(dbFile)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return &api.BackupStatus{
-				DatabasePath:      dbFile,
-				VerificationState: "unknown",
-			}, nil
-		}
-		return nil, fmt.Errorf("stat database: %w", err)
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	status := &api.BackupStatus{DatabasePath: m.databasePath, VerificationState: "unknown", Supported: m.db != nil && m.db.Driver() == "sqlite"}
+	if !m.lastBackupTime.IsZero() {
+		last := m.lastBackupTime
+		status.LastBackupTime = &last
+		status.LastBackupSize = m.lastBackupSize
+		status.BackupAge = time.Since(m.lastBackupTime).Round(time.Second).String()
+		status.VerificationState = "unverified"
 	}
-
-	lastBackupTime := stat.ModTime()
-	lastBackupSize := stat.Size()
-	backupAge := time.Since(lastBackupTime).Round(time.Second).String()
-
-	return &api.BackupStatus{
-		LastBackupTime:    lastBackupTime,
-		LastBackupSize:    lastBackupSize,
-		BackupAge:         backupAge,
-		VerificationState: "unverified",
-		DatabasePath:      dbFile,
-	}, nil
+	return status, nil
 }
 
 func (m *Manager) resolveBackupPath(inputPath string) (string, error) {

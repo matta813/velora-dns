@@ -194,6 +194,8 @@ nav a.active:after {
 .system-event-actions { font-size: 12px; }
 .system-event-actions button { margin-left: auto; }
 .event-severity { text-transform: uppercase; font-size: 10px; font-weight: 700; }
+.backup-create-panel { margin-bottom: 1rem; }
+.backup-restore-command { padding: 1rem; overflow: auto; border-radius: 6px; background: var(--code-bg, #111827); color: #fff; }
 .connection { margin-left: 14px; }
 .slash {
   margin: 0 12px;

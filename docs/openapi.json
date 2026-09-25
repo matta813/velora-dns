@@ -221,6 +221,69 @@
         "x-required-role": "viewer-or-higher"
       }
     },
+    "/api/v1/backup/create": {
+      "post": {
+        "operationId": "post_backup_create",
+        "summary": "Post backup/create",
+        "tags": [
+          "backup"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "passphrase": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "minLength": 12
+                  }
+                },
+                "required": [
+                  "passphrase"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/backup/status": {
       "get": {
         "operationId": "get_backup_status",
@@ -5301,6 +5364,9 @@
       "BackupStatus": {
         "type": "object",
         "properties": {
+          "supported": {
+            "type": "boolean"
+          },
           "last_backup_time": {
             "type": "string",
             "format": "date-time"
@@ -5320,6 +5386,7 @@
           }
         },
         "required": [
+          "supported",
           "verification_state",
           "database_path"
         ]

@@ -441,6 +441,14 @@ const en: Record<string, string> = {
   "updates.rollback_recovered": "The previous version was restored and is healthy.",
 
   // Backup
+  "backup.sqlite_only": "Encrypted export currently supports SQLite installations only.",
+  "backup.create_title": "Encrypted backup",
+  "backup.create_hint": "Download a versioned backup of configuration and persistent state. Keep its passphrase safe.",
+  "backup.passphrase": "Passphrase",
+  "backup.creating": "Creating…",
+  "backup.create": "Create and download",
+  "backup.create_failed": "Could not create backup",
+  "backup.restore_hint": "Restore an encrypted bundle while the service is stopped. The command keeps a safety copy of the current installation.",
   "backup.loading": "Loading backup status...",
   "backup.status_title": "Backup Status",
   "backup.database": "Database:",

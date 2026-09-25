@@ -1,9 +1,10 @@
 import { Database, CheckCircle, XCircle, AlertTriangle, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
-import { request } from "../api";
+import { downloadEncryptedBackup, request } from "../api";
 import { useI18n } from "../i18n-context";
 
 interface BackupStatus {
+  supported: boolean;
   last_backup_time?: string;
   last_backup_size?: number;
   backup_age?: string;
@@ -20,9 +21,10 @@ interface BackupVerification {
 
 interface Props {
   readOnly: boolean;
+  canCreate: boolean;
 }
 
-export function BackupAssistant({ readOnly }: Props) {
+export function BackupAssistant({ readOnly, canCreate }: Props) {
   const { t } = useI18n();
   const statusLabel = (state: string) => {
     const key = `backup.state_${state}`;
@@ -35,6 +37,30 @@ export function BackupAssistant({ readOnly }: Props) {
   const [verifyPath, setVerifyPath] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<BackupVerification | null>(null);
+  const [passphrase, setPassphrase] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
+
+  const createBackup = async () => {
+    setCreating(true);
+    setCreateError("");
+    try {
+      const archive = await downloadEncryptedBackup(passphrase);
+      const url = URL.createObjectURL(archive);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `velora-backup-${new Date().toISOString().slice(0, 10)}.vdns`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setPassphrase("");
+    } catch (reason) {
+      setCreateError(reason instanceof Error ? reason.message : t("backup.create_failed"));
+    } finally {
+      setCreating(false);
+    }
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -82,6 +108,17 @@ export function BackupAssistant({ readOnly }: Props) {
 
   return (
     <div>
+      <section className="panel padded backup-create-panel">
+        <h2>{t("backup.create_title")}</h2>
+        <p>{t("backup.create_hint")}</p>
+        {canCreate && status && !status.supported && <p>{t("backup.sqlite_only")}</p>}
+        {canCreate && status?.supported && <div className="backup-file-controls">
+          <label htmlFor="backup-passphrase">{t("backup.passphrase")}</label>
+          <input id="backup-passphrase" type="password" autoComplete="new-password" value={passphrase} onChange={(event) => setPassphrase(event.target.value)} />
+          <button className="button" disabled={creating || passphrase.length < 12} onClick={() => void createBackup()}>{creating ? t("backup.creating") : t("backup.create")}</button>
+        </div>}
+        {createError && <div className="notice error" role="alert">{createError}</div>}
+      </section>
       <div className="panel padded">
         <h2>{t("backup.status_title")}</h2>
         {error && (
@@ -185,6 +222,11 @@ export function BackupAssistant({ readOnly }: Props) {
 
       <div className="panel padded" style={{ marginTop: "1rem" }}>
         <h2>{t("backup.instructions")}</h2>
+        <p>{t("backup.restore_hint")}</p>
+        <pre className="backup-restore-command">{`sudo systemctl stop velora-dns
+read -rsp 'Backup passphrase: ' VELORA_BACKUP_PASSPHRASE; export VELORA_BACKUP_PASSPHRASE
+sudo -E velora-dns -restore-backup ./velora-backup.vdns -config /etc/velora/config.yaml -restore-database /var/lib/velora/velora.db
+sudo systemctl start velora-dns`}</pre>
         <div style={{ display: "grid", gap: "1rem", fontSize: "0.9rem" }}>
           <div>
             <h3 style={{ marginBottom: "0.5rem" }}>{t("backup.native")}</h3>

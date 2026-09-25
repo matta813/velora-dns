@@ -441,6 +441,14 @@ const de: Record<string, string> = {
   "updates.rollback_recovered": "Die vorherige Version wurde wiederhergestellt und ist fehlerfrei.",
 
   // Backup
+  "backup.sqlite_only": "Der verschlüsselte Export unterstützt derzeit nur SQLite-Installationen.",
+  "backup.create_title": "Verschlüsseltes Backup",
+  "backup.create_hint": "Versioniertes Backup von Konfiguration und dauerhaftem Zustand herunterladen. Passwort sicher aufbewahren.",
+  "backup.passphrase": "Passwort",
+  "backup.creating": "Wird erstellt…",
+  "backup.create": "Erstellen und herunterladen",
+  "backup.create_failed": "Backup konnte nicht erstellt werden",
+  "backup.restore_hint": "Ein verschlüsseltes Bundle bei gestopptem Dienst wiederherstellen. Der Befehl bewahrt eine Sicherheitskopie der bisherigen Installation auf.",
   "backup.loading": "Backup-Status wird geladen...",
   "backup.status_title": "Backup-Status",
   "backup.database": "Datenbank:",

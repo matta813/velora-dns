@@ -124,8 +124,9 @@ the observed gateway `/32` or `/128` after `docker network inspect`. Never publi
 ## Upgrades and backups
 
 For this unreleased source-build phase, stop the service, record the Git commit, back up
-its data, check out the reviewed main branch and rebuild. Only schema metadata is currently
-persisted; future migrations will document compatibility and rollback restrictions.
+its data, check out the reviewed main branch and rebuild. Follow the
+[encrypted SQLite backup and offline restore workflow](backup.md) for a
+versioned export of configuration and persistent state.
 
 For a consistent offline backup, stop the container and copy the complete named volume
 using your normal volume backup tooling. For an online backup, use SQLite's backup API;
@@ -138,4 +139,4 @@ isolated volume and starting the same source version.
 `/health` means the process serves HTTP. `/ready` checks live SQLite access and initialized
 DNS listeners. Upstream availability is deliberately not a readiness dependency: temporary
 internet loss must not create a restart loop. Inspect upstream error metrics for it.
-Metrics and counters reset at process restart. Cache is intentionally ephemeral.
+The live cache is intentionally ephemeral; cumulative statistics are checkpointed.
