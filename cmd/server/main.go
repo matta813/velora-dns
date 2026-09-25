@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -51,7 +52,7 @@ func run() error {
 	if *inspectBundle != "" || *restoreBundle != "" {
 		passphrase := os.Getenv(*passphraseEnv)
 		if passphrase == "" {
-			return fmt.Errorf("backup passphrase environment variable %s is empty", *passphraseEnv)
+			return errors.New("backup passphrase environment variable is empty")
 		}
 		if *inspectBundle != "" && *restoreBundle != "" {
 			return fmt.Errorf("inspect and restore are mutually exclusive")
