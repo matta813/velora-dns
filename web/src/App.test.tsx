@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
@@ -21,6 +21,7 @@ it("shows connection errors without fabricated dashboard numbers", async () => {
     "Connection failed",
   );
   expect(screen.queryByText("Total queries")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("running-version")).not.toBeInTheDocument();
 });
 it("renders server counters from the operational API", async () => {
   const responses: Record<string, unknown> = {
@@ -59,9 +60,29 @@ it("renders server counters from the operational API", async () => {
   expect(await screen.findByText("42")).toBeInTheDocument();
   expect(screen.getByText("50.0%")).toBeInTheDocument();
   expect(screen.getByText("Resolver online")).toBeInTheDocument();
+  expect(screen.getByTestId("running-version")).toHaveTextContent("Velora DNS dev");
   expect(document.querySelector(".mobile-signout")).toHaveTextContent(
     "Sign out",
   );
+});
+it("updates the footer when the running backend version changes", async () => {
+  let version = "v0.1.0-beta.9";
+  const responses: Record<string, unknown> = {
+    "/api/v1/stats": { queries_total: 0, queries_per_second: 0, cache_hit_rate: 0, blocked_queries: 0 },
+    "/api/v1/cache": { entries: 0, capacity: 100, hits: 0, misses: 0 },
+    "/api/v1/config": { query_log: { enabled: false }, dns: { upstreams: [] } },
+  };
+  vi.stubGlobal("fetch", vi.fn((path: string) => Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({ data: path === "/api/v1/status"
+      ? { ready: true, version: { version }, capabilities: [], dns_listen: [], uptime_seconds: 1 }
+      : responses[path] }),
+  })));
+  render(<MemoryRouter>{withI18n(<App />)}</MemoryRouter>);
+  expect(await screen.findByTestId("running-version")).toHaveTextContent("Velora DNS v0.1.0-beta.9");
+  version = "v0.1.0-beta.10";
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await waitFor(() => expect(screen.getByTestId("running-version")).toHaveTextContent("Velora DNS v0.1.0-beta.10"));
 });
 it("updates the document title for the current route", async () => {
   const responses: Record<string, unknown> = {
