@@ -259,7 +259,11 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		}
 	}
 	dnsHandler := &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), RateLimit: rateLimitState, Observer: observer, Audit: audit, CookieSecret: cookieSecret}
+	appliedConfig := c
 	applyConfig := func(updated config.Config) error {
+		if fields := config.RestartRequiredFields(appliedConfig, updated); len(fields) > 0 {
+			return &config.RestartRequiredError{Fields: fields}
+		}
 		upstreamTTL, err := cacheUpstreamTTL(updated.Cache.UpstreamTTL)
 		if err != nil {
 			return err
@@ -277,6 +281,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		rateLimitState.Configure(updated.DNS.RateLimitEnabled, updated.DNS.GlobalQPS, updated.DNS.ClientQPS, updated.DNS.RateLimitBurst)
 		dnsHandler.UpdateConfig(newAllowed, updated.DNS.MaxConcurrent)
 		resolver.SetBlockMode(updated.Filtering.BlockMode)
+		appliedConfig = updated
 		return nil
 	}
 	listener, err := dns.StartWithOptions(c.DNS.Listen, dnsHandler, dns.ServerOptions{MaxTCPConnections: c.DNS.MaxTCPConns, Observer: observer})

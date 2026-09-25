@@ -120,7 +120,7 @@ const pl: Record<string, string> = {
   "settings.enable_query_log": 'Włącz logowanie zapytań',
   "settings.save_configuration": 'Zapisz konfigurację',
   "settings.saving": 'Zapisywanie…',
-  "settings.save_success": 'Konfiguracja zapisana. Wymagane ponowne uruchomienie, aby zmiany odniosły skutek.',
+  "settings.save_success": 'Konfiguracja zapisana i zastosowana.',
   "settings.save_failed": 'Nie udało się zapisać konfiguracji',
   "dashboard.total_queries": 'Łączna liczba zapytań',
   "dashboard.since_start": 'Od ostatniego wyzerowania statystyk',

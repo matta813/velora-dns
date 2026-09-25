@@ -120,7 +120,7 @@ const ja: Record<string, string> = {
   "settings.enable_query_log": 'クエリログを有効にする',
   "settings.save_configuration": '設定を保存',
   "settings.saving": '保存中…',
-  "settings.save_success": '設定を保存しました。変更を適用するには再起動が必要です。',
+  "settings.save_success": '設定を保存して適用しました。',
   "settings.save_failed": '設定の保存に失敗しました',
   "dashboard.total_queries": '総クエリ数',
   "dashboard.since_start": '統計の最終リセット以降',

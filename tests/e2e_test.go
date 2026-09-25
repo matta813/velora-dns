@@ -182,13 +182,48 @@ func TestManagementDNSWorkflow(t *testing.T) {
 	if status != 400 {
 		t.Fatalf("invalid config accepted: %d %s", status, payload)
 	}
+	status, _, payload = request(http.MethodPut, "/api/v1/config", fmt.Sprintf(`{"dns":{"listen":[%q]}}`, unusedTCPAddress(t)), "")
+	if status != 409 || !bytes.Contains(payload, []byte(`config_requires_restart`)) {
+		t.Fatalf("inactive listener change accepted: %d %s", status, payload)
+	}
+	query("192.0.2.11")
+	status, _, payload = request(http.MethodPost, "/api/v1/blocklists", `{"name":"e2e local","url":""}`, "")
+	if status != 201 {
+		t.Fatalf("create blocklist: %d %s", status, payload)
+	}
+	var source struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(payload, &source); err != nil {
+		t.Fatal(err)
+	}
+	status, _, payload = request(http.MethodPut, fmt.Sprintf("/api/v1/blocklists/%d/content", source.Data.ID), `{"content":"blocked.example.test"}`, "")
+	if status != 200 {
+		t.Fatalf("set blocklist content: %d %s", status, payload)
+	}
+	blocked := new(wire.Msg)
+	blocked.SetQuestion("blocked.example.test.", wire.TypeA)
+	answer, _, err := (&wire.Client{Net: "udp", Timeout: 2 * time.Second}).Exchange(blocked, dnsAddress)
+	if err != nil || answer.Rcode != wire.RcodeNameError {
+		t.Fatalf("blocklist did not affect DNS: %v (%v)", answer, err)
+	}
+	status, _, payload = request(http.MethodPut, "/api/v1/config", `{"filtering":{"block_mode":"ZERO"}}`, "")
+	if status != 200 {
+		t.Fatalf("live block mode change: %d %s", status, payload)
+	}
+	answer, _, err = (&wire.Client{Net: "udp", Timeout: 2 * time.Second}).Exchange(blocked, dnsAddress)
+	if err != nil || answer.Rcode != wire.RcodeSuccess || len(answer.Answer) != 1 || answer.Answer[0].(*wire.A).A.String() != "0.0.0.0" {
+		t.Fatalf("live block mode not active: %v (%v)", answer, err)
+	}
 	status, _, payload = request(http.MethodDelete, recordPath, "", `"3"`)
 	if status != 200 {
 		t.Fatalf("delete record: %d %s", status, payload)
 	}
 	message := new(wire.Msg)
 	message.SetQuestion("host.home.test.", wire.TypeA)
-	answer, _, err := (&wire.Client{Net: "udp", Timeout: 2 * time.Second}).Exchange(message, dnsAddress)
+	answer, _, err = (&wire.Client{Net: "udp", Timeout: 2 * time.Second}).Exchange(message, dnsAddress)
 	if err != nil || answer.Rcode != wire.RcodeNameError {
 		t.Fatalf("record still resolves after delete: %v (%v)", answer, err)
 	}

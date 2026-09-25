@@ -120,7 +120,7 @@ const cs: Record<string, string> = {
   "settings.enable_query_log": 'Zapnout logování dotazů',
   "settings.save_configuration": 'Uložit konfiguraci',
   "settings.saving": 'Ukládání…',
-  "settings.save_success": 'Konfigurace uložena. Pro uplatnění změn je potřeba restart.',
+  "settings.save_success": 'Konfigurace uložena a použita.',
   "settings.save_failed": 'Nepodařilo se uložit konfiguraci',
   "dashboard.total_queries": 'Celkový počet dotazů',
   "dashboard.since_start": 'Od posledního vynulování statistik',

@@ -133,8 +133,7 @@ const de: Record<string, string> = {
   "settings.enable_query_log": "Abfrageprotokoll aktivieren",
   "settings.save_configuration": "Konfiguration speichern",
   "settings.saving": "Wird gespeichert…",
-  "settings.save_success":
-    "Konfiguration gespeichert. Für Änderungen ist ein Neustart erforderlich.",
+  "settings.save_success": "Konfiguration gespeichert und angewendet.",
   "settings.save_failed": "Konfiguration konnte nicht gespeichert werden",
 
   // Dashboard
