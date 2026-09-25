@@ -14,6 +14,7 @@ import {
   Network,
   Server,
   Stethoscope,
+  ClipboardList,
 } from "lucide-react";
 import { useEffect } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
@@ -29,6 +30,7 @@ import { BackupAssistant } from "./pages/BackupAssistant";
 import { DHCP } from "./pages/DHCP";
 import { Cluster } from "./pages/Cluster";
 import { Diagnostics } from "./pages/Diagnostics";
+import { AuditLog } from "./pages/AuditLog";
 import { logout } from "./api";
 import { useAuthUser } from "./auth-context";
 import { useI18n } from "./i18n-context";
@@ -60,6 +62,8 @@ export default function App() {
                       ? t("app.title.cluster")
                       : pathname === "/diagnostics"
                         ? t("app.title.diagnostics")
+                        : pathname === "/audit"
+                          ? t("app.title.audit")
                       : t("app.title.overview");
   useEffect(() => {
     document.title = `Velora DNS · ${title}`;
@@ -131,6 +135,10 @@ export default function App() {
             <Stethoscope size={18} />
             {t("app.nav.diagnostics")}
           </NavLink>
+          {user?.role === "admin" && <NavLink to="/audit">
+            <ClipboardList size={18} />
+            {t("app.nav.audit")}
+          </NavLink>}
         </nav>
         <button className="button secondary mobile-signout" onClick={signOut}>
           {t("app.sign_out")}
@@ -233,6 +241,7 @@ export default function App() {
               <Route path="/dhcp" element={<DHCP readOnly={readOnly} />} />
               <Route path="/cluster" element={<Cluster />} />
               <Route path="/diagnostics" element={<Diagnostics />} />
+              <Route path="/audit" element={<AuditLog />} />
               <Route path="*" element={<p>{t("app.not_found")}</p>} />
             </Routes>
           )}

@@ -46,6 +46,12 @@ func TestManagementAuthenticationCSRFAndRoles(t *testing.T) {
 	if w := authRequest(h, "POST", "/api/v1/users", `{"username":"operator","password":"operator password long","role":"operator"}`, adminCookie, adminCSRF); w.Code != 201 {
 		t.Fatalf("create user: %d %s", w.Code, w.Body.String())
 	}
+	if w := authRequest(h, "POST", "/api/v1/users", `{"username":"bad","password":"short","role":"operator"}`, adminCookie, adminCSRF); w.Code != 400 {
+		t.Fatalf("invalid user: %d %s", w.Code, w.Body.String())
+	}
+	if w := authRequest(h, "GET", "/api/v1/audit?limit=10", "", adminCookie, ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"result":"success"`) || !strings.Contains(w.Body.String(), `"result":"failure"`) || strings.Contains(w.Body.String(), "operator password long") {
+		t.Fatalf("admin audit: %d %s", w.Code, w.Body.String())
+	}
 	tokenResponse := authRequest(h, "POST", "/api/v1/tokens", `{"name":"monitor","scopes":["read"],"expires_in_hours":1}`, adminCookie, adminCSRF)
 	if tokenResponse.Code != 201 {
 		t.Fatalf("create token: %d %s", tokenResponse.Code, tokenResponse.Body.String())
@@ -72,6 +78,9 @@ func TestManagementAuthenticationCSRFAndRoles(t *testing.T) {
 		t.Fatalf("revoked token accepted: %d", w.Code)
 	}
 	viewerCookie, viewerCSRF := loginForTest(t, h, "viewer", "viewer password long")
+	if w := authRequest(h, "GET", "/api/v1/audit", "", viewerCookie, ""); w.Code != 403 {
+		t.Fatalf("viewer read audit: %d", w.Code)
+	}
 	if w := authRequest(h, "GET", "/api/v1/diagnostics", "", viewerCookie, ""); w.Code != 200 {
 		t.Fatalf("viewer diagnostics: %d %s", w.Code, w.Body.String())
 	}
