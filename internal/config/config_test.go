@@ -2,9 +2,36 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestSaveReplacesConfigWithoutTemporaryFiles(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte("old"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := Default()
+	if err := cfg.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) == "old" {
+		t.Fatal("config was not replaced")
+	}
+	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0640 {
+		t.Fatalf("config permissions: %v (%v)", info, err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("temporary files left behind: %v (%v)", entries, err)
+	}
+}
 
 func TestLANExampleParses(t *testing.T) {
 	data, err := os.ReadFile("../../configs/config.lan.example.yaml")

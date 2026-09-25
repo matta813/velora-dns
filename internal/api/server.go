@@ -78,6 +78,7 @@ func failure(w http.ResponseWriter, status int, code, message string) {
 func New(d Dependencies) http.Handler {
 	var (
 		cfgMu         sync.RWMutex
+		cfgWriteMu    sync.Mutex
 		currentConfig = d.Config
 	)
 	mux := http.NewServeMux()
@@ -192,6 +193,8 @@ func New(d Dependencies) http.Handler {
 		respond(w, 200, cfg)
 	})
 	mux.HandleFunc("PUT /api/v1/config", func(w http.ResponseWriter, r *http.Request) {
+		cfgWriteMu.Lock()
+		defer cfgWriteMu.Unlock()
 		if d.ConfigPath == "" {
 			failure(w, 500, "config_path_missing", "Config path not configured")
 			return
@@ -210,19 +213,42 @@ func New(d Dependencies) http.Handler {
 			failure(w, 400, "invalid_config", err.Error())
 			return
 		}
+		if d.ApplyConfig != nil {
+			if err := d.ApplyConfig(newConfig); err != nil {
+				if rollbackErr := d.ApplyConfig(currentConfig); rollbackErr != nil {
+					failure(w, 500, "config_rollback_failed", fmt.Sprintf("Apply failed: %v; rollback failed: %v", err, rollbackErr))
+					return
+				}
+				failure(w, 500, "config_apply_failed", err.Error())
+				return
+			}
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
+		ready := d.DNS.Ready() && d.Database.Ping(ctx) == nil
+		cancel()
+		if !ready {
+			if d.ApplyConfig != nil {
+				if err := d.ApplyConfig(currentConfig); err != nil {
+					failure(w, 500, "config_rollback_failed", fmt.Sprintf("Readiness failed; rollback failed: %v", err))
+					return
+				}
+			}
+			failure(w, 503, "config_not_ready", "Services are not ready after applying configuration")
+			return
+		}
 		if err := newConfig.Save(d.ConfigPath); err != nil {
+			if d.ApplyConfig != nil {
+				if rollbackErr := d.ApplyConfig(currentConfig); rollbackErr != nil {
+					failure(w, 500, "config_rollback_failed", fmt.Sprintf("Save failed: %v; rollback failed: %v", err, rollbackErr))
+					return
+				}
+			}
 			failure(w, 500, "config_save_failed", err.Error())
 			return
 		}
 		cfgMu.Lock()
 		currentConfig = newConfig
 		cfgMu.Unlock()
-		if d.ApplyConfig != nil {
-			if err := d.ApplyConfig(newConfig); err != nil {
-				failure(w, 500, "config_apply_failed", err.Error())
-				return
-			}
-		}
 		respond(w, 200, map[string]string{"status": "saved", "message": "Configuration saved and applied live where supported."})
 	})
 	mux.Handle("GET /metrics", d.Metrics.Handler())

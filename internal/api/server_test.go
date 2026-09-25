@@ -179,6 +179,70 @@ func TestConfigSaveReenablesQueryLoggingWithoutRestart(t *testing.T) {
 	}
 }
 
+func TestConfigApplyFailureRestoresPreviousConfig(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	old := config.Default()
+	if err := old.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	cache := cache.New(10)
+	var applied []string
+	h := New(Dependencies{
+		Database: fakeDB{}, DNS: fakeDNS(true), Cache: cache, Metrics: metrics.New(cache),
+		Config: old, ConfigPath: path, Started: time.Now(),
+		ApplyConfig: func(candidate config.Config) error {
+			applied = append(applied, candidate.LogLevel)
+			if candidate.LogLevel == "debug" {
+				return errors.New("cannot apply debug")
+			}
+			return nil
+		},
+	})
+	request := httptest.NewRequest(http.MethodPut, "http://127.0.0.1/api/v1/config", bytes.NewBufferString(`{"log_level":"debug"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	if response.Code != http.StatusInternalServerError || !bytes.Contains(response.Body.Bytes(), []byte(`config_apply_failed`)) {
+		t.Fatalf("unexpected response: %d %s", response.Code, response.Body.String())
+	}
+	if len(applied) != 2 || applied[0] != "debug" || applied[1] != old.LogLevel {
+		t.Fatalf("runtime rollback was not applied: %v", applied)
+	}
+	persisted, err := os.ReadFile(path)
+	if err != nil || bytes.Contains(persisted, []byte("debug")) {
+		t.Fatalf("failed candidate reached disk: %s (%v)", persisted, err)
+	}
+	response = httptest.NewRecorder()
+	h.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/v1/config", nil))
+	if !bytes.Contains(response.Body.Bytes(), []byte(`"log_level":"info"`)) {
+		t.Fatalf("failed candidate reached API: %s", response.Body.String())
+	}
+}
+
+func TestConfigSaveFailureRollsBackRuntime(t *testing.T) {
+	cache := cache.New(10)
+	old := config.Default()
+	var applied []string
+	h := New(Dependencies{
+		Database: fakeDB{}, DNS: fakeDNS(true), Cache: cache, Metrics: metrics.New(cache),
+		Config: old, ConfigPath: filepath.Join(t.TempDir(), "missing", "config.yaml"), Started: time.Now(),
+		ApplyConfig: func(candidate config.Config) error {
+			applied = append(applied, candidate.LogLevel)
+			return nil
+		},
+	})
+	request := httptest.NewRequest(http.MethodPut, "http://127.0.0.1/api/v1/config", bytes.NewBufferString(`{"log_level":"debug"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	if response.Code != http.StatusInternalServerError || !bytes.Contains(response.Body.Bytes(), []byte(`config_save_failed`)) {
+		t.Fatalf("unexpected response: %d %s", response.Code, response.Body.String())
+	}
+	if len(applied) != 2 || applied[0] != "debug" || applied[1] != old.LogLevel {
+		t.Fatalf("runtime rollback was not applied: %v", applied)
+	}
+}
+
 func TestConfigSavePreservesDatabasePathAndUpdatesInMemory(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "config.yaml")
 	c := cache.New(10)

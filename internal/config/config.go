@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -426,8 +427,29 @@ func (c Config) Save(path string) error {
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
-	if err := os.WriteFile(path, data, 0640); err != nil {
-		return fmt.Errorf("write config: %w", err)
+	dir := filepath.Dir(path)
+	file, err := os.CreateTemp(dir, ".velora-config-*")
+	if err != nil {
+		return fmt.Errorf("create temporary config: %w", err)
+	}
+	defer os.Remove(file.Name())
+	if err := file.Chmod(0640); err != nil {
+		file.Close()
+		return fmt.Errorf("set config permissions: %w", err)
+	}
+	if _, err := file.Write(data); err != nil {
+		file.Close()
+		return fmt.Errorf("write temporary config: %w", err)
+	}
+	if err := file.Sync(); err != nil {
+		file.Close()
+		return fmt.Errorf("sync temporary config: %w", err)
+	}
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("close temporary config: %w", err)
+	}
+	if err := os.Rename(file.Name(), path); err != nil {
+		return fmt.Errorf("replace config: %w", err)
 	}
 	return nil
 }
