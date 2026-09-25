@@ -20,6 +20,8 @@ for name in ('release.yml', 'release-beta.yml'):
     assert 'cache: false' in workflow, name
 ci=Path('.github/workflows/ci.yml').read_text()
 assert 'push: true' not in ci
+codeql=Path('.github/workflows/codeql.yml').read_text()
+assert 'cancel-in-progress: false' in codeql
 for ecosystem in ('gomod','npm','docker','github-actions'):
     assert f'package-ecosystem: {ecosystem}' in Path('.github/dependabot.yml').read_text()
 print('Workflow invariants passed')
