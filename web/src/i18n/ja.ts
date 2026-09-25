@@ -62,6 +62,8 @@ const ja: Record<string, string> = {
   "settings.rate_limit_global_qps": 'グローバルクエリ/秒',
   "settings.rate_limit_client_qps": 'クライアント別クエリ/秒',
   "settings.rate_limit_burst": 'バースト許容量',
+  "settings.rate_limit_rejected_total": "拒否されたクエリ",
+  "settings.rate_limit_last_rejected": "最後の拒否",
   "settings.save": '保存',
   "settings.rate_limit_load_failed": 'レート制限設定の読み込みに失敗しました',
   "settings.rate_limit_save_failed": 'レート制限設定の保存に失敗しました',

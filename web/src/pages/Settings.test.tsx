@@ -59,6 +59,18 @@ it("describes the active management authentication model", () => {
   ).toBeInTheDocument();
 });
 
+it("shows rate limit rejections from the backend without client addresses", async () => {
+  vi.stubGlobal("fetch", vi.fn((path: string) => Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({ data: path.endsWith("/status")
+      ? { enabled: true, rejected_total: 7, last_rejected_at: "2026-01-01T12:00:00Z" }
+      : { enabled: true, global_qps: 100, client_qps: 10, rate_limit_burst: 10 } }),
+  })));
+  render(withI18n(<Settings data={data} />));
+  expect(await screen.findByText(/Rejected queries: 7/)).toBeInTheDocument();
+  expect(screen.queryByText(/192\.0\.2\./)).not.toBeInTheDocument();
+});
+
 it("offers the supported theme choices", () => {
   render(withI18n(<Settings data={data} />));
   const select = screen.getByLabelText("Theme");

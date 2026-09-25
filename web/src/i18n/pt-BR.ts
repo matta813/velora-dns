@@ -62,6 +62,8 @@ const pt_BR: Record<string, string> = {
   "settings.rate_limit_global_qps": 'Consultas globais por segundo',
   "settings.rate_limit_client_qps": 'Consultas por segundo por cliente',
   "settings.rate_limit_burst": 'Tolerância de rajada',
+  "settings.rate_limit_rejected_total": "Consultas rejeitadas",
+  "settings.rate_limit_last_rejected": "Última rejeição",
   "settings.save": 'Salvar',
   "settings.rate_limit_load_failed": 'Não foi possível carregar as configurações de limitação de taxa',
   "settings.rate_limit_save_failed": 'Não foi possível salvar as configurações de limitação de taxa',

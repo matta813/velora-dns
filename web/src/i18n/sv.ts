@@ -62,6 +62,8 @@ const sv: Record<string, string> = {
   "settings.rate_limit_global_qps": 'Globala frågor per sekund',
   "settings.rate_limit_client_qps": 'Frågor per sekund per klient',
   "settings.rate_limit_burst": 'Tillåten överskridning',
+  "settings.rate_limit_rejected_total": "Avvisade frågor",
+  "settings.rate_limit_last_rejected": "Senaste avvisningen",
   "settings.save": 'Spara',
   "settings.rate_limit_load_failed": 'Kan inte ladda inställningar för hastighetsbegränsning',
   "settings.rate_limit_save_failed": 'Kan inte spara inställningar för hastighetsbegränsning',

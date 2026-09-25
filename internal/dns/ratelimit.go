@@ -21,9 +21,17 @@ type RateLimiter struct {
 // RateLimitState is a live-updatable wrapper around an optional RateLimiter.
 // The management API swaps the limiter and enabled flag at runtime.
 type RateLimitState struct {
-	mu      sync.Mutex
-	enabled bool
-	limiter *RateLimiter
+	mu             sync.Mutex
+	enabled        bool
+	limiter        *RateLimiter
+	rejectedTotal  uint64
+	lastRejectedAt time.Time
+}
+
+type RateLimitStatus struct {
+	Enabled        bool       `json:"enabled"`
+	RejectedTotal  uint64     `json:"rejected_total"`
+	LastRejectedAt *time.Time `json:"last_rejected_at,omitempty"`
 }
 
 func NewRateLimitState(enabled bool, globalQPS, clientQPS, burst int) *RateLimitState {
@@ -49,7 +57,23 @@ func (s *RateLimitState) Allow(client netip.Addr, now time.Time) bool {
 	if !s.enabled {
 		return true
 	}
-	return s.limiter.Allow(client, now)
+	if s.limiter.Allow(client, now) {
+		return true
+	}
+	s.rejectedTotal++
+	s.lastRejectedAt = now
+	return false
+}
+
+func (s *RateLimitState) Status() RateLimitStatus {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	status := RateLimitStatus{Enabled: s.enabled, RejectedTotal: s.rejectedTotal}
+	if !s.lastRejectedAt.IsZero() {
+		last := s.lastRejectedAt
+		status.LastRejectedAt = &last
+	}
+	return status
 }
 
 type bucket struct {

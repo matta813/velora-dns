@@ -62,6 +62,8 @@ const pl: Record<string, string> = {
   "settings.rate_limit_global_qps": 'Globalne zapytania na sekundę',
   "settings.rate_limit_client_qps": 'Zapytania na sekundę na klienta',
   "settings.rate_limit_burst": 'Tolerancja szczytów',
+  "settings.rate_limit_rejected_total": "Odrzucone zapytania",
+  "settings.rate_limit_last_rejected": "Ostatnie odrzucenie",
   "settings.save": 'Zapisz',
   "settings.rate_limit_load_failed": 'Nie można załadować ustawień ograniczania szybkości',
   "settings.rate_limit_save_failed": 'Nie można zapisać ustawień ograniczania szybkości',

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -154,6 +155,17 @@ func TestRateLimitSettingsEndpoint(t *testing.T) {
 	}
 	if !state.Enabled() {
 		t.Fatal("rate limit state not enabled after update")
+	}
+	client := netip.MustParseAddr("192.0.2.1")
+	now := time.Now()
+	for i := 0; i < 26; i++ {
+		state.Allow(client, now)
+	}
+	if w := authRequest(h, "GET", "/api/v1/settings/rate-limit/status", "", nil, ""); w.Code != 401 {
+		t.Fatalf("unauthenticated status: %d", w.Code)
+	}
+	if w := authRequest(h, "GET", "/api/v1/settings/rate-limit/status", "", cookie, ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"rejected_total":1`) || strings.Contains(w.Body.String(), "192.0.2.1") {
+		t.Fatalf("rate limit status: %d %s", w.Code, w.Body.String())
 	}
 	if w := authRequest(h, "PUT", "/api/v1/settings/rate-limit", `{"enabled":true,"global_qps":0,"client_qps":50,"rate_limit_burst":25}`, cookie, csrf); w.Code != 400 {
 		t.Fatalf("invalid rate limit accepted: %d", w.Code)

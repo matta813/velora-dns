@@ -69,6 +69,8 @@ const en: Record<string, string> = {
   "settings.rate_limit_global_qps": "Global queries per second",
   "settings.rate_limit_client_qps": "Queries per second per client",
   "settings.rate_limit_burst": "Burst allowance",
+  "settings.rate_limit_rejected_total": "Rejected queries",
+  "settings.rate_limit_last_rejected": "Last rejection",
   "settings.save": "Save",
   "settings.rate_limit_load_failed": "Unable to load rate limit settings",
   "settings.rate_limit_save_failed": "Unable to save rate limit settings",

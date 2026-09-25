@@ -62,6 +62,8 @@ const es: Record<string, string> = {
   "settings.rate_limit_global_qps": 'Consultas globales por segundo',
   "settings.rate_limit_client_qps": 'Consultas por segundo por cliente',
   "settings.rate_limit_burst": 'Tolerancia de ráfaga',
+  "settings.rate_limit_rejected_total": "Consultas rechazadas",
+  "settings.rate_limit_last_rejected": "Último rechazo",
   "settings.save": 'Guardar',
   "settings.rate_limit_load_failed": 'No se pudieron cargar las configuraciones de limitación de velocidad',
   "settings.rate_limit_save_failed": 'No se pudieron guardar las configuraciones de limitación de velocidad',
