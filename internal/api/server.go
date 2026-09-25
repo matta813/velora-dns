@@ -55,6 +55,7 @@ type Dependencies struct {
 	Settings       SettingsStore
 	RateLimit      *dns.RateLimitState
 	UpstreamHealth *dns.UpstreamHealth
+	ResetStats     func(context.Context) error
 	DHCP           DHCPStore
 	Cluster        ClusterStore
 	ApplyConfig    func(config.Config) error
@@ -168,6 +169,21 @@ func New(d Dependencies) http.Handler {
 	})
 	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Version) })
 	mux.HandleFunc("GET /api/v1/stats", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Metrics.Snapshot()) })
+	mux.HandleFunc("POST /api/v1/stats/reset", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Content-Type") != "application/json" {
+			failure(w, 415, "unsupported_media_type", "Use application/json")
+			return
+		}
+		if d.ResetStats == nil {
+			failure(w, 503, "statistics_unavailable", "Statistics reset is unavailable")
+			return
+		}
+		if err := d.ResetStats(r.Context()); err != nil {
+			failure(w, 503, "statistics_reset_failed", "Statistics could not be reset")
+			return
+		}
+		respond(w, 200, d.Metrics.Snapshot())
+	})
 	mux.HandleFunc("GET /api/v1/cache", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Cache.Stats()) })
 	mux.HandleFunc("GET /api/v1/cache/entries", func(w http.ResponseWriter, r *http.Request) {
 		limit, offset := 100, 0
@@ -328,7 +344,7 @@ func New(d Dependencies) http.Handler {
 			token, isToken := r.Context().Value(tokenContextKey{}).(database.APIToken)
 			tokenScopes := token.Scopes
 			unsafe := r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
-			if (strings.HasPrefix(r.URL.Path, "/api/v1/users") || r.URL.Path == "/api/v1/audit") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
+			if (strings.HasPrefix(r.URL.Path, "/api/v1/users") || r.URL.Path == "/api/v1/audit" || r.URL.Path == "/api/v1/stats/reset") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
 				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
 				return
 			}

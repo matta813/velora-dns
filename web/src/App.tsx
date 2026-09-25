@@ -220,6 +220,8 @@ export default function App() {
                     data={data}
                     history={history}
                     queryLoggingEnabled={data.config.query_log?.enabled ?? false}
+                    readOnly={user?.role !== "admin"}
+                    refresh={refresh}
                   />
                 }
               />

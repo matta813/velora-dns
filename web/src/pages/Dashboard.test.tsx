@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { Dashboard } from "./Dashboard";
 import { withI18n } from "../test-i18n";
@@ -51,4 +51,17 @@ it("shows live upstream health from the backend", async () => {
   })));
   render(withI18n(<Dashboard data={snapshot} history={[]} queryLoggingEnabled={false} />));
   expect(await screen.findByText("Degraded")).toBeInTheDocument();
+});
+
+it("confirms an admin statistics reset and refreshes the dashboard", async () => {
+  const fetch = mockOnboardingFetch();
+  const refresh = vi.fn();
+  const confirm = vi.fn().mockReturnValue(true);
+  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("confirm", confirm);
+  render(withI18n(<Dashboard data={snapshot} history={[]} queryLoggingEnabled={false} readOnly={false} refresh={refresh} />));
+  fireEvent.click(screen.getByRole("button", { name: "Reset statistics" }));
+  await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+  expect(confirm).toHaveBeenCalledOnce();
+  expect(fetch).toHaveBeenCalledWith("/api/v1/stats/reset", expect.objectContaining({ method: "POST" }));
 });

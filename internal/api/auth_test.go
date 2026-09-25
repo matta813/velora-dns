@@ -32,7 +32,8 @@ func TestManagementAuthenticationCSRFAndRoles(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := cache.New(10)
-	h := New(Dependencies{Database: db, Auth: db, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: config.Default(), Started: time.Now()})
+	resetCalls := 0
+	h := New(Dependencies{Database: db, Auth: db, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: config.Default(), Started: time.Now(), ResetStats: func(context.Context) error { resetCalls++; return nil }})
 	if w := authRequest(h, "GET", "/api/v1/status", "", nil, ""); w.Code != 401 {
 		t.Fatalf("unauthenticated: %d", w.Code)
 	}
@@ -45,6 +46,16 @@ func TestManagementAuthenticationCSRFAndRoles(t *testing.T) {
 	}
 	if w := authRequest(h, "POST", "/api/v1/users", `{"username":"operator","password":"operator password long","role":"operator"}`, adminCookie, adminCSRF); w.Code != 201 {
 		t.Fatalf("create user: %d %s", w.Code, w.Body.String())
+	}
+	if w := authRequest(h, "POST", "/api/v1/stats/reset", "", adminCookie, ""); w.Code != 403 {
+		t.Fatalf("reset without CSRF: %d", w.Code)
+	}
+	operatorCookie, operatorCSRF := loginForTest(t, h, "operator", "operator password long")
+	if w := authRequest(h, "POST", "/api/v1/stats/reset", "", operatorCookie, operatorCSRF); w.Code != 403 {
+		t.Fatalf("operator reset: %d", w.Code)
+	}
+	if w := authRequest(h, "POST", "/api/v1/stats/reset", "", adminCookie, adminCSRF); w.Code != 200 || resetCalls != 1 {
+		t.Fatalf("admin reset: %d calls=%d", w.Code, resetCalls)
 	}
 	if w := authRequest(h, "POST", "/api/v1/users", `{"username":"bad","password":"short","role":"operator"}`, adminCookie, adminCSRF); w.Code != 400 {
 		t.Fatalf("invalid user: %d %s", w.Code, w.Body.String())

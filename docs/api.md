@@ -24,10 +24,11 @@ metrics require an authenticated session or scoped API token.
 | GET | /api/v1/update/status | Current updater phase, errors and rollback/readiness result |
 | GET | /api/v1/update/history | Persistent update attempts and final results |
 | POST | /api/v1/update/request | Start the release selected by the configured updater agent |
-| GET | /api/v1/stats | Lifetime queries and rolling 60-second QPS; cache hit ratio |
-| GET | /api/v1/settings/rate-limit/status | Enabled state, process-lifetime rejection count and last rejection time; no client addresses |
+| GET | /api/v1/stats | Persisted query counters, rolling 60-second QPS and cache hit ratio |
+| POST | /api/v1/stats/reset | Reset persisted query, cache and rate-limit counters (admin only) |
+| GET | /api/v1/settings/rate-limit/status | Enabled state, persisted rejection count and last rejection time; no client addresses |
 | GET | /api/v1/upstreams/health | Passive upstream health, recent latency and failure count for configured resolvers |
-| GET | /api/v1/cache | Live entries, capacity, lifetime hits and misses |
+| GET | /api/v1/cache | Live entries, capacity, persisted hits and misses |
 | DELETE | /api/v1/cache | Clear cached answers; preserve lifetime counters |
 | GET | /api/v1/config | Current config, excluding database path and secrets |
 | GET | /api/v1/blocklists | Blocklist sources with domain counts and status |
@@ -37,6 +38,14 @@ metrics require an authenticated session or scoped API token.
 | POST | /api/v1/blocklists/{id}/update | Refresh a remote source, preserving prior rules on failure |
 | DELETE | /api/v1/blocklists/{id} | Remove a source and its domains |
 | GET | /metrics | Prometheus exposition |
+
+Statistics are checkpointed to the management database every five seconds and on
+clean shutdown. A crash can lose up to one checkpoint interval of counts. The
+admin-only reset clears cumulative query, blocked, cache hit/miss, upstream
+request/error, and rate-limit rejection counters. It keeps cached answers,
+query logs, zones, configuration, uptime, and process-only latency histograms.
+The rolling QPS window starts again at zero. Cache flushing uses its separate
+`DELETE /api/v1/cache` action.
 
 ## TSIG key management
 

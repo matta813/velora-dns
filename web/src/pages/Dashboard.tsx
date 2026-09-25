@@ -17,15 +17,34 @@ export function Dashboard({
   data,
   history,
   queryLoggingEnabled,
+  readOnly,
+  refresh,
 }: {
   data: Snapshot;
   history: number[];
   queryLoggingEnabled: boolean;
+  readOnly?: boolean;
+  refresh?: () => void;
 }) {
   const { t, language } = useI18n();
   const [querySummary, setQuerySummary] = useState<QuerySummary | null>(null);
   const [summaryError, setSummaryError] = useState("");
   const [upstreamHealth, setUpstreamHealth] = useState<UpstreamHealth[]>([]);
+  const [resetError, setResetError] = useState("");
+  const [resetting, setResetting] = useState(false);
+  async function resetStatistics() {
+    if (!window.confirm(t("dashboard.reset_confirm"))) return;
+    setResetting(true);
+    setResetError("");
+    try {
+      await request("/api/v1/stats/reset", undefined, "POST");
+      refresh?.();
+    } catch (reason) {
+      setResetError(reason instanceof Error ? reason.message : t("dashboard.reset_failed"));
+    } finally {
+      setResetting(false);
+    }
+  }
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
@@ -70,6 +89,10 @@ export function Dashboard({
   return (
     <>
       <OnboardingChecklist />
+      {!readOnly && refresh && <div className="dashboard-actions">
+        <button className="button" disabled={resetting} onClick={() => void resetStatistics()}>{t("dashboard.reset_statistics")}</button>
+      </div>}
+      {resetError && <div className="notice error" role="alert">{resetError}</div>}
       <div className="stats">
         <Stat
           label={t("dashboard.total_queries")}

@@ -139,7 +139,10 @@ const en: Record<string, string> = {
 
   // Dashboard
   "dashboard.total_queries": "Total queries",
-  "dashboard.since_start": "Since this server started",
+  "dashboard.since_start": "Since the last statistics reset",
+  "dashboard.reset_statistics": "Reset statistics",
+  "dashboard.reset_confirm": "Reset all query, cache, and rate limit counters? This cannot be undone.",
+  "dashboard.reset_failed": "Could not reset statistics",
   "dashboard.qps": "Queries / second",
   "dashboard.rolling_avg": "Rolling 60-second average",
   "dashboard.cache_hit_rate": "Cache hit rate",

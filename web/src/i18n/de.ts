@@ -139,7 +139,10 @@ const de: Record<string, string> = {
 
   // Dashboard
   "dashboard.total_queries": "Abfragen gesamt",
-  "dashboard.since_start": "Seit dem Serverstart",
+  "dashboard.since_start": "Seit dem letzten Statistik-Reset",
+  "dashboard.reset_statistics": "Statistiken zurücksetzen",
+  "dashboard.reset_confirm": "Alle Anfrage-, Cache- und Ratenlimit-Zähler zurücksetzen? Dies kann nicht rückgängig gemacht werden.",
+  "dashboard.reset_failed": "Statistiken konnten nicht zurückgesetzt werden",
   "dashboard.qps": "Abfragen / Sekunde",
   "dashboard.rolling_avg": "Gleitender 60-Sekunden-Durchschnitt",
   "dashboard.cache_hit_rate": "Cache-Trefferquote",

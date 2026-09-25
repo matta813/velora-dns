@@ -249,6 +249,17 @@ func (c *Cache) Stats() Stats {
 	return Stats{Entries: len(c.items), Capacity: c.max, Hits: c.hits, Misses: c.misses}
 }
 
+// RestoreCounters loads cumulative counters without restoring cache contents.
+func (c *Cache) RestoreCounters(hits, misses uint64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.hits, c.misses = hits, misses
+}
+
+func (c *Cache) ResetCounters() {
+	c.RestoreCounters(0, 0)
+}
+
 // ListEntries returns a bounded snapshot in most-recently-used order.
 func (c *Cache) ListEntries(limit, offset int) EntryPage {
 	if limit < 0 {
