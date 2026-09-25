@@ -91,6 +91,8 @@ export function Cluster() {
         </div>
       )}
 
+      <div className="notice" role="status">{t("cluster.preview_notice")}</div>
+
       <div className="stats">
         <div className="stat">
           <div className="stat-icon">

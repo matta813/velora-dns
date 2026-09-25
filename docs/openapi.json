@@ -1134,13 +1134,13 @@
     "/api/v1/cluster/nodes/{id}": {
       "delete": {
         "operationId": "delete_cluster_nodes_id",
-        "summary": "Delete cluster/nodes/{id}",
+        "summary": "Cluster node removal is unavailable until a membership protocol exists",
         "tags": [
           "cluster"
         ],
         "responses": {
-          "204": {
-            "description": "Node removed"
+          "501": {
+            "description": "Cluster membership changes are unavailable"
           },
           "default": {
             "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
