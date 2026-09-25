@@ -30,7 +30,8 @@ configured upstream resolvers; it is not an iterative resolver.
 
 See the [architecture](docs/architecture/0001-foundation.md),
 [DNS behavior](docs/architecture/0002-dns-semantics.md), and
-[API reference](docs/api.md) for details and limits.
+[API reference](docs/api.md) for details and limits. The machine-readable
+[OpenAPI 3.1 contract](docs/openapi.json) covers the management endpoints.
 
 ## Translations
 
