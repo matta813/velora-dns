@@ -25,6 +25,7 @@ metrics require an authenticated session or scoped API token.
 | POST | /api/v1/update/request | Start the release selected by the configured updater agent |
 | GET | /api/v1/stats | Lifetime queries and rolling 60-second QPS; cache hit ratio |
 | GET | /api/v1/settings/rate-limit/status | Enabled state, process-lifetime rejection count and last rejection time; no client addresses |
+| GET | /api/v1/upstreams/health | Passive upstream health, recent latency and failure count for configured resolvers |
 | GET | /api/v1/cache | Live entries, capacity, lifetime hits and misses |
 | DELETE | /api/v1/cache | Clear cached answers; preserve lifetime counters |
 | GET | /api/v1/config | Current config, excluding database path and secrets |
@@ -121,6 +122,17 @@ If Prometheus runs on another host, configure a private, protected route to
 the management listener and include its hostname in `http.allowed_hosts`.
 Keep the token file out of version control. The scrape job uses Prometheus's
 [`authorization.credentials_file` setting](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_config).
+
+## Upstream health
+
+Upstream health is based on actual query outcomes. A configured resolver starts
+as `unknown` until its first attempt. One or two consecutive failed attempts
+mark it `degraded`; three mark it `unavailable`. The forwarder skips unavailable
+resolvers for 30 seconds, then allows one recovery attempt. A successful reply
+restores `healthy` state and records the observed attempt latency. The existing
+ordered failover continues to use another configured resolver while one is
+cooling down. No synthetic DNS traffic is generated. State is process-local and
+resets on restart.
 
 ## Diagnostics report
 
