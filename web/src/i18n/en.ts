@@ -540,6 +540,8 @@ const en: Record<string, string> = {
   "app.nav.cluster": "Cluster",
   "app.title.cluster": "Cluster Overview",
   "cluster.loading": "Loading cluster data…",
+  "cluster.preview_notice": "Cluster setup and synchronization are not available yet. This page shows experimental local node records only; health does not represent quorum status.",
+  "cluster.refresh": "Refresh cluster records",
   "cluster.load_failed": "Unable to load cluster data",
   "cluster.total_nodes": "Total nodes",
   "cluster.healthy": "Healthy",

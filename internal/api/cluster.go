@@ -45,16 +45,7 @@ func registerCluster(mux *http.ServeMux, store ClusterStore) {
 	})
 
 	mux.HandleFunc("DELETE /api/v1/cluster/nodes/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
-		if id == "" {
-			failure(w, 400, "invalid_id", "Node ID required")
-			return
-		}
-		if err := store.DeleteNode(r.Context(), id); err != nil {
-			failure(w, 500, "storage_error", "Failed to delete node")
-			return
-		}
-		respond(w, 204, nil)
+		failure(w, http.StatusNotImplemented, "cluster_unavailable", "Cluster membership changes require a replication protocol")
 	})
 
 	mux.HandleFunc("GET /api/v1/cluster/config-versions", func(w http.ResponseWriter, r *http.Request) {

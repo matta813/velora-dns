@@ -205,7 +205,8 @@ def operation(method, path):
     if method == "PUT" and path == "/api/v1/config":
         op["responses"]["409"] = {"description": "config_requires_restart; response message names fields without a live apply path", "content": {"application/json": {"schema": ref("ErrorResponse")}}}
     if method == "DELETE" and path.startswith("/api/v1/cluster/"):
-        op["responses"] = {"204": {"description": "Node removed"}, "default": op["responses"]["default"]}
+        op["summary"] = "Cluster node removal is unavailable until a membership protocol exists"
+        op["responses"] = {"501": {"description": "Cluster membership changes are unavailable"}, "default": op["responses"]["default"]}
     return op
 
 

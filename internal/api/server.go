@@ -144,7 +144,6 @@ func New(d Dependencies) http.Handler {
 	}
 	if d.Cluster != nil {
 		registerCluster(mux, d.Cluster)
-		capabilities = append(capabilities, "cluster")
 	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
@@ -168,7 +167,6 @@ func New(d Dependencies) http.Handler {
 			nodes, err := d.Cluster.ListNodes(r.Context())
 			if err == nil {
 				status["cluster_nodes"] = len(nodes)
-				status["cluster_healthy"] = len(nodes) > 0
 			}
 		}
 		respond(w, 200, status)

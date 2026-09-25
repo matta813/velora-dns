@@ -540,6 +540,8 @@ const de: Record<string, string> = {
   "app.nav.cluster": "Cluster",
   "app.title.cluster": "Cluster-Übersicht",
   "cluster.loading": "Cluster-Daten laden…",
+  "cluster.preview_notice": "Clustereinrichtung und Synchronisierung sind noch nicht verfügbar. Diese Seite zeigt nur experimentelle lokale Knoteneinträge; der Gesundheitsstatus berücksichtigt kein Quorum.",
+  "cluster.refresh": "Knoteneinträge aktualisieren",
   "cluster.load_failed": "Cluster-Daten konnten nicht geladen werden",
   "cluster.total_nodes": "Gesamte Knoten",
   "cluster.healthy": "Gesund",

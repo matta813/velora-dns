@@ -61,6 +61,11 @@ export function Cluster() {
     };
   }, [t]);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => void refresh(), 30_000);
+    return () => window.clearInterval(interval);
+  }, [refresh]);
+
   function timeAgo(dateStr: string): string {
     const d = new Date(dateStr);
     const now = new Date();
@@ -90,6 +95,8 @@ export function Cluster() {
           {error}
         </div>
       )}
+
+      <div className="notice" role="status">{t("cluster.preview_notice")}</div>
 
       <div className="stats">
         <div className="stat">
@@ -126,7 +133,7 @@ export function Cluster() {
           <h2>
             <Server size={18} /> {t("cluster.nodes")}
           </h2>
-          <button className="button secondary" onClick={() => void refresh()}>
+          <button className="button secondary" aria-label={t("cluster.refresh")} onClick={() => void refresh()}>
             <RefreshCw size={15} />
           </button>
         </div>
