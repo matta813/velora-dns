@@ -76,6 +76,17 @@ func (s *RateLimitState) Status() RateLimitStatus {
 	return status
 }
 
+func (s *RateLimitState) RestoreRejections(total uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.rejectedTotal = total
+	s.lastRejectedAt = time.Time{}
+}
+
+func (s *RateLimitState) ResetRejections() {
+	s.RestoreRejections(0)
+}
+
 type bucket struct {
 	tokens  float64
 	updated time.Time

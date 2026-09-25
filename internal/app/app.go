@@ -199,6 +199,60 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		return fmt.Errorf("initialize DNS cookie secret: %w", err)
 	}
 	rateLimitState := dns.NewRateLimitState(c.DNS.RateLimitEnabled, c.DNS.GlobalQPS, c.DNS.ClientQPS, c.DNS.RateLimitBurst)
+	if saved, loadErr := db.LoadStatistics(initCtx); loadErr != nil {
+		logger.Warn("persisted statistics ignored", "error", loadErr)
+	} else {
+		observer.Restore(saved.Queries, saved.Blocked)
+		observer.RestoreUpstreamCounters(saved.UpstreamRequests, saved.UpstreamErrors)
+		memory.RestoreCounters(saved.CacheHits, saved.CacheMisses)
+		rateLimitState.RestoreRejections(saved.RateLimitRejections)
+	}
+	var statsMu sync.Mutex
+	saveStatistics := func(saveCtx context.Context) error {
+		statsMu.Lock()
+		defer statsMu.Unlock()
+		queryStats := observer.Snapshot()
+		upstreamRequests, upstreamErrors := observer.UpstreamCounters()
+		cacheStats := memory.Stats()
+		return db.SaveStatistics(saveCtx, database.Statistics{Queries: queryStats.Queries, Blocked: queryStats.Blocked, CacheHits: cacheStats.Hits, CacheMisses: cacheStats.Misses, RateLimitRejections: rateLimitState.Status().RejectedTotal, UpstreamRequests: upstreamRequests, UpstreamErrors: upstreamErrors})
+	}
+	resetStatistics := func(resetCtx context.Context) error {
+		statsMu.Lock()
+		defer statsMu.Unlock()
+		if err := db.SaveStatistics(resetCtx, database.Statistics{}); err != nil {
+			return err
+		}
+		observer.Reset()
+		memory.ResetCounters()
+		rateLimitState.ResetRejections()
+		return nil
+	}
+	var statsWG sync.WaitGroup
+	statsWG.Go(func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-runCtx.Done():
+				return
+			case <-ticker.C:
+				checkpointCtx, done := context.WithTimeout(runCtx, 2*time.Second)
+				if err := saveStatistics(checkpointCtx); err != nil {
+					logger.Warn("statistics checkpoint failed", "error", err)
+				}
+				done()
+			}
+		}
+	})
+	defer func() {
+		cancel()
+		statsWG.Wait()
+		checkpointCtx, done := context.WithTimeout(context.Background(), 2*time.Second)
+		defer done()
+		if err := saveStatistics(checkpointCtx); err != nil {
+			logger.Warn("final statistics checkpoint failed", "error", err)
+		}
+	}()
 	if persisted, err := db.GetRateLimitSettings(initCtx); err == nil {
 		if persisted.Enabled || persisted.GlobalQPS > 0 || persisted.ClientQPS > 0 || persisted.RateLimitBurst > 0 {
 			rateLimitState.Configure(persisted.Enabled, persisted.GlobalQPS, persisted.ClientQPS, persisted.RateLimitBurst)
@@ -295,7 +349,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, UpstreamHealth: upstreamHealth, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, ApplyConfig: applyConfig}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, UpstreamHealth: upstreamHealth, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, ApplyConfig: applyConfig, ResetStats: resetStatistics}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)

@@ -32,3 +32,31 @@ func TestMetricsSnapshotAndPrometheusOutput(t *testing.T) {
 		}
 	}
 }
+
+func TestStatisticsResetPreservesProcessTelemetry(t *testing.T) {
+	m := New(cache.New(10))
+	m.Query("A", "blocked", 0, time.Millisecond)
+	m.Upstream("192.0.2.1:53", true)
+	requests, errors := m.UpstreamCounters()
+	if requests["192.0.2.1:53"] != 1 || errors["192.0.2.1:53"] != 1 {
+		t.Fatalf("upstream counters: %v %v", requests, errors)
+	}
+	m.Reset()
+	if got := m.Snapshot(); got.Queries != 0 || got.Blocked != 0 || got.QPS != 0 {
+		t.Fatalf("reset snapshot: %+v", got)
+	}
+	requests, errors = m.UpstreamCounters()
+	if len(requests) != 0 || len(errors) != 0 {
+		t.Fatalf("upstream counters after reset: %v %v", requests, errors)
+	}
+	m.Restore(3, 1)
+	m.RestoreUpstreamCounters(map[string]uint64{"192.0.2.1:53": 2}, map[string]uint64{"192.0.2.1:53": 1})
+	if got := m.Snapshot(); got.Queries != 3 || got.Blocked != 1 || got.QPS != 0 {
+		t.Fatalf("restored snapshot: %+v", got)
+	}
+	response := httptest.NewRecorder()
+	m.Handler().ServeHTTP(response, httptest.NewRequest("GET", "/metrics", nil))
+	if !strings.Contains(response.Body.String(), `dns_upstream_requests_total{upstream="192.0.2.1:53"} 2`) {
+		t.Fatalf("restored Prometheus counter missing: %s", response.Body.String())
+	}
+}

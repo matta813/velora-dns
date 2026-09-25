@@ -271,6 +271,11 @@ p {
   gap: 16px;
   margin-bottom: 22px;
 }
+.dashboard-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
 .stat {
   background: white;
   border: 1px solid #e1e8e7;
