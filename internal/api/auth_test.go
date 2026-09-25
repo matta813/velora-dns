@@ -36,6 +36,9 @@ func TestManagementAuthenticationCSRFAndRoles(t *testing.T) {
 	if w := authRequest(h, "GET", "/api/v1/status", "", nil, ""); w.Code != 401 {
 		t.Fatalf("unauthenticated: %d", w.Code)
 	}
+	if w := authRequest(h, "GET", "/api/v1/diagnostics", "", nil, ""); w.Code != 401 {
+		t.Fatalf("unauthenticated diagnostics: %d", w.Code)
+	}
 	adminCookie, adminCSRF := loginForTest(t, h, "admin", "admin password long")
 	if w := authRequest(h, "DELETE", "/api/v1/cache", "", adminCookie, ""); w.Code != 403 {
 		t.Fatalf("missing csrf: %d", w.Code)
@@ -69,6 +72,9 @@ func TestManagementAuthenticationCSRFAndRoles(t *testing.T) {
 		t.Fatalf("revoked token accepted: %d", w.Code)
 	}
 	viewerCookie, viewerCSRF := loginForTest(t, h, "viewer", "viewer password long")
+	if w := authRequest(h, "GET", "/api/v1/diagnostics", "", viewerCookie, ""); w.Code != 200 {
+		t.Fatalf("viewer diagnostics: %d %s", w.Code, w.Body.String())
+	}
 	if w := authRequest(h, "DELETE", "/api/v1/cache", "", viewerCookie, viewerCSRF); w.Code != 403 {
 		t.Fatalf("viewer mutation: %d", w.Code)
 	}

@@ -17,6 +17,7 @@ metrics require an authenticated session or scoped API token.
 | POST | /api/v1/tokens | Create a scoped token; secret returned once |
 | DELETE | /api/v1/tokens/{id} | Revoke a token owned by the current user |
 | GET | /api/v1/status | Listener readiness, uptime, version and implemented capabilities |
+| GET | /api/v1/diagnostics | Sanitized system health and support report |
 | GET | /api/v1/version | Build version, source commit and build timestamp |
 | GET | /api/v1/update/check | Installed/latest version, channel, release details and availability |
 | GET | /api/v1/update/status | Current updater phase, errors and rollback/readiness result |
@@ -120,3 +121,14 @@ If Prometheus runs on another host, configure a private, protected route to
 the management listener and include its hostname in `http.allowed_hosts`.
 Keep the token file out of version control. The scrape job uses Prometheus's
 [`authorization.credentials_file` setting](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_config).
+
+## Diagnostics report
+
+The authenticated `GET /api/v1/diagnostics` endpoint is the source for the Web UI
+health page and its JSON download. It reports DNS listener, storage, configuration,
+cache, query logging and updater state when the updater is configured. The report
+contains the running version, OS, architecture, uptime and configured upstream
+count. It excludes passwords, tokens, configuration values, query logs, client
+addresses and domain names. A missing updater is shown as degraded; a failed DNS
+listener or management database is shown as failed. All authenticated roles may
+read the sanitized report.

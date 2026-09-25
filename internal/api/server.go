@@ -82,6 +82,11 @@ func New(d Dependencies) http.Handler {
 		currentConfig = d.Config
 	)
 	mux := http.NewServeMux()
+	registerDiagnostics(mux, d, func() config.Config {
+		cfgMu.RLock()
+		defer cfgMu.RUnlock()
+		return currentConfig
+	})
 	if d.Auth != nil {
 		registerAuth(mux, d.Auth)
 	}
