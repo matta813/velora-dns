@@ -13,6 +13,7 @@ import {
   HardDrive,
   Network,
   Server,
+  Stethoscope,
 } from "lucide-react";
 import { useEffect } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
@@ -27,6 +28,7 @@ import { UpdateCenter } from "./pages/UpdateCenter";
 import { BackupAssistant } from "./pages/BackupAssistant";
 import { DHCP } from "./pages/DHCP";
 import { Cluster } from "./pages/Cluster";
+import { Diagnostics } from "./pages/Diagnostics";
 import { logout } from "./api";
 import { useAuthUser } from "./auth-context";
 import { useI18n } from "./i18n-context";
@@ -56,6 +58,8 @@ export default function App() {
                     ? t("app.title.dhcp")
                     : pathname === "/cluster"
                       ? t("app.title.cluster")
+                      : pathname === "/diagnostics"
+                        ? t("app.title.diagnostics")
                       : t("app.title.overview");
   useEffect(() => {
     document.title = `Velora DNS · ${title}`;
@@ -122,6 +126,10 @@ export default function App() {
           <NavLink to="/cluster">
             <Server size={18} />
             {t("app.nav.cluster")}
+          </NavLink>
+          <NavLink to="/diagnostics">
+            <Stethoscope size={18} />
+            {t("app.nav.diagnostics")}
           </NavLink>
         </nav>
         <button className="button secondary mobile-signout" onClick={signOut}>
@@ -224,6 +232,7 @@ export default function App() {
               <Route path="/backup" element={<BackupAssistant readOnly={readOnly} />} />
               <Route path="/dhcp" element={<DHCP readOnly={readOnly} />} />
               <Route path="/cluster" element={<Cluster />} />
+              <Route path="/diagnostics" element={<Diagnostics />} />
               <Route path="*" element={<p>{t("app.not_found")}</p>} />
             </Routes>
           )}
