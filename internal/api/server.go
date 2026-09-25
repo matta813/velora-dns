@@ -57,6 +57,8 @@ type Dependencies struct {
 	RateLimit      *dns.RateLimitState
 	UpstreamHealth *dns.UpstreamHealth
 	ResetStats     func(context.Context) error
+	Events         EventStore
+	NotifyEvent    func(database.SystemEventInput)
 	DHCP           DHCPStore
 	Cluster        ClusterStore
 	ApplyConfig    func(config.Config) error
@@ -97,6 +99,9 @@ func New(d Dependencies) http.Handler {
 	})
 	if d.Auth != nil {
 		registerAuth(mux, d.Auth)
+		if d.Events != nil {
+			registerEvents(mux, d.Events)
+		}
 	}
 	capabilities := []string{"forwarding", "cache", "metrics"}
 	if d.Zones != nil {
@@ -221,6 +226,11 @@ func New(d Dependencies) http.Handler {
 		respond(w, 200, cfg)
 	})
 	mux.HandleFunc("PUT /api/v1/config", func(w http.ResponseWriter, r *http.Request) {
+		notifyRollback := func(severity, message string) {
+			if d.NotifyEvent != nil {
+				d.NotifyEvent(database.SystemEventInput{Key: "configuration_rollback", Severity: severity, Title: "Configuration rollback", Message: message, Link: "/settings", Visibility: "admin"})
+			}
+		}
 		cfgWriteMu.Lock()
 		defer cfgWriteMu.Unlock()
 		if d.ConfigPath == "" {
@@ -249,9 +259,11 @@ func New(d Dependencies) http.Handler {
 					return
 				}
 				if rollbackErr := d.ApplyConfig(currentConfig); rollbackErr != nil {
+					notifyRollback("critical", "A configuration apply and its rollback both failed. Check service readiness.")
 					failure(w, 500, "config_rollback_failed", fmt.Sprintf("Apply failed: %v; rollback failed: %v", err, rollbackErr))
 					return
 				}
+				notifyRollback("warning", "A configuration apply failed and the previous settings were restored.")
 				failure(w, 500, "config_apply_failed", err.Error())
 				return
 			}
@@ -262,19 +274,23 @@ func New(d Dependencies) http.Handler {
 		if !ready {
 			if d.ApplyConfig != nil {
 				if err := d.ApplyConfig(currentConfig); err != nil {
+					notifyRollback("critical", "Readiness failed and the previous configuration could not be restored.")
 					failure(w, 500, "config_rollback_failed", fmt.Sprintf("Readiness failed; rollback failed: %v", err))
 					return
 				}
 			}
+			notifyRollback("warning", "A configuration change failed readiness and the previous settings were restored.")
 			failure(w, 503, "config_not_ready", "Services are not ready after applying configuration")
 			return
 		}
 		if err := newConfig.Save(d.ConfigPath); err != nil {
 			if d.ApplyConfig != nil {
 				if rollbackErr := d.ApplyConfig(currentConfig); rollbackErr != nil {
+					notifyRollback("critical", "Configuration storage failed and the previous runtime settings could not be restored.")
 					failure(w, 500, "config_rollback_failed", fmt.Sprintf("Save failed: %v; rollback failed: %v", err, rollbackErr))
 					return
 				}
+				notifyRollback("warning", "Configuration storage failed and the previous runtime settings were restored.")
 			}
 			failure(w, 500, "config_save_failed", err.Error())
 			return
@@ -354,7 +370,8 @@ func New(d Dependencies) http.Handler {
 				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
 				return
 			}
-			if unsafe && (user.Role == "viewer" || (isToken && !hasScope(tokenScopes, "write") && !hasScope(tokenScopes, "admin"))) {
+			markRead := strings.HasPrefix(r.URL.Path, "/api/v1/events/") && strings.HasSuffix(r.URL.Path, "/read") && r.Method == http.MethodPost
+			if unsafe && (!markRead && user.Role == "viewer" || (isToken && !hasScope(tokenScopes, "write") && !hasScope(tokenScopes, "admin"))) {
 				failure(w, http.StatusForbidden, "insufficient_role", "Viewer role is read-only")
 				return
 			}

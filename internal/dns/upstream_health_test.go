@@ -8,6 +8,8 @@ import (
 
 func TestUpstreamHealthTripsAndRecoversAfterCooldown(t *testing.T) {
 	health := NewUpstreamHealth([]string{"127.0.0.1:53", "127.0.0.2:53"})
+	var transitions []string
+	health.SetOnTransition(func(_, _, state string) { transitions = append(transitions, state) })
 	now := time.Unix(100, 0)
 	first := "127.0.0.1:53"
 	for i := 0; i < upstreamFailureThreshold; i++ {
@@ -29,5 +31,8 @@ func TestUpstreamHealthTripsAndRecoversAfterCooldown(t *testing.T) {
 	status := health.Snapshot()
 	if len(status) != 2 || status[0].State != "healthy" || status[0].ConsecutiveFailures != 0 || status[0].LatencyMilliseconds != 5 {
 		t.Fatalf("recovery state: %+v", status)
+	}
+	if len(transitions) != 2 || transitions[0] != "unavailable" || transitions[1] != "healthy" {
+		t.Fatalf("important transitions: %v", transitions)
 	}
 }

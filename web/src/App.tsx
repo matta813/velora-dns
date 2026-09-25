@@ -15,8 +15,9 @@ import {
   Server,
   Stethoscope,
   ClipboardList,
+  Bell,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useSnapshot } from "./useSnapshot";
 import { Dashboard } from "./pages/Dashboard";
@@ -31,7 +32,8 @@ import { DHCP } from "./pages/DHCP";
 import { Cluster } from "./pages/Cluster";
 import { Diagnostics } from "./pages/Diagnostics";
 import { AuditLog } from "./pages/AuditLog";
-import { logout } from "./api";
+import { EventCenter } from "./pages/EventCenter";
+import { logout, request, type SystemEventPage } from "./api";
 import { useAuthUser } from "./auth-context";
 import { useI18n } from "./i18n-context";
 export default function App() {
@@ -40,9 +42,23 @@ export default function App() {
   const { t } = useI18n();
   const readOnly = user?.role === "viewer";
   const { pathname } = useLocation();
+  const [unreadEvents, setUnreadEvents] = useState(0);
+  const refreshEvents = useCallback(() => {
+    void request<SystemEventPage>("/api/v1/events?limit=1")
+      .then((page) => setUnreadEvents(page.unread_count))
+      .catch(() => setUnreadEvents(0));
+  }, []);
+  useEffect(() => {
+    if (!user) return;
+    refreshEvents();
+    const timer = window.setInterval(refreshEvents, 10000);
+    return () => window.clearInterval(timer);
+  }, [user, refreshEvents]);
   const signOut = () => void logout().then(() => window.location.reload());
   const title =
-    pathname === "/zones"
+    pathname === "/events"
+      ? t("app.title.events")
+      : pathname === "/zones"
       ? t("app.title.zones")
       : pathname === "/queries"
         ? t("app.title.queries")
@@ -135,6 +151,11 @@ export default function App() {
             <Stethoscope size={18} />
             {t("app.nav.diagnostics")}
           </NavLink>
+          <NavLink to="/events">
+            <Bell size={18} />
+            {t("app.nav.events")}
+            {unreadEvents > 0 && <span className="event-count">{unreadEvents}</span>}
+          </NavLink>
           {user?.role === "admin" && <NavLink to="/audit">
             <ClipboardList size={18} />
             {t("app.nav.audit")}
@@ -166,6 +187,10 @@ export default function App() {
           <span>
             {t("app.workspace")} <span className="slash">/</span> <strong>{title}</strong>
           </span>
+          <NavLink to="/events" className="event-entry" aria-label={`${t("app.nav.events")}: ${unreadEvents} ${t("events.unread")}`}>
+            <Bell size={18} />
+            {unreadEvents > 0 && <span className="event-count">{unreadEvents}</span>}
+          </NavLink>
           <span className={`connection ${error ? "offline" : ""}`}>
             <i className="dot" />
             {error
@@ -225,6 +250,7 @@ export default function App() {
                   />
                 }
               />
+              <Route path="/events" element={<EventCenter onRead={refreshEvents} />} />
               <Route
                 path="/cache"
                 element={<CachePage data={data} refresh={refresh} readOnly={readOnly} />}
