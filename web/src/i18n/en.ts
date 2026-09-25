@@ -133,8 +133,7 @@ const en: Record<string, string> = {
   "settings.enable_query_log": "Enable query logging",
   "settings.save_configuration": "Save configuration",
   "settings.saving": "Saving…",
-  "settings.save_success":
-    "Configuration saved. Restart required for changes to take effect.",
+  "settings.save_success": "Configuration saved and applied.",
   "settings.save_failed": "Failed to save configuration",
 
   // Dashboard

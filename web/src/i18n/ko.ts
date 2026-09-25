@@ -120,7 +120,7 @@ const ko: Record<string, string> = {
   "settings.enable_query_log": '쿼리 로깅 활성화',
   "settings.save_configuration": '설정 저장',
   "settings.saving": '저장 중…',
-  "settings.save_success": '설정이 저장되었습니다. 변경 사항을 적용하려면 다시 시작이 필요합니다.',
+  "settings.save_success": '설정이 저장되고 적용되었습니다.',
   "settings.save_failed": '설정 저장에 실패했습니다',
   "dashboard.total_queries": '총 쿼리 수',
   "dashboard.since_start": '통계 마지막 초기화 이후',

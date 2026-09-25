@@ -31,6 +31,7 @@ metrics require an authenticated session or scoped API token.
 | GET | /api/v1/cache | Live entries, capacity, persisted hits and misses |
 | DELETE | /api/v1/cache | Clear cached answers; preserve lifetime counters |
 | GET | /api/v1/config | Current config, excluding database path and secrets |
+| PUT | /api/v1/config | Validate and apply supported live settings, then save atomically; `409 config_requires_restart` lists fields that cannot be applied live |
 | GET | /api/v1/blocklists | Blocklist sources with domain counts and status |
 | POST | /api/v1/blocklists | Add an HTTP(S) or local blocklist source |
 | PUT | /api/v1/blocklists/{id} | Enable or disable a source |
@@ -46,6 +47,13 @@ request/error, and rate-limit rejection counters. It keeps cached answers,
 query logs, zones, configuration, uptime, and process-only latency histograms.
 The rolling QPS window starts again at zero. Cache flushing uses its separate
 `DELETE /api/v1/cache` action.
+
+Configuration updates are applied to the running services and saved only after
+validation and readiness checks. Failed apply or save attempts restore the
+previous live configuration. Listener addresses, upstreams, TLS settings and
+other fields without a live apply path return `config_requires_restart` with
+field names; the candidate is neither activated nor saved. Change those fields
+in the configuration file and restart the service.
 
 ## TSIG key management
 

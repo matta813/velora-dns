@@ -120,7 +120,7 @@ const nl: Record<string, string> = {
   "settings.enable_query_log": 'Query-logboek inschakelen',
   "settings.save_configuration": 'Configuratie opslaan',
   "settings.saving": 'Opslaan…',
-  "settings.save_success": 'Configuratie opgeslagen. Herstart vereist om wijzigingen toe te passen.',
+  "settings.save_success": 'Configuratie opgeslagen en toegepast.',
   "settings.save_failed": 'Configuratie opslaan mislukt',
   "dashboard.total_queries": 'Totaal queries',
   "dashboard.since_start": 'Sinds de laatste reset van statistieken',

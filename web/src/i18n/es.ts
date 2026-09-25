@@ -120,7 +120,7 @@ const es: Record<string, string> = {
   "settings.enable_query_log": 'Habilitar registro de consultas',
   "settings.save_configuration": 'Guardar configuración',
   "settings.saving": 'Guardando…',
-  "settings.save_success": 'Configuración guardada. Se requiere reinicio para que los cambios surtan efecto.',
+  "settings.save_success": 'Configuración guardada y aplicada.',
   "settings.save_failed": 'Error al guardar la configuración',
   "dashboard.total_queries": 'Consultas totales',
   "dashboard.since_start": 'Desde el último reinicio de estadísticas',

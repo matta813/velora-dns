@@ -4,6 +4,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -231,7 +232,7 @@ func New(d Dependencies) http.Handler {
 			return
 		}
 		cfgMu.RLock()
-		newConfig := currentConfig
+		newConfig := currentConfig.Clone()
 		cfgMu.RUnlock()
 		if !readJSON(w, r, &newConfig) {
 			return
@@ -242,6 +243,11 @@ func New(d Dependencies) http.Handler {
 		}
 		if d.ApplyConfig != nil {
 			if err := d.ApplyConfig(newConfig); err != nil {
+				var restart *config.RestartRequiredError
+				if errors.As(err, &restart) {
+					failure(w, 409, "config_requires_restart", err.Error())
+					return
+				}
 				if rollbackErr := d.ApplyConfig(currentConfig); rollbackErr != nil {
 					failure(w, 500, "config_rollback_failed", fmt.Sprintf("Apply failed: %v; rollback failed: %v", err, rollbackErr))
 					return

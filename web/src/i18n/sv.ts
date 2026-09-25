@@ -120,7 +120,7 @@ const sv: Record<string, string> = {
   "settings.enable_query_log": 'Aktivera frågeloggning',
   "settings.save_configuration": 'Spara konfiguration',
   "settings.saving": 'Sparar…',
-  "settings.save_success": 'Konfiguration sparad. Omstart krävs för att ändringar ska träda i kraft.',
+  "settings.save_success": 'Konfiguration sparad och tillämpad.',
   "settings.save_failed": 'Det gick inte att spara konfigurationen',
   "dashboard.total_queries": 'Totalt antal frågor',
   "dashboard.since_start": 'Sedan statistiken senast nollställdes',
