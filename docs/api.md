@@ -1,5 +1,11 @@
 # Operational REST API
 
+The [OpenAPI 3.1 specification](openapi.json) lists the current management
+routes, response envelopes, request models, authentication and roles. When
+changing an API route or model, update `scripts/generate-openapi.py`, regenerate
+with `python3 scripts/generate-openapi.py`, and run `make openapi-check`. CI
+checks the generated document against registered Go routes.
+
 Base path: `/api/v1`. Successful JSON responses contain `data`. Errors contain
 `error: {code, message}`. Health and readiness are public; management endpoints and
 metrics require an authenticated session or scoped API token.
