@@ -85,7 +85,7 @@ func TestStatisticsCheckpointRestartAndReset(t *testing.T) {
 		}
 		return body
 	}
-	base, address, stop := start()
+	_, address, stop := start()
 	message := new(wire.Msg)
 	message.SetQuestion("missing.example.test.", wire.TypeA)
 	if _, _, err := (&wire.Client{Net: "udp", Timeout: 2 * time.Second}).Exchange(message, address); err != nil {
@@ -111,7 +111,7 @@ func TestStatisticsCheckpointRestartAndReset(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	stop()
-	base, _, stop = start()
+	base, _, stop := start()
 	login, err := client.Post(base+"/api/v1/auth/login", "application/json", strings.NewReader(`{"username":"admin","password":"test admin password"}`))
 	if err != nil {
 		t.Fatal(err)
