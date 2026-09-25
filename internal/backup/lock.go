@@ -19,7 +19,7 @@ func AcquireInstanceLock(databasePath string) (*os.File, error) {
 	}
 	if err := unix.Flock(int(file.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
 		_ = file.Close()
-		return nil, fmt.Errorf("Velora database is in use: %w", err)
+		return nil, fmt.Errorf("velora database is in use: %w", err)
 	}
 	return file, nil
 }
