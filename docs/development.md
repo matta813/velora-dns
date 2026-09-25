@@ -32,6 +32,13 @@ Package boundaries:
 - `web/src`: typed API client, polling, components and pages
 - `tests`: local UDP/TCP integration tests
 
+Run `make test-e2e` to start a fresh Velora instance with a temporary SQLite
+database and local listeners. The test signs in, creates and updates a zone
+record through the management API, verifies real DNS answers, checks query
+history and validation errors, then confirms a viewer cannot mutate zones.
+It uses only loopback addresses and runs as part of the existing backend CI
+test job. Failure output includes the API response and application logs.
+
 Tests must not depend on the public internet. Use local fake upstreams, ephemeral ports,
 controlled clocks where possible, and cancellation. Validate behavior at package boundaries.
 Local-zone tests cover authority boundaries, record matching, CNAME resolution, transactional
