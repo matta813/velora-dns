@@ -154,6 +154,18 @@ export async function savePreferences(preferences: Preferences): Promise<Prefere
 }
 let csrfToken = "";
 export function setCSRFToken(token: string) { csrfToken = token; }
+export async function downloadEncryptedBackup(passphrase: string): Promise<Blob> {
+  const response = await fetch("/api/v1/backup/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+    body: JSON.stringify({ passphrase }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: { message?: string } };
+    throw new APIError(response.status, body.error?.message ?? `Backup failed (${response.status})`);
+  }
+  return response.blob();
+}
 export async function authenticate(username: string, password: string): Promise<AuthUser> {
   const user = await request<AuthUser>("/api/v1/auth/login", undefined, "POST", { body: { username, password } });
   setCSRFToken(user.csrf_token);

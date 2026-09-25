@@ -2,6 +2,7 @@
 
 - [Configuration reference](configuration.md)
 - [Deployment, LAN setup and backups](deployment.md)
+- [Encrypted backup and offline restore](backup.md)
 - [Production assessment, load testing and recovery drills](production-assessment.md)
 - [Encrypted DNS: DoT, DoH and DoQ](encrypted-dns.md)
 - [DNSSEC validation](dnssec.md)

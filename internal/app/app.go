@@ -59,6 +59,13 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	if err := c.Validate(); err != nil {
 		return err
 	}
+	if c.DatabaseDriver == "sqlite" {
+		instanceLock, err := backup.AcquireInstanceLock(c.DatabasePath)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = instanceLock.Close() }()
+	}
 	tsigStore := dns.NewTSIGStore()
 	for _, key := range c.TSIG.Keys {
 		if err := tsigStore.AddKey(key.Name, key.Algorithm, key.Secret); err != nil {
@@ -139,6 +146,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	updateClient := update.Client{SocketPath: updateSocket, Timeout: 8 * time.Second}
 
 	backupManager := backup.NewManager(db, c.DatabasePath)
+	backupManager.SetConfig(c, version.Version)
 
 	var membership *node.Membership
 	if c.Cluster.Enabled {
@@ -328,6 +336,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		rateLimitState.Configure(updated.DNS.RateLimitEnabled, updated.DNS.GlobalQPS, updated.DNS.ClientQPS, updated.DNS.RateLimitBurst)
 		dnsHandler.UpdateConfig(newAllowed, updated.DNS.MaxConcurrent)
 		resolver.SetBlockMode(updated.Filtering.BlockMode)
+		backupManager.SetConfig(updated, version.Version)
 		appliedConfig = updated
 		return nil
 	}
