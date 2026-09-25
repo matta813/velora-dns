@@ -1,4 +1,7 @@
-.PHONY: dev backend frontend install go-tools test lint build check docker-build docker-up release-test screenshot
+.PHONY: dev backend frontend install go-tools test test-e2e lint build check openapi-check docker-build docker-up release-test screenshot
+
+openapi-check:
+	python3 scripts/generate-openapi.py --check
 
 install:
 	npm --prefix web ci
@@ -18,6 +21,9 @@ test:
 	go test -race ./cmd/... ./internal/... ./tests/...
 	npm --prefix web test -- --run
 
+test-e2e:
+	go test -race -v ./tests -run '^TestManagementDNSWorkflow$$' -count=1
+
 lint:
 	test -z "$$(gofmt -l cmd internal tests)"
 	go vet ./cmd/... ./internal/... ./tests/...
@@ -29,7 +35,7 @@ build:
 	npm --prefix web run build
 	CGO_ENABLED=0 go build -trimpath -o bin/velora-dns ./cmd/server
 
-check: lint test build release-test
+check: openapi-check lint test build release-test
 
 release-test:
 	SKIP_REMOTE_CHECK=true ./scripts/validate-release.sh RELEASE

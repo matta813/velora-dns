@@ -13,8 +13,11 @@ import {
   HardDrive,
   Network,
   Server,
+  Stethoscope,
+  ClipboardList,
+  Bell,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useSnapshot } from "./useSnapshot";
 import { Dashboard } from "./pages/Dashboard";
@@ -27,7 +30,10 @@ import { UpdateCenter } from "./pages/UpdateCenter";
 import { BackupAssistant } from "./pages/BackupAssistant";
 import { DHCP } from "./pages/DHCP";
 import { Cluster } from "./pages/Cluster";
-import { logout } from "./api";
+import { Diagnostics } from "./pages/Diagnostics";
+import { AuditLog } from "./pages/AuditLog";
+import { EventCenter } from "./pages/EventCenter";
+import { logout, request, type SystemEventPage } from "./api";
 import { useAuthUser } from "./auth-context";
 import { useI18n } from "./i18n-context";
 export default function App() {
@@ -36,9 +42,23 @@ export default function App() {
   const { t } = useI18n();
   const readOnly = user?.role === "viewer";
   const { pathname } = useLocation();
+  const [unreadEvents, setUnreadEvents] = useState(0);
+  const refreshEvents = useCallback(() => {
+    void request<SystemEventPage>("/api/v1/events?limit=1")
+      .then((page) => setUnreadEvents(page.unread_count))
+      .catch(() => setUnreadEvents(0));
+  }, []);
+  useEffect(() => {
+    if (!user) return;
+    refreshEvents();
+    const timer = window.setInterval(refreshEvents, 10000);
+    return () => window.clearInterval(timer);
+  }, [user, refreshEvents]);
   const signOut = () => void logout().then(() => window.location.reload());
   const title =
-    pathname === "/zones"
+    pathname === "/events"
+      ? t("app.title.events")
+      : pathname === "/zones"
       ? t("app.title.zones")
       : pathname === "/queries"
         ? t("app.title.queries")
@@ -56,6 +76,10 @@ export default function App() {
                     ? t("app.title.dhcp")
                     : pathname === "/cluster"
                       ? t("app.title.cluster")
+                      : pathname === "/diagnostics"
+                        ? t("app.title.diagnostics")
+                        : pathname === "/audit"
+                          ? t("app.title.audit")
                       : t("app.title.overview");
   useEffect(() => {
     document.title = `Velora DNS · ${title}`;
@@ -123,6 +147,19 @@ export default function App() {
             <Server size={18} />
             {t("app.nav.cluster")}
           </NavLink>
+          <NavLink to="/diagnostics">
+            <Stethoscope size={18} />
+            {t("app.nav.diagnostics")}
+          </NavLink>
+          <NavLink to="/events">
+            <Bell size={18} />
+            {t("app.nav.events")}
+            {unreadEvents > 0 && <span className="event-count">{unreadEvents}</span>}
+          </NavLink>
+          {user?.role === "admin" && <NavLink to="/audit">
+            <ClipboardList size={18} />
+            {t("app.nav.audit")}
+          </NavLink>}
         </nav>
         <button className="button secondary mobile-signout" onClick={signOut}>
           {t("app.sign_out")}
@@ -150,6 +187,10 @@ export default function App() {
           <span>
             {t("app.workspace")} <span className="slash">/</span> <strong>{title}</strong>
           </span>
+          <NavLink to="/events" className="event-entry" aria-label={`${t("app.nav.events")}: ${unreadEvents} ${t("events.unread")}`}>
+            <Bell size={18} />
+            {unreadEvents > 0 && <span className="event-count">{unreadEvents}</span>}
+          </NavLink>
           <span className={`connection ${error ? "offline" : ""}`}>
             <i className="dot" />
             {error
@@ -204,9 +245,12 @@ export default function App() {
                     data={data}
                     history={history}
                     queryLoggingEnabled={data.config.query_log?.enabled ?? false}
+                    readOnly={user?.role !== "admin"}
+                    refresh={refresh}
                   />
                 }
               />
+              <Route path="/events" element={<EventCenter onRead={refreshEvents} />} />
               <Route
                 path="/cache"
                 element={<CachePage data={data} refresh={refresh} readOnly={readOnly} />}
@@ -221,9 +265,11 @@ export default function App() {
               <Route path="/blocklists" element={<Blocklists readOnly={readOnly} />} />
               <Route path="/settings" element={<Settings data={data} />} />
               <Route path="/updates" element={<UpdateCenter readOnly={readOnly} />} />
-              <Route path="/backup" element={<BackupAssistant readOnly={readOnly} />} />
+              <Route path="/backup" element={<BackupAssistant readOnly={readOnly} canCreate={user?.role === "admin"} />} />
               <Route path="/dhcp" element={<DHCP readOnly={readOnly} />} />
               <Route path="/cluster" element={<Cluster />} />
+              <Route path="/diagnostics" element={<Diagnostics />} />
+              <Route path="/audit" element={<AuditLog />} />
               <Route path="*" element={<p>{t("app.not_found")}</p>} />
             </Routes>
           )}

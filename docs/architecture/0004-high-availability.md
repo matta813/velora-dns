@@ -3,8 +3,9 @@
 ## Status
 
 Accepted design; not implemented in the production runtime. Experimental packages exist
-for membership, replication and cluster routing, but app startup, management APIs,
-health/readiness and deployment configuration do not use them.
+for membership, replication and cluster routing. Startup and management APIs expose
+local node records when configured, but they do not implement distributed membership,
+quorum or replication. Health and readiness do not reflect control-plane state.
 
 ## Context
 
@@ -36,9 +37,10 @@ The repository contains preliminary packages for:
 - **Central management**: in-process managed-node models.
 - **PostgreSQL cluster**: connection-pool and routing prototypes.
 
-None of these packages currently provides a network replication protocol, is constructed
-by `app.Run`, exposes management routes, or contributes to readiness. They must not be
-treated as an available feature.
+None of these packages currently provides a network replication protocol. `app.Run`
+constructs local bookkeeping for membership and replication when configured, and
+management routes expose stored nodes and config versions. They do not contribute to
+readiness or provide a usable cluster. They must not be treated as an available feature.
 
 ### Future work
 

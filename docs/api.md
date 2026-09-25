@@ -1,5 +1,11 @@
 # Operational REST API
 
+The [OpenAPI 3.1 specification](openapi.json) lists the current management
+routes, response envelopes, request models, authentication and roles. When
+changing an API route or model, update `scripts/generate-openapi.py`, regenerate
+with `python3 scripts/generate-openapi.py`, and run `make openapi-check`. CI
+checks the generated document against registered Go routes.
+
 Base path: `/api/v1`. Successful JSON responses contain `data`. Errors contain
 `error: {code, message}`. Health and readiness are public; management endpoints and
 metrics require an authenticated session or scoped API token.
@@ -17,15 +23,24 @@ metrics require an authenticated session or scoped API token.
 | POST | /api/v1/tokens | Create a scoped token; secret returned once |
 | DELETE | /api/v1/tokens/{id} | Revoke a token owned by the current user |
 | GET | /api/v1/status | Listener readiness, uptime, version and implemented capabilities |
+| GET | /api/v1/diagnostics | Sanitized system health and support report |
+| POST | /api/v1/backup/create | Admin-only encrypted SQLite configuration and state bundle download |
+| GET | /api/v1/audit | Admin-only audit events with actor, action, result and cursor filters |
+| GET | /api/v1/events | Recent system events and unread count, filtered by role |
+| POST | /api/v1/events/{id}/read | Mark an accessible event as read for the current user |
 | GET | /api/v1/version | Build version, source commit and build timestamp |
 | GET | /api/v1/update/check | Installed/latest version, channel, release details and availability |
 | GET | /api/v1/update/status | Current updater phase, errors and rollback/readiness result |
 | GET | /api/v1/update/history | Persistent update attempts and final results |
 | POST | /api/v1/update/request | Start the release selected by the configured updater agent |
-| GET | /api/v1/stats | Lifetime queries and rolling 60-second QPS; cache hit ratio |
-| GET | /api/v1/cache | Live entries, capacity, lifetime hits and misses |
+| GET | /api/v1/stats | Persisted query counters, rolling 60-second QPS and cache hit ratio |
+| POST | /api/v1/stats/reset | Reset persisted query, cache and rate-limit counters (admin only) |
+| GET | /api/v1/settings/rate-limit/status | Enabled state, persisted rejection count and last rejection time; no client addresses |
+| GET | /api/v1/upstreams/health | Passive upstream health, recent latency and failure count for configured resolvers |
+| GET | /api/v1/cache | Live entries, capacity, persisted hits and misses |
 | DELETE | /api/v1/cache | Clear cached answers; preserve lifetime counters |
 | GET | /api/v1/config | Current config, excluding database path and secrets |
+| PUT | /api/v1/config | Validate and apply supported live settings, then save atomically; `409 config_requires_restart` lists fields that cannot be applied live |
 | GET | /api/v1/blocklists | Blocklist sources with domain counts and status |
 | POST | /api/v1/blocklists | Add an HTTP(S) or local blocklist source |
 | PUT | /api/v1/blocklists/{id} | Enable or disable a source |
@@ -33,6 +48,28 @@ metrics require an authenticated session or scoped API token.
 | POST | /api/v1/blocklists/{id}/update | Refresh a remote source, preserving prior rules on failure |
 | DELETE | /api/v1/blocklists/{id} | Remove a source and its domains |
 | GET | /metrics | Prometheus exposition |
+
+Statistics are checkpointed to the management database every five seconds and on
+clean shutdown. A crash can lose up to one checkpoint interval of counts. The
+admin-only reset clears cumulative query, blocked, cache hit/miss, upstream
+request/error, and rate-limit rejection counters. It keeps cached answers,
+query logs, zones, configuration, uptime, and process-only latency histograms.
+The rolling QPS window starts again at zero. Cache flushing uses its separate
+`DELETE /api/v1/cache` action.
+
+Configuration updates are applied to the running services and saved only after
+validation and readiness checks. Failed apply or save attempts restore the
+previous live configuration. Listener addresses, upstreams, TLS settings and
+other fields without a live apply path return `config_requires_restart` with
+field names; the candidate is neither activated nor saved. Change those fields
+in the configuration file and restart the service.
+
+System events currently include upstream outage/recovery and configuration
+rollback outcomes. Repeated events with the same key are combined for ten
+minutes and become unread again. Events are retained for 90 days, capped at
+1,000 rows. Configuration rollback events are visible only to admins; upstream
+availability events are visible to all authenticated users. Read state is per
+user and requires CSRF for session requests.
 
 ## TSIG key management
 
@@ -69,6 +106,13 @@ API tokens use `Authorization: Bearer velora_<secret>`. Valid scopes are `read`,
 `write` and `admin`; expiration is mandatory and limited to one year. Only a SHA-256
 token digest is stored, and the secret is returned only by the creation response.
 Cookie-authenticated mutations require `X-CSRF-Token`; bearer requests do not.
+
+The admin-only audit view supports `actor`, `action`, `result`, `limit` (1–200)
+and `before` (event ID) filters. Administrative requests are recorded before
+dispatch and updated with their HTTP result afterward; incomplete requests
+remain marked `pending`. Events retain the actor's role at the time of the
+request and are removed after 90 days. Only the method and route path are
+stored, never request bodies, passwords, session tokens or CSRF tokens.
 
 Bodies are limited to 1 MiB, headers to 16 KiB, concurrent HTTP requests to 32, with read,
 write and idle timeouts. Cross-site browser requests and mismatched Origin are rejected.
@@ -119,3 +163,25 @@ If Prometheus runs on another host, configure a private, protected route to
 the management listener and include its hostname in `http.allowed_hosts`.
 Keep the token file out of version control. The scrape job uses Prometheus's
 [`authorization.credentials_file` setting](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_config).
+
+## Upstream health
+
+Upstream health is based on actual query outcomes. A configured resolver starts
+as `unknown` until its first attempt. One or two consecutive failed attempts
+mark it `degraded`; three mark it `unavailable`. The forwarder skips unavailable
+resolvers for 30 seconds, then allows one recovery attempt. A successful reply
+restores `healthy` state and records the observed attempt latency. The existing
+ordered failover continues to use another configured resolver while one is
+cooling down. No synthetic DNS traffic is generated. State is process-local and
+resets on restart.
+
+## Diagnostics report
+
+The authenticated `GET /api/v1/diagnostics` endpoint is the source for the Web UI
+health page and its JSON download. It reports DNS listener, storage, configuration,
+cache, query logging and updater state when the updater is configured. The report
+contains the running version, OS, architecture, uptime and configured upstream
+count. It excludes passwords, tokens, configuration values, query logs, client
+addresses and domain names. A missing updater is shown as degraded; a failed DNS
+listener or management database is shown as failed. All authenticated roles may
+read the sanitized report.

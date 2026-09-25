@@ -7,18 +7,60 @@ import { useI18n } from "../i18n-context";
 import type { Language } from "../i18n";
 const number = (language: Language, v: number) =>
   new Intl.NumberFormat(language).format(v);
+interface UpstreamHealth {
+  address: string;
+  state: "unknown" | "healthy" | "degraded" | "unavailable";
+  consecutive_failures: number;
+  latency_milliseconds: number;
+}
 export function Dashboard({
   data,
   history,
   queryLoggingEnabled,
+  readOnly,
+  refresh,
 }: {
   data: Snapshot;
   history: number[];
   queryLoggingEnabled: boolean;
+  readOnly?: boolean;
+  refresh?: () => void;
 }) {
   const { t, language } = useI18n();
   const [querySummary, setQuerySummary] = useState<QuerySummary | null>(null);
   const [summaryError, setSummaryError] = useState("");
+  const [upstreamHealth, setUpstreamHealth] = useState<UpstreamHealth[]>([]);
+  const [resetError, setResetError] = useState("");
+  const [resetting, setResetting] = useState(false);
+  async function resetStatistics() {
+    if (!window.confirm(t("dashboard.reset_confirm"))) return;
+    setResetting(true);
+    setResetError("");
+    try {
+      await request("/api/v1/stats/reset", undefined, "POST");
+      refresh?.();
+    } catch (reason) {
+      setResetError(reason instanceof Error ? reason.message : t("dashboard.reset_failed"));
+    } finally {
+      setResetting(false);
+    }
+  }
+  useEffect(() => {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      try {
+        const health = await request<UpstreamHealth[]>("/api/v1/upstreams/health", controller.signal);
+        if (!controller.signal.aborted && Array.isArray(health)) setUpstreamHealth(health);
+      } catch {
+        if (!controller.signal.aborted) setUpstreamHealth([]);
+      } finally {
+        if (!controller.signal.aborted) timer = setTimeout(poll, 5000);
+      }
+    }
+    void poll();
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, []);
   useEffect(() => {
     if (!queryLoggingEnabled) {
       return;
@@ -47,6 +89,10 @@ export function Dashboard({
   return (
     <>
       <OnboardingChecklist />
+      {!readOnly && refresh && <div className="dashboard-actions">
+        <button className="button" disabled={resetting} onClick={() => void resetStatistics()}>{t("dashboard.reset_statistics")}</button>
+      </div>}
+      {resetError && <div className="notice error" role="alert">{resetError}</div>}
       <div className="stats">
         <Stat
           label={t("dashboard.total_queries")}
@@ -177,10 +223,11 @@ export function Dashboard({
                   <th>{t("dashboard.endpoint")}</th>
                   <th>{t("dashboard.priority")}</th>
                   <th>{t("dashboard.attempt_timeout")}</th>
+                  <th>{t("dashboard.health")}</th>
                 </tr>
               </thead>
               <tbody>
-                {data.config.dns.upstreams.map((upstream, i) => (
+                {(upstreamHealth.length ? upstreamHealth.map((item) => item.address) : data.config.dns.upstreams).map((upstream, i) => (
                   <tr key={upstream}>
                     <td>
                       <span className="endpoint-mark">↗</span>
@@ -188,6 +235,10 @@ export function Dashboard({
                     </td>
                     <td>{i === 0 ? t("dashboard.primary") : `${t("dashboard.fallback")} ${i}`}</td>
                     <td>{data.config.dns.timeout / 1e9}s</td>
+                    <td>{t(`dashboard.upstream_${upstreamHealth.find((item) => item.address === upstream)?.state ?? "unknown"}`)}
+                      {upstreamHealth.find((item) => item.address === upstream)?.state === "healthy" &&
+                        ` · ${Math.round(upstreamHealth.find((item) => item.address === upstream)!.latency_milliseconds)} ms`}
+                    </td>
                   </tr>
                 ))}
               </tbody>

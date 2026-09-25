@@ -14,6 +14,9 @@ type SettingsStore interface {
 }
 
 func registerSettings(mux *http.ServeMux, store SettingsStore, state *dns.RateLimitState) {
+	mux.HandleFunc("GET /api/v1/settings/rate-limit/status", func(w http.ResponseWriter, r *http.Request) {
+		respond(w, 200, state.Status())
+	})
 	mux.HandleFunc("GET /api/v1/settings/rate-limit", func(w http.ResponseWriter, r *http.Request) {
 		settings, err := store.GetRateLimitSettings(r.Context())
 		if err != nil {

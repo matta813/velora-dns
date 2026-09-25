@@ -133,9 +133,19 @@ func (s *Store) RevokeSession(ctx context.Context, token []byte) error {
 }
 
 func (s *Store) Audit(ctx context.Context, userID *int64, action, detail string) error {
+	if err := s.pruneAudit(ctx); err != nil {
+		return err
+	}
 	p := s.placeholder
-	insertSQL := fmt.Sprintf("INSERT INTO audit_events(user_id,action,detail) VALUES(%s,%s,%s)", p(1), p(2), p(3))
-	_, err := s.db.ExecContext(ctx, insertSQL, userID, action, detail)
+	result := "unknown"
+	if action == "login" {
+		result = "success"
+	}
+	if action == "login_failed" {
+		result = "failure"
+	}
+	insertSQL := fmt.Sprintf("INSERT INTO audit_events(user_id,action,detail,target,result) VALUES(%s,%s,%s,%s,%s)", p(1), p(2), p(3), p(4), p(5))
+	_, err := s.db.ExecContext(ctx, insertSQL, userID, action, detail, "authentication", result)
 	return err
 }
 

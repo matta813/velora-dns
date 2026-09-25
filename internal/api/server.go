@@ -4,6 +4,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -36,27 +37,31 @@ type Version struct {
 	Built   string `json:"built"`
 }
 type Dependencies struct {
-	Database    Database
-	Zones       ZoneStore
-	Filtering   BlocklistStore
-	Queries     QueryStore
-	Auth        AuthStore
-	DNS         DNS
-	Cache       *cache.Cache
-	Metrics     *metrics.Metrics
-	Config      config.Config
-	ConfigPath  string
-	Version     Version
-	Started     time.Time
-	TSIG        TSIGStore
-	Update      UpdateStore
-	Onboarding  OnboardingStore
-	Backup      BackupStore
-	Settings    SettingsStore
-	RateLimit   *dns.RateLimitState
-	DHCP        DHCPStore
-	Cluster     ClusterStore
-	ApplyConfig func(config.Config) error
+	Database       Database
+	Zones          ZoneStore
+	Filtering      BlocklistStore
+	Queries        QueryStore
+	Auth           AuthStore
+	DNS            DNS
+	Cache          *cache.Cache
+	Metrics        *metrics.Metrics
+	Config         config.Config
+	ConfigPath     string
+	Version        Version
+	Started        time.Time
+	TSIG           TSIGStore
+	Update         UpdateStore
+	Onboarding     OnboardingStore
+	Backup         BackupStore
+	Settings       SettingsStore
+	RateLimit      *dns.RateLimitState
+	UpstreamHealth *dns.UpstreamHealth
+	ResetStats     func(context.Context) error
+	Events         EventStore
+	NotifyEvent    func(database.SystemEventInput)
+	DHCP           DHCPStore
+	Cluster        ClusterStore
+	ApplyConfig    func(config.Config) error
 }
 type Error struct {
 	Code    string `json:"code"`
@@ -82,8 +87,21 @@ func New(d Dependencies) http.Handler {
 		currentConfig = d.Config
 	)
 	mux := http.NewServeMux()
+	if d.UpstreamHealth != nil {
+		mux.HandleFunc("GET /api/v1/upstreams/health", func(w http.ResponseWriter, r *http.Request) {
+			respond(w, 200, d.UpstreamHealth.Snapshot())
+		})
+	}
+	registerDiagnostics(mux, d, func() config.Config {
+		cfgMu.RLock()
+		defer cfgMu.RUnlock()
+		return currentConfig
+	})
 	if d.Auth != nil {
 		registerAuth(mux, d.Auth)
+		if d.Events != nil {
+			registerEvents(mux, d.Events)
+		}
 	}
 	capabilities := []string{"forwarding", "cache", "metrics"}
 	if d.Zones != nil {
@@ -115,7 +133,7 @@ func New(d Dependencies) http.Handler {
 		registerOnboarding(mux, d.Onboarding, d.Config)
 	}
 	if d.Backup != nil {
-		registerBackup(mux, d.Backup)
+		registerBackup(mux, d.Backup, d.NotifyEvent)
 	}
 	if d.Settings != nil {
 		registerSettings(mux, d.Settings, d.RateLimit)
@@ -126,7 +144,6 @@ func New(d Dependencies) http.Handler {
 	}
 	if d.Cluster != nil {
 		registerCluster(mux, d.Cluster)
-		capabilities = append(capabilities, "cluster")
 	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
@@ -150,13 +167,27 @@ func New(d Dependencies) http.Handler {
 			nodes, err := d.Cluster.ListNodes(r.Context())
 			if err == nil {
 				status["cluster_nodes"] = len(nodes)
-				status["cluster_healthy"] = len(nodes) > 0
 			}
 		}
 		respond(w, 200, status)
 	})
 	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Version) })
 	mux.HandleFunc("GET /api/v1/stats", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Metrics.Snapshot()) })
+	mux.HandleFunc("POST /api/v1/stats/reset", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Content-Type") != "application/json" {
+			failure(w, 415, "unsupported_media_type", "Use application/json")
+			return
+		}
+		if d.ResetStats == nil {
+			failure(w, 503, "statistics_unavailable", "Statistics reset is unavailable")
+			return
+		}
+		if err := d.ResetStats(r.Context()); err != nil {
+			failure(w, 503, "statistics_reset_failed", "Statistics could not be reset")
+			return
+		}
+		respond(w, 200, d.Metrics.Snapshot())
+	})
 	mux.HandleFunc("GET /api/v1/cache", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Cache.Stats()) })
 	mux.HandleFunc("GET /api/v1/cache/entries", func(w http.ResponseWriter, r *http.Request) {
 		limit, offset := 100, 0
@@ -193,6 +224,11 @@ func New(d Dependencies) http.Handler {
 		respond(w, 200, cfg)
 	})
 	mux.HandleFunc("PUT /api/v1/config", func(w http.ResponseWriter, r *http.Request) {
+		notifyRollback := func(severity, message string) {
+			if d.NotifyEvent != nil {
+				d.NotifyEvent(database.SystemEventInput{Key: "configuration_rollback", Severity: severity, Title: "Configuration rollback", Message: message, Link: "/settings", Visibility: "admin"})
+			}
+		}
 		cfgWriteMu.Lock()
 		defer cfgWriteMu.Unlock()
 		if d.ConfigPath == "" {
@@ -204,7 +240,7 @@ func New(d Dependencies) http.Handler {
 			return
 		}
 		cfgMu.RLock()
-		newConfig := currentConfig
+		newConfig := currentConfig.Clone()
 		cfgMu.RUnlock()
 		if !readJSON(w, r, &newConfig) {
 			return
@@ -215,10 +251,17 @@ func New(d Dependencies) http.Handler {
 		}
 		if d.ApplyConfig != nil {
 			if err := d.ApplyConfig(newConfig); err != nil {
+				var restart *config.RestartRequiredError
+				if errors.As(err, &restart) {
+					failure(w, 409, "config_requires_restart", err.Error())
+					return
+				}
 				if rollbackErr := d.ApplyConfig(currentConfig); rollbackErr != nil {
+					notifyRollback("critical", "A configuration apply and its rollback both failed. Check service readiness.")
 					failure(w, 500, "config_rollback_failed", fmt.Sprintf("Apply failed: %v; rollback failed: %v", err, rollbackErr))
 					return
 				}
+				notifyRollback("warning", "A configuration apply failed and the previous settings were restored.")
 				failure(w, 500, "config_apply_failed", err.Error())
 				return
 			}
@@ -229,19 +272,23 @@ func New(d Dependencies) http.Handler {
 		if !ready {
 			if d.ApplyConfig != nil {
 				if err := d.ApplyConfig(currentConfig); err != nil {
+					notifyRollback("critical", "Readiness failed and the previous configuration could not be restored.")
 					failure(w, 500, "config_rollback_failed", fmt.Sprintf("Readiness failed; rollback failed: %v", err))
 					return
 				}
 			}
+			notifyRollback("warning", "A configuration change failed readiness and the previous settings were restored.")
 			failure(w, 503, "config_not_ready", "Services are not ready after applying configuration")
 			return
 		}
 		if err := newConfig.Save(d.ConfigPath); err != nil {
 			if d.ApplyConfig != nil {
 				if rollbackErr := d.ApplyConfig(currentConfig); rollbackErr != nil {
+					notifyRollback("critical", "Configuration storage failed and the previous runtime settings could not be restored.")
 					failure(w, 500, "config_rollback_failed", fmt.Sprintf("Save failed: %v; rollback failed: %v", err, rollbackErr))
 					return
 				}
+				notifyRollback("warning", "Configuration storage failed and the previous runtime settings were restored.")
 			}
 			failure(w, 500, "config_save_failed", err.Error())
 			return
@@ -317,11 +364,12 @@ func New(d Dependencies) http.Handler {
 			token, isToken := r.Context().Value(tokenContextKey{}).(database.APIToken)
 			tokenScopes := token.Scopes
 			unsafe := r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
-			if strings.HasPrefix(r.URL.Path, "/api/v1/users") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
+			if (strings.HasPrefix(r.URL.Path, "/api/v1/users") || r.URL.Path == "/api/v1/audit" || r.URL.Path == "/api/v1/stats/reset" || r.URL.Path == "/api/v1/backup/create") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
 				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
 				return
 			}
-			if unsafe && (user.Role == "viewer" || (isToken && !hasScope(tokenScopes, "write") && !hasScope(tokenScopes, "admin"))) {
+			markRead := strings.HasPrefix(r.URL.Path, "/api/v1/events/") && strings.HasSuffix(r.URL.Path, "/read") && r.Method == http.MethodPost
+			if unsafe && (!markRead && user.Role == "viewer" || (isToken && !hasScope(tokenScopes, "write") && !hasScope(tokenScopes, "admin"))) {
 				failure(w, http.StatusForbidden, "insufficient_role", "Viewer role is read-only")
 				return
 			}
@@ -330,14 +378,18 @@ func New(d Dependencies) http.Handler {
 				return
 			}
 			if unsafe {
-				detail := r.URL.Path
-				if isToken {
-					detail = fmt.Sprintf("token=%d path=%s", token.ID, r.URL.Path)
-				}
-				if err := d.Auth.Audit(r.Context(), &user.ID, r.Method, detail); err != nil {
+				id, err := d.Auth.BeginAudit(r.Context(), user.ID, user.Role, r.Method, r.URL.Path)
+				if err != nil {
 					failure(w, http.StatusServiceUnavailable, "audit_unavailable", "Audit event could not be recorded")
 					return
 				}
+				tracked := &auditResponseWriter{ResponseWriter: w, status: http.StatusOK}
+				w = tracked
+				defer func() {
+					ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+					defer cancel()
+					_ = d.Auth.CompleteAudit(ctx, id, tracked.status)
+				}()
 			}
 		}
 		select {
@@ -350,6 +402,22 @@ func New(d Dependencies) http.Handler {
 		mux.ServeHTTP(w, r)
 	})
 }
+
+type auditResponseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *auditResponseWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *auditResponseWriter) Write(data []byte) (int, error) {
+	return w.ResponseWriter.Write(data)
+}
+
+func (w *auditResponseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func hasScope(scopes, wanted string) bool {
 	for _, scope := range strings.Split(scopes, ",") {

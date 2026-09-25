@@ -24,6 +24,20 @@ export interface CacheEntry {
   answers: string[];
   remaining_ttl: number;
 }
+export interface SystemEvent {
+  id: number;
+  severity: "info" | "warning" | "critical";
+  title: string;
+  message: string;
+  link: string;
+  occurred_at: string;
+  repeat_count: number;
+  read: boolean;
+}
+export interface SystemEventPage {
+  events: SystemEvent[];
+  unread_count: number;
+}
 export interface CacheEntryPage {
   entries: CacheEntry[];
   total: number;
@@ -114,6 +128,14 @@ export interface RateLimitSettings {
   client_qps: number;
   rate_limit_burst: number;
 }
+export interface RateLimitStatus {
+  enabled: boolean;
+  rejected_total: number;
+  last_rejected_at?: string;
+}
+export async function loadRateLimitStatus(signal?: AbortSignal): Promise<RateLimitStatus> {
+  return request<RateLimitStatus>("/api/v1/settings/rate-limit/status", signal);
+}
 export async function loadRateLimitSettings(signal?: AbortSignal): Promise<RateLimitSettings> {
   return request<RateLimitSettings>("/api/v1/settings/rate-limit", signal);
 }
@@ -132,6 +154,18 @@ export async function savePreferences(preferences: Preferences): Promise<Prefere
 }
 let csrfToken = "";
 export function setCSRFToken(token: string) { csrfToken = token; }
+export async function downloadEncryptedBackup(passphrase: string): Promise<Blob> {
+  const response = await fetch("/api/v1/backup/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+    body: JSON.stringify({ passphrase }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: { message?: string } };
+    throw new APIError(response.status, body.error?.message ?? `Backup failed (${response.status})`);
+  }
+  return response.blob();
+}
 export async function authenticate(username: string, password: string): Promise<AuthUser> {
   const user = await request<AuthUser>("/api/v1/auth/login", undefined, "POST", { body: { username, password } });
   setCSRFToken(user.csrf_token);

@@ -182,6 +182,21 @@ nav a.active:after {
   font-weight: 500;
   color: #355158;
 }
+.event-entry { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: #355158; }
+.event-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 10px; background: #c24b35; color: #fff; font-size: 10px; font-weight: 700; }
+.system-event { border-left: 3px solid #5c8b8d; padding: 16px 18px; margin-top: 12px; background: var(--surface, #f7faf9); border-radius: 5px; }
+.system-event.event-warning { border-left-color: #bd8b20; }
+.system-event.event-critical { border-left-color: #c24b35; }
+.system-event.is-read { opacity: .72; }
+.system-event-heading, .system-event-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.system-event-heading time { margin-left: auto; font-size: 11px; }
+.system-event p { margin: 10px 0; }
+.system-event-actions { font-size: 12px; }
+.system-event-actions button { margin-left: auto; }
+.event-severity { text-transform: uppercase; font-size: 10px; font-weight: 700; }
+.backup-create-panel { margin-bottom: 1rem; }
+.backup-restore-command { padding: 1rem; overflow: auto; border-radius: 6px; background: var(--code-bg, #111827); color: #fff; }
+.connection { margin-left: 14px; }
 .slash {
   margin: 0 12px;
   color: #bdc7c7;
@@ -270,6 +285,11 @@ p {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 22px;
+}
+.dashboard-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
 }
 .stat {
   background: white;

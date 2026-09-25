@@ -1,0 +1,5976 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Velora DNS Management API",
+    "version": "1.0.0",
+    "description": "Session cookies require X-CSRF-Token on mutations. API bearer tokens bypass CSRF and require the documented scope. All API responses use a data or error envelope except text/dns zone export. Secrets are never returned by read endpoints."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8080"
+    }
+  ],
+  "paths": {
+    "/api/v1/audit": {
+      "get": {
+        "operationId": "get_audit",
+        "summary": "Get audit",
+        "tags": [
+          "audit"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AuditEvent"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "post_auth_login",
+        "summary": "Post auth/login",
+        "tags": [
+          "auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "x-required-role": "anonymous",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true
+                  }
+                },
+                "required": [
+                  "username",
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "post_auth_logout",
+        "summary": "Post auth/logout",
+        "tags": [
+          "auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/LogoutResult"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin"
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "get_auth_me",
+        "summary": "Get auth/me",
+        "tags": [
+          "auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/backup/create": {
+      "post": {
+        "operationId": "post_backup_create",
+        "summary": "Post backup/create",
+        "tags": [
+          "backup"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "passphrase": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "minLength": 12
+                  }
+                },
+                "required": [
+                  "passphrase"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backup/status": {
+      "get": {
+        "operationId": "get_backup_status",
+        "summary": "Get backup/status",
+        "tags": [
+          "backup"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BackupStatus"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/backup/verify": {
+      "post": {
+        "operationId": "post_backup_verify",
+        "summary": "Post backup/verify",
+        "tags": [
+          "backup"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BackupVerification"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/blocklists": {
+      "get": {
+        "operationId": "get_blocklists",
+        "summary": "Get blocklists",
+        "tags": [
+          "blocklists"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Blocklist"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      },
+      "post": {
+        "operationId": "post_blocklists",
+        "summary": "Post blocklists",
+        "tags": [
+          "blocklists"
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Blocklist"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlocklistInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/blocklists/{id}": {
+      "delete": {
+        "operationId": "delete_blocklists_id",
+        "summary": "Delete blocklists/{id}",
+        "tags": [
+          "blocklists"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Blocklist"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      },
+      "get": {
+        "operationId": "get_blocklists_id",
+        "summary": "Get blocklists/{id}",
+        "tags": [
+          "blocklists"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Blocklist"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      },
+      "put": {
+        "operationId": "put_blocklists_id",
+        "summary": "Put blocklists/{id}",
+        "tags": [
+          "blocklists"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Blocklist"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "enabled"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/blocklists/{id}/content": {
+      "put": {
+        "operationId": "put_blocklists_id_content",
+        "summary": "Put blocklists/{id}/content",
+        "tags": [
+          "blocklists"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Blocklist"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "content"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/blocklists/{id}/update": {
+      "post": {
+        "operationId": "post_blocklists_id_update",
+        "summary": "Post blocklists/{id}/update",
+        "tags": [
+          "blocklists"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Blocklist"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/cache": {
+      "delete": {
+        "operationId": "delete_cache",
+        "summary": "Delete cache",
+        "tags": [
+          "cache"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CacheStats"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin"
+      },
+      "get": {
+        "operationId": "get_cache",
+        "summary": "Get cache",
+        "tags": [
+          "cache"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CacheStats"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/cache/entries": {
+      "get": {
+        "operationId": "get_cache_entries",
+        "summary": "Get cache/entries",
+        "tags": [
+          "cache"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CacheEntryPage"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/cluster/config-versions": {
+      "get": {
+        "operationId": "get_cluster_config_versions",
+        "summary": "Get cluster/config-versions",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ConfigVersion"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/cluster/config-versions/latest": {
+      "get": {
+        "operationId": "get_cluster_config_versions_latest",
+        "summary": "Get cluster/config-versions/latest",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ConfigVersion"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/cluster/nodes": {
+      "get": {
+        "operationId": "get_cluster_nodes",
+        "summary": "Get cluster/nodes",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Node"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/cluster/nodes/{id}": {
+      "delete": {
+        "operationId": "delete_cluster_nodes_id",
+        "summary": "Cluster node removal is unavailable until a membership protocol exists",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "501": {
+            "description": "Cluster membership changes are unavailable"
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "get": {
+        "operationId": "get_cluster_nodes_id",
+        "summary": "Get cluster/nodes/{id}",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Node"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/config": {
+      "get": {
+        "operationId": "get_config",
+        "summary": "Get config",
+        "tags": [
+          "config"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Config"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      },
+      "put": {
+        "operationId": "put_config",
+        "summary": "Put config",
+        "tags": [
+          "config"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Config"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "config_requires_restart; response message names fields without a live apply path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Config"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dhcp/leases": {
+      "get": {
+        "operationId": "get_dhcp_leases",
+        "summary": "Get dhcp/leases",
+        "tags": [
+          "dhcp"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DHCPLease"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/dhcp/leases/{id}": {
+      "delete": {
+        "operationId": "delete_dhcp_leases_id",
+        "summary": "Delete dhcp/leases/{id}",
+        "tags": [
+          "dhcp"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DHCPLease"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/dhcp/pools": {
+      "get": {
+        "operationId": "get_dhcp_pools",
+        "summary": "Get dhcp/pools",
+        "tags": [
+          "dhcp"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DHCPPool"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      },
+      "post": {
+        "operationId": "post_dhcp_pools",
+        "summary": "Post dhcp/pools",
+        "tags": [
+          "dhcp"
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DHCPPool"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DHCPPool"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dhcp/pools/{id}": {
+      "delete": {
+        "operationId": "delete_dhcp_pools_id",
+        "summary": "Delete dhcp/pools/{id}",
+        "tags": [
+          "dhcp"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DHCPPool"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      },
+      "get": {
+        "operationId": "get_dhcp_pools_id",
+        "summary": "Get dhcp/pools/{id}",
+        "tags": [
+          "dhcp"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DHCPPool"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      },
+      "put": {
+        "operationId": "put_dhcp_pools_id",
+        "summary": "Put dhcp/pools/{id}",
+        "tags": [
+          "dhcp"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DHCPPool"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DHCPPool"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dhcp/pools/{id}/reservations": {
+      "get": {
+        "operationId": "get_dhcp_pools_id_reservations",
+        "summary": "Get dhcp/pools/{id}/reservations",
+        "tags": [
+          "dhcp"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DHCPReservation"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "post_dhcp_pools_id_reservations",
+        "summary": "Post dhcp/pools/{id}/reservations",
+        "tags": [
+          "dhcp"
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DHCPReservation"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DHCPReservation"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dhcp/reservations/{id}": {
+      "delete": {
+        "operationId": "delete_dhcp_reservations_id",
+        "summary": "Delete dhcp/reservations/{id}",
+        "tags": [
+          "dhcp"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DHCPReservation"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/diagnostics": {
+      "get": {
+        "operationId": "get_diagnostics",
+        "summary": "Get diagnostics",
+        "tags": [
+          "diagnostics"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OperationalReport"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/events": {
+      "get": {
+        "operationId": "get_events",
+        "summary": "Get events",
+        "tags": [
+          "events"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SystemEventPage"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/events/{id}/read": {
+      "post": {
+        "operationId": "post_events_id_read",
+        "summary": "Post events/{id}/read",
+        "tags": [
+          "events"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/EventReadResult"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher",
+        "description": "A viewer may acknowledge an event using a session and CSRF token. Bearer tokens require write or admin scope.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/onboarding/status": {
+      "get": {
+        "operationId": "get_onboarding_status",
+        "summary": "Get onboarding/status",
+        "tags": [
+          "onboarding"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OnboardingStatus"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/preferences": {
+      "get": {
+        "operationId": "get_preferences",
+        "summary": "Get preferences",
+        "tags": [
+          "preferences"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Preferences"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      },
+      "put": {
+        "operationId": "put_preferences",
+        "summary": "Put preferences",
+        "tags": [
+          "preferences"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Preferences"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Preferences"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/queries": {
+      "get": {
+        "operationId": "get_queries",
+        "summary": "Get queries",
+        "tags": [
+          "queries"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Query"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/query-stats": {
+      "get": {
+        "operationId": "get_query_stats",
+        "summary": "Get query-stats",
+        "tags": [
+          "query-stats"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/QuerySummary"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/settings/rate-limit": {
+      "get": {
+        "operationId": "get_settings_rate_limit",
+        "summary": "Get settings/rate-limit",
+        "tags": [
+          "settings"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RateLimitSettings"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      },
+      "put": {
+        "operationId": "put_settings_rate_limit",
+        "summary": "Put settings/rate-limit",
+        "tags": [
+          "settings"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RateLimitSettings"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateLimitSettings"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/rate-limit/status": {
+      "get": {
+        "operationId": "get_settings_rate_limit_status",
+        "summary": "Get settings/rate-limit/status",
+        "tags": [
+          "settings"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RateLimitStatus"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/stats": {
+      "get": {
+        "operationId": "get_stats",
+        "summary": "Get stats",
+        "tags": [
+          "stats"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Statistics"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/stats/reset": {
+      "post": {
+        "operationId": "post_stats_reset",
+        "summary": "Post stats/reset",
+        "tags": [
+          "stats"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Statistics"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/v1/status": {
+      "get": {
+        "operationId": "get_status",
+        "summary": "Get status",
+        "tags": [
+          "status"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Status"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/tokens": {
+      "post": {
+        "operationId": "post_tokens",
+        "summary": "Post tokens",
+        "tags": [
+          "tokens"
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TokenCreated"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tokens/{id}": {
+      "delete": {
+        "operationId": "delete_tokens_id",
+        "summary": "Delete tokens/{id}",
+        "tags": [
+          "tokens"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OperationResult"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/tsig-keys": {
+      "get": {
+        "operationId": "get_tsig_keys",
+        "summary": "Get tsig-keys",
+        "tags": [
+          "tsig-keys"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TSIGKey"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      },
+      "post": {
+        "operationId": "post_tsig_keys",
+        "summary": "Post tsig-keys",
+        "tags": [
+          "tsig-keys"
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TSIGKey"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TSIGKeyInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tsig-keys/{name}": {
+      "delete": {
+        "operationId": "delete_tsig_keys_name",
+        "summary": "Delete tsig-keys/{name}",
+        "tags": [
+          "tsig-keys"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OperationResult"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/update/check": {
+      "get": {
+        "operationId": "get_update_check",
+        "summary": "Get update/check",
+        "tags": [
+          "update"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/UpdateCheck"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/update/health": {
+      "get": {
+        "operationId": "get_update_health",
+        "summary": "Get update/health",
+        "tags": [
+          "update"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/UpdateHealth"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/update/history": {
+      "get": {
+        "operationId": "get_update_history",
+        "summary": "Get update/history",
+        "tags": [
+          "update"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/UpdateHistoryEntry"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/update/request": {
+      "post": {
+        "operationId": "post_update_request",
+        "summary": "Post update/request",
+        "tags": [
+          "update"
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/UpdateRequestResult"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "update"
+                    ]
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/update/status": {
+      "get": {
+        "operationId": "get_update_status",
+        "summary": "Get update/status",
+        "tags": [
+          "update"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/UpdateState"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/upstreams/health": {
+      "get": {
+        "operationId": "get_upstreams_health",
+        "summary": "Get upstreams/health",
+        "tags": [
+          "upstreams"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/UpstreamStatus"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "operationId": "get_users",
+        "summary": "Get users",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/User"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "admin"
+      },
+      "post": {
+        "operationId": "post_users",
+        "summary": "Post users",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true
+                  },
+                  "role": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "username",
+                  "password",
+                  "role"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}": {
+      "delete": {
+        "operationId": "delete_users_id",
+        "summary": "Delete users/{id}",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{id}/password": {
+      "put": {
+        "operationId": "put_users_id_password",
+        "summary": "Put users/{id}/password",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OperationResult"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true
+                  }
+                },
+                "required": [
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}/role": {
+      "put": {
+        "operationId": "put_users_id_role",
+        "summary": "Put users/{id}/role",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OperationResult"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "role"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/version": {
+      "get": {
+        "operationId": "get_version",
+        "summary": "Get version",
+        "tags": [
+          "version"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Version"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/zones": {
+      "get": {
+        "operationId": "get_zones",
+        "summary": "Get zones",
+        "tags": [
+          "zones"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Zone"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      },
+      "post": {
+        "operationId": "post_zones",
+        "summary": "Post zones",
+        "tags": [
+          "zones"
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Zone"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZoneInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/zones/import": {
+      "post": {
+        "operationId": "post_zones_import",
+        "summary": "Post zones/import",
+        "tags": [
+          "zones"
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Zone"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "text/dns": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/zones/secondary": {
+      "post": {
+        "operationId": "post_zones_secondary",
+        "summary": "Post zones/secondary",
+        "tags": [
+          "zones"
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SecondaryZone"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecondaryZoneInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/zones/{id}": {
+      "delete": {
+        "operationId": "delete_zones_id",
+        "summary": "Delete zones/{id}",
+        "tags": [
+          "zones"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Zone"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Quoted zone revision (ETag)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "get": {
+        "operationId": "get_zones_id",
+        "summary": "Get zones/{id}",
+        "tags": [
+          "zones"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Zone"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      },
+      "put": {
+        "operationId": "put_zones_id",
+        "summary": "Put zones/{id}",
+        "tags": [
+          "zones"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Zone"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Quoted zone revision (ETag)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZoneInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/zones/{id}/export": {
+      "get": {
+        "operationId": "get_zones_id_export",
+        "summary": "Get zones/{id}/export",
+        "tags": [
+          "zones"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "text/dns": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/zones/{id}/records": {
+      "get": {
+        "operationId": "get_zones_id_records",
+        "summary": "Get zones/{id}/records",
+        "tags": [
+          "zones"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ZoneRecord"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "post_zones_id_records",
+        "summary": "Post zones/{id}/records",
+        "tags": [
+          "zones"
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ZoneRecord"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZoneRecord"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/zones/{id}/records/{recordID}": {
+      "delete": {
+        "operationId": "delete_zones_id_records_recordID",
+        "summary": "Delete zones/{id}/records/{recordID}",
+        "tags": [
+          "zones"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ZoneRecord"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "recordID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Quoted zone revision (ETag)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "get": {
+        "operationId": "get_zones_id_records_recordID",
+        "summary": "Get zones/{id}/records/{recordID}",
+        "tags": [
+          "zones"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ZoneRecord"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "recordID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      },
+      "put": {
+        "operationId": "put_zones_id_records_recordID",
+        "summary": "Put zones/{id}/records/{recordID}",
+        "tags": [
+          "zones"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ZoneRecord"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "recordID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Quoted zone revision (ETag)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZoneRecord"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/zones/{id}/transfer-status": {
+      "get": {
+        "operationId": "get_zones_id_transfer_status",
+        "summary": "Get zones/{id}/transfer-status",
+        "tags": [
+          "zones"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SecondaryZone"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "velora_ API token; scopes read, write, or admin"
+      },
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "velora_session"
+      },
+      "csrfHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token",
+        "description": "Required for cookie-authenticated mutations"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/Error"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "Version": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "commit": {
+            "type": "string"
+          },
+          "built": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "commit",
+          "built"
+        ]
+      },
+      "Status": {
+        "type": "object",
+        "properties": {
+          "ready": {
+            "type": "boolean"
+          },
+          "uptime_seconds": {
+            "type": "number"
+          },
+          "dns_listen": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ready",
+          "uptime_seconds",
+          "dns_listen",
+          "version",
+          "capabilities"
+        ]
+      },
+      "Statistics": {
+        "type": "object",
+        "properties": {
+          "queries_total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "blocked_queries": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "queries_per_second": {
+            "type": "number"
+          },
+          "cache_hit_rate": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "queries_total",
+          "blocked_queries",
+          "queries_per_second",
+          "cache_hit_rate"
+        ]
+      },
+      "CacheStats": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "capacity": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "hits": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "misses": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "entries",
+          "capacity",
+          "hits",
+          "misses"
+        ]
+      },
+      "RateLimitSettings": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "global_qps": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "client_qps": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "rate_limit_burst": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "enabled",
+          "global_qps",
+          "client_qps",
+          "rate_limit_burst"
+        ]
+      },
+      "RateLimitStatus": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "rejected_total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_rejected_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "enabled",
+          "rejected_total"
+        ]
+      },
+      "UpstreamStatus": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "healthy",
+              "degraded",
+              "unavailable"
+            ]
+          },
+          "consecutive_failures": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "latency_milliseconds": {
+            "type": "number"
+          },
+          "last_success": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_failure": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "address",
+          "state",
+          "consecutive_failures",
+          "latency_milliseconds"
+        ]
+      },
+      "DNSConfig": {
+        "type": "object",
+        "properties": {
+          "listen": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "upstreams": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowed_clients": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "timeout": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "retries": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_concurrent": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "rate_limit_enabled": {
+            "type": "boolean"
+          },
+          "global_qps": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "client_qps": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "rate_limit_burst": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_tcp_connections": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dot_listen": {
+            "type": "string"
+          },
+          "doh_listen": {
+            "type": "string"
+          },
+          "doq_listen": {
+            "type": "string"
+          },
+          "dnssec": {
+            "type": "boolean"
+          },
+          "trust_anchors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Config": {
+        "type": "object",
+        "properties": {
+          "dns": {
+            "$ref": "#/components/schemas/DNSConfig"
+          },
+          "cache": {
+            "type": "object",
+            "properties": {
+              "max_entries": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "upstream_ttl": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          },
+          "http": {
+            "type": "object",
+            "properties": {
+              "listen": {
+                "type": "string"
+              },
+              "web_dir": {
+                "type": "string"
+              },
+              "allowed_hosts": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "filtering": {
+            "type": "object",
+            "properties": {
+              "block_mode": {
+                "type": "string"
+              },
+              "blocklist": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "allowlist": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "query_log": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "retention": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "max_rows": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "queue_size": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          },
+          "log_level": {
+            "type": "string"
+          }
+        }
+      },
+      "ZoneRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "ttl": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "value": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "ttl",
+          "value"
+        ]
+      },
+      "Zone": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "zone_type": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "primary_ns": {
+            "type": "string"
+          },
+          "contact": {
+            "type": "string"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ZoneRecord"
+            }
+          },
+          "primary_address": {
+            "type": "string"
+          },
+          "transfer_tsig_key": {
+            "type": "string"
+          },
+          "transfer_interval": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_transfer_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "next_refresh_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_transfer_serial": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "revision",
+          "records"
+        ]
+      },
+      "ZoneInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "primary_ns": {
+            "type": "string"
+          },
+          "contact": {
+            "type": "string"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ZoneRecord"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "SecondaryZoneInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "primary_address": {
+            "type": "string"
+          },
+          "transfer_tsig_key": {
+            "type": "string"
+          },
+          "transfer_interval": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "name",
+          "primary_address"
+        ]
+      },
+      "SecondaryZone": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "zone_type": {
+            "type": "string"
+          },
+          "primary_address": {
+            "type": "string"
+          },
+          "transfer_tsig_key": {
+            "type": "string"
+          },
+          "transfer_interval": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_transfer_serial": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_transfer_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "next_refresh_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "zone_type",
+          "primary_address"
+        ]
+      },
+      "Blocklist": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "domain_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "url",
+          "enabled"
+        ]
+      },
+      "BlocklistInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "url"
+        ]
+      },
+      "Query": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "client_ip": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "rcode": {
+            "type": "string"
+          },
+          "duration": {
+            "type": "number"
+          },
+          "source": {
+            "type": "string"
+          },
+          "upstream": {
+            "type": "string"
+          },
+          "cache_hit": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "domain",
+          "type",
+          "rcode",
+          "source"
+        ]
+      },
+      "QueryRanking": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "value",
+          "count"
+        ]
+      },
+      "QuerySummary": {
+        "type": "object",
+        "properties": {
+          "window_start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "window_end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "blocked": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "top_domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryRanking"
+            }
+          },
+          "top_clients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryRanking"
+            }
+          }
+        }
+      },
+      "AuditEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string"
+          },
+          "status_code": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "SystemEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "critical"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "repeat_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "read": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "severity",
+          "title",
+          "message",
+          "occurred_at",
+          "repeat_count",
+          "read"
+        ]
+      },
+      "SystemEventPage": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SystemEvent"
+            }
+          },
+          "unread_count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "events",
+          "unread_count"
+        ]
+      },
+      "EventReadResult": {
+        "type": "object",
+        "properties": {
+          "read": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "read"
+        ]
+      },
+      "BackupStatus": {
+        "type": "object",
+        "properties": {
+          "supported": {
+            "type": "boolean"
+          },
+          "last_backup_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_backup_size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "backup_age": {
+            "type": "string"
+          },
+          "verification_state": {
+            "type": "string"
+          },
+          "database_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "supported",
+          "verification_state",
+          "database_path"
+        ]
+      },
+      "BackupVerification": {
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "schema_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "record_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "valid",
+          "schema_version",
+          "record_count"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "username": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "operator",
+              "viewer"
+            ]
+          },
+          "disabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "role"
+        ]
+      },
+      "Session": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "csrf_token": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "theme": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "role",
+          "csrf_token",
+          "language",
+          "theme"
+        ]
+      },
+      "LogoutResult": {
+        "type": "object",
+        "properties": {
+          "logged_out": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "logged_out"
+        ]
+      },
+      "Preferences": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string"
+          },
+          "theme": {
+            "type": "string"
+          }
+        }
+      },
+      "TSIGKey": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "algorithm": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "algorithm"
+        ]
+      },
+      "TSIGKeyInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "algorithm": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "string",
+            "format": "password",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "name",
+          "algorithm",
+          "secret"
+        ]
+      },
+      "TokenInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "read",
+                "write",
+                "admin"
+              ]
+            }
+          },
+          "expires_in_hours": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "name",
+          "scopes",
+          "expires_in_hours"
+        ]
+      },
+      "TokenCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "token": {
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "scopes",
+          "expires_at",
+          "token"
+        ]
+      },
+      "DHCPPool": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "network": {
+            "type": "string"
+          },
+          "start_ip": {
+            "type": "string"
+          },
+          "end_ip": {
+            "type": "string"
+          }
+        }
+      },
+      "DHCPLease": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ip_address": {
+            "type": "string"
+          },
+          "mac_address": {
+            "type": "string"
+          },
+          "hostname": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DHCPReservation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ip_address": {
+            "type": "string"
+          },
+          "mac_address": {
+            "type": "string"
+          },
+          "hostname": {
+            "type": "string"
+          }
+        }
+      },
+      "Node": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ConfigVersion": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "config_hash": {
+            "type": "string"
+          },
+          "config": {
+            "$ref": "#/components/schemas/Config"
+          },
+          "applied_by": {
+            "type": "string"
+          },
+          "applied_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CacheEntry": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "rcode": {
+            "type": "string"
+          },
+          "answers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remaining_ttl": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CacheEntryPage": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CacheEntry"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "OperationResult": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "deleted": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "revoked": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "OperationalReport": {
+        "type": "object",
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "os": {
+            "type": "string"
+          },
+          "architecture": {
+            "type": "string"
+          },
+          "uptime_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "state": {
+            "type": "string"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "upstream_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "query_log_enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UpdateState": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "installed": {
+            "type": "string"
+          },
+          "from_version": {
+            "type": "string"
+          },
+          "to_version": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_completed": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updating": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "rollback_used": {
+            "type": "boolean"
+          },
+          "readiness_ok": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UpdateHealth": {
+        "type": "object",
+        "properties": {
+          "ready": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ready"
+        ]
+      },
+      "UpdateCheck": {
+        "type": "object",
+        "properties": {
+          "installed_version": {
+            "type": "string"
+          },
+          "latest_version": {
+            "type": "string"
+          },
+          "update_available": {
+            "type": "boolean"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "release_date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "release_notes": {
+            "type": "string"
+          },
+          "architecture": {
+            "type": "string"
+          },
+          "download_size": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "UpdateRequestResult": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateHistoryEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "from_version": {
+            "type": "string"
+          },
+          "to_version": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "readiness_ok": {
+            "type": "boolean"
+          },
+          "rollback_used": {
+            "type": "boolean"
+          },
+          "deployment_mode": {
+            "type": "string"
+          }
+        }
+      },
+      "OnboardingStatus": {
+        "type": "object",
+        "properties": {
+          "first_run": {
+            "type": "boolean"
+          },
+          "user_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "config_ready": {
+            "type": "boolean"
+          }
+        }
+      },
+      "FlexibleObject": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -59,6 +59,13 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	if err := c.Validate(); err != nil {
 		return err
 	}
+	if c.DatabaseDriver == "sqlite" {
+		instanceLock, err := backup.AcquireInstanceLock(c.DatabasePath)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = instanceLock.Close() }()
+	}
 	tsigStore := dns.NewTSIGStore()
 	for _, key := range c.TSIG.Keys {
 		if err := tsigStore.AddKey(key.Name, key.Algorithm, key.Secret); err != nil {
@@ -139,6 +146,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	updateClient := update.Client{SocketPath: updateSocket, Timeout: 8 * time.Second}
 
 	backupManager := backup.NewManager(db, c.DatabasePath)
+	backupManager.SetConfig(c, version.Version)
 
 	var membership *node.Membership
 	if c.Cluster.Enabled {
@@ -191,20 +199,126 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 			return fmt.Errorf("initialize DNSSEC: %w", err)
 		}
 	}
-	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer, Validator: validator}
+	upstreamHealth := dns.NewUpstreamHealth(c.DNS.Upstreams)
+	eventQueue := make(chan database.SystemEventInput, 64)
+	emitEvent := func(event database.SystemEventInput) {
+		select {
+		case <-runCtx.Done():
+		case eventQueue <- event:
+		default:
+			logger.Warn("system event queue full", "event_key", event.Key)
+		}
+	}
+	var eventWG sync.WaitGroup
+	eventWG.Go(func() {
+		publish := func(event database.SystemEventInput) {
+			writeCtx, done := context.WithTimeout(context.Background(), 2*time.Second)
+			defer done()
+			if err := db.PublishSystemEvent(writeCtx, event); err != nil {
+				logger.Warn("system event could not be saved", "event_key", event.Key, "error", err)
+			}
+		}
+		for {
+			select {
+			case event := <-eventQueue:
+				publish(event)
+			case <-runCtx.Done():
+				deadline := time.Now().Add(2 * time.Second)
+				for {
+					if time.Now().After(deadline) {
+						return
+					}
+					select {
+					case event := <-eventQueue:
+						publish(event)
+					default:
+						return
+					}
+				}
+			}
+		}
+	})
+	defer func() { cancel(); eventWG.Wait() }()
+	upstreamHealth.SetOnTransition(func(address, _, state string) {
+		if state == "unavailable" {
+			emitEvent(database.SystemEventInput{Key: "upstream:" + address, Severity: "warning", Title: "Upstream unavailable", Message: address + " is not responding; failover is active.", Link: "/", Visibility: "all"})
+		}
+		if state == "healthy" {
+			emitEvent(database.SystemEventInput{Key: "upstream-recovered:" + address, Severity: "info", Title: "Upstream recovered", Message: address + " is responding again.", Link: "/", Visibility: "all"})
+		}
+	})
+	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer, Validator: validator, Health: upstreamHealth}
 	resolver := dns.NewResolver(local, matcher, memory, forwarder, c.Filtering.BlockMode)
 	cookieSecret := make([]byte, 32)
 	if _, err = rand.Read(cookieSecret); err != nil {
 		return fmt.Errorf("initialize DNS cookie secret: %w", err)
 	}
 	rateLimitState := dns.NewRateLimitState(c.DNS.RateLimitEnabled, c.DNS.GlobalQPS, c.DNS.ClientQPS, c.DNS.RateLimitBurst)
+	if saved, loadErr := db.LoadStatistics(initCtx); loadErr != nil {
+		logger.Warn("persisted statistics ignored", "error", loadErr)
+	} else {
+		observer.Restore(saved.Queries, saved.Blocked)
+		observer.RestoreUpstreamCounters(saved.UpstreamRequests, saved.UpstreamErrors)
+		memory.RestoreCounters(saved.CacheHits, saved.CacheMisses)
+		rateLimitState.RestoreRejections(saved.RateLimitRejections)
+	}
+	var statsMu sync.Mutex
+	saveStatistics := func(saveCtx context.Context) error {
+		statsMu.Lock()
+		defer statsMu.Unlock()
+		queryStats := observer.Snapshot()
+		upstreamRequests, upstreamErrors := observer.UpstreamCounters()
+		cacheStats := memory.Stats()
+		return db.SaveStatistics(saveCtx, database.Statistics{Queries: queryStats.Queries, Blocked: queryStats.Blocked, CacheHits: cacheStats.Hits, CacheMisses: cacheStats.Misses, RateLimitRejections: rateLimitState.Status().RejectedTotal, UpstreamRequests: upstreamRequests, UpstreamErrors: upstreamErrors})
+	}
+	resetStatistics := func(resetCtx context.Context) error {
+		statsMu.Lock()
+		defer statsMu.Unlock()
+		if err := db.SaveStatistics(resetCtx, database.Statistics{}); err != nil {
+			return err
+		}
+		observer.Reset()
+		memory.ResetCounters()
+		rateLimitState.ResetRejections()
+		return nil
+	}
+	var statsWG sync.WaitGroup
+	statsWG.Go(func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-runCtx.Done():
+				return
+			case <-ticker.C:
+				checkpointCtx, done := context.WithTimeout(runCtx, 2*time.Second)
+				if err := saveStatistics(checkpointCtx); err != nil {
+					logger.Warn("statistics checkpoint failed", "error", err)
+				}
+				done()
+			}
+		}
+	})
+	defer func() {
+		cancel()
+		statsWG.Wait()
+		checkpointCtx, done := context.WithTimeout(context.Background(), 2*time.Second)
+		defer done()
+		if err := saveStatistics(checkpointCtx); err != nil {
+			logger.Warn("final statistics checkpoint failed", "error", err)
+		}
+	}()
 	if persisted, err := db.GetRateLimitSettings(initCtx); err == nil {
 		if persisted.Enabled || persisted.GlobalQPS > 0 || persisted.ClientQPS > 0 || persisted.RateLimitBurst > 0 {
 			rateLimitState.Configure(persisted.Enabled, persisted.GlobalQPS, persisted.ClientQPS, persisted.RateLimitBurst)
 		}
 	}
 	dnsHandler := &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), RateLimit: rateLimitState, Observer: observer, Audit: audit, CookieSecret: cookieSecret}
+	appliedConfig := c
 	applyConfig := func(updated config.Config) error {
+		if fields := config.RestartRequiredFields(appliedConfig, updated); len(fields) > 0 {
+			return &config.RestartRequiredError{Fields: fields}
+		}
 		upstreamTTL, err := cacheUpstreamTTL(updated.Cache.UpstreamTTL)
 		if err != nil {
 			return err
@@ -222,6 +336,8 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		rateLimitState.Configure(updated.DNS.RateLimitEnabled, updated.DNS.GlobalQPS, updated.DNS.ClientQPS, updated.DNS.RateLimitBurst)
 		dnsHandler.UpdateConfig(newAllowed, updated.DNS.MaxConcurrent)
 		resolver.SetBlockMode(updated.Filtering.BlockMode)
+		backupManager.SetConfig(updated, version.Version)
+		appliedConfig = updated
 		return nil
 	}
 	listener, err := dns.StartWithOptions(c.DNS.Listen, dnsHandler, dns.ServerOptions{MaxTCPConnections: c.DNS.MaxTCPConns, Observer: observer})
@@ -294,7 +410,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, ApplyConfig: applyConfig}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, UpstreamHealth: upstreamHealth, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, Events: db, NotifyEvent: emitEvent, ApplyConfig: applyConfig, ResetStats: resetStatistics}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)
