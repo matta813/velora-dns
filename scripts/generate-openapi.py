@@ -55,6 +55,9 @@ SCHEMAS = {
     "QueryRanking": obj({"value": STRING, "count": INT}, ("value", "count")),
     "QuerySummary": obj({"window_start": TIME, "window_end": TIME, "total": INT, "blocked": INT, "top_domains": arr(ref("QueryRanking")), "top_clients": arr(ref("QueryRanking"))}),
     "AuditEvent": obj({"id": INT, "occurred_at": TIME, "actor": STRING, "role": STRING, "action": STRING, "target": STRING, "result": STRING, "status_code": INT}),
+    "SystemEvent": obj({"id": INT, "severity": {"type": "string", "enum": ["info", "warning", "critical"]}, "title": STRING, "message": STRING, "link": STRING, "occurred_at": TIME, "repeat_count": INT, "read": BOOL}, ("id", "severity", "title", "message", "occurred_at", "repeat_count", "read")),
+    "SystemEventPage": obj({"events": arr(ref("SystemEvent")), "unread_count": INT}, ("events", "unread_count")),
+    "EventReadResult": obj({"read": BOOL}, ("read",)),
     "BackupStatus": obj({"last_backup_time": TIME, "last_backup_size": INT, "backup_age": STRING, "verification_state": STRING, "database_path": STRING}, ("verification_state", "database_path")),
     "BackupVerification": obj({"valid": BOOL, "schema_version": INT, "record_count": INT, "error": STRING}, ("valid", "schema_version", "record_count")),
     "User": obj({"id": INT, "username": STRING, "role": {"type": "string", "enum": ["admin", "operator", "viewer"]}, "disabled": BOOL}, ("id", "username", "role")),
@@ -92,6 +95,7 @@ RESPONSE_MODELS = {
     "/api/v1/zones/{id}/records": ["ZoneRecord"], "/api/v1/zones/{id}/records/{recordID}": "ZoneRecord",
     "/api/v1/blocklists": ["Blocklist"], "/api/v1/blocklists/{id}": "Blocklist", "/api/v1/blocklists/{id}/content": "Blocklist", "/api/v1/blocklists/{id}/update": "Blocklist",
     "/api/v1/queries": ["Query"], "/api/v1/query-stats": "QuerySummary", "/api/v1/audit": ["AuditEvent"],
+    "/api/v1/events": "SystemEventPage", "/api/v1/events/{id}/read": "EventReadResult",
     "/api/v1/backup/status": "BackupStatus", "/api/v1/backup/verify": "BackupVerification", "/api/v1/users": ["User"],
     "/api/v1/auth/login": "Session", "/api/v1/auth/me": "Session", "/api/v1/auth/logout": "LogoutResult", "/api/v1/preferences": "Preferences",
     "/api/v1/tokens": "TokenCreated", "/api/v1/tsig-keys": ["TSIGKey"], "/api/v1/onboarding/status": "OnboardingStatus",
@@ -179,6 +183,10 @@ def operation(method, path):
         op["x-required-role"] = "operator-or-admin"
     else:
         op["x-required-role"] = "viewer-or-higher"
+    if path.startswith("/api/v1/events"):
+        op["x-required-role"] = "viewer-or-higher"
+    if path.endswith("/read") and path.startswith("/api/v1/events/"):
+        op["description"] = "A viewer may acknowledge an event using a session and CSRF token. Bearer tokens require write or admin scope."
     if "{" in path:
         op["parameters"] = [{"name": name, "in": "path", "required": True, "schema": STRING if name == "name" or path.startswith("/api/v1/cluster/nodes/") else INT} for name in re.findall(r"\{([^}]+)\}", path)]
     if method in ("POST", "PUT", "PATCH"):

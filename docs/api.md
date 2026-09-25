@@ -25,6 +25,8 @@ metrics require an authenticated session or scoped API token.
 | GET | /api/v1/status | Listener readiness, uptime, version and implemented capabilities |
 | GET | /api/v1/diagnostics | Sanitized system health and support report |
 | GET | /api/v1/audit | Admin-only audit events with actor, action, result and cursor filters |
+| GET | /api/v1/events | Recent system events and unread count, filtered by role |
+| POST | /api/v1/events/{id}/read | Mark an accessible event as read for the current user |
 | GET | /api/v1/version | Build version, source commit and build timestamp |
 | GET | /api/v1/update/check | Installed/latest version, channel, release details and availability |
 | GET | /api/v1/update/status | Current updater phase, errors and rollback/readiness result |
@@ -60,6 +62,13 @@ previous live configuration. Listener addresses, upstreams, TLS settings and
 other fields without a live apply path return `config_requires_restart` with
 field names; the candidate is neither activated nor saved. Change those fields
 in the configuration file and restart the service.
+
+System events currently include upstream outage/recovery and configuration
+rollback outcomes. Repeated events with the same key are combined for ten
+minutes and become unread again. Events are retained for 90 days, capped at
+1,000 rows. Configuration rollback events are visible only to admins; upstream
+availability events are visible to all authenticated users. Read state is per
+user and requires CSRF for session requests.
 
 ## TSIG key management
 

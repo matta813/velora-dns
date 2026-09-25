@@ -32,8 +32,14 @@ func TestManagementAuthenticationCSRFAndRoles(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := cache.New(10)
+	if err := db.PublishSystemEvent(context.Background(), database.SystemEventInput{Key: "public", Severity: "warning", Title: "Upstream unavailable", Message: "Failover active", Link: "/", Visibility: "all"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.PublishSystemEvent(context.Background(), database.SystemEventInput{Key: "private", Severity: "critical", Title: "Configuration rollback", Message: "Check readiness", Link: "/settings", Visibility: "admin"}); err != nil {
+		t.Fatal(err)
+	}
 	resetCalls := 0
-	h := New(Dependencies{Database: db, Auth: db, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: config.Default(), Started: time.Now(), ResetStats: func(context.Context) error { resetCalls++; return nil }})
+	h := New(Dependencies{Database: db, Auth: db, Events: db, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: config.Default(), Started: time.Now(), ResetStats: func(context.Context) error { resetCalls++; return nil }})
 	if w := authRequest(h, "GET", "/api/v1/status", "", nil, ""); w.Code != 401 {
 		t.Fatalf("unauthenticated: %d", w.Code)
 	}
@@ -63,6 +69,9 @@ func TestManagementAuthenticationCSRFAndRoles(t *testing.T) {
 	if w := authRequest(h, "GET", "/api/v1/audit?limit=10", "", adminCookie, ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"result":"success"`) || !strings.Contains(w.Body.String(), `"result":"failure"`) || strings.Contains(w.Body.String(), "operator password long") {
 		t.Fatalf("admin audit: %d %s", w.Code, w.Body.String())
 	}
+	if w := authRequest(h, "GET", "/api/v1/events", "", adminCookie, ""); w.Code != 200 || !strings.Contains(w.Body.String(), "Configuration rollback") {
+		t.Fatalf("admin events: %d %s", w.Code, w.Body.String())
+	}
 	tokenResponse := authRequest(h, "POST", "/api/v1/tokens", `{"name":"monitor","scopes":["read"],"expires_in_hours":1}`, adminCookie, adminCSRF)
 	if tokenResponse.Code != 201 {
 		t.Fatalf("create token: %d %s", tokenResponse.Code, tokenResponse.Body.String())
@@ -89,6 +98,15 @@ func TestManagementAuthenticationCSRFAndRoles(t *testing.T) {
 		t.Fatalf("revoked token accepted: %d", w.Code)
 	}
 	viewerCookie, viewerCSRF := loginForTest(t, h, "viewer", "viewer password long")
+	if w := authRequest(h, "GET", "/api/v1/events", "", viewerCookie, ""); w.Code != 200 || strings.Contains(w.Body.String(), "Configuration rollback") || !strings.Contains(w.Body.String(), "Upstream unavailable") {
+		t.Fatalf("viewer events: %d %s", w.Code, w.Body.String())
+	}
+	if w := authRequest(h, "POST", "/api/v1/events/1/read", "", viewerCookie, ""); w.Code != 403 {
+		t.Fatalf("event read without CSRF: %d", w.Code)
+	}
+	if w := authRequest(h, "POST", "/api/v1/events/1/read", "", viewerCookie, viewerCSRF); w.Code != 200 {
+		t.Fatalf("viewer mark event read: %d %s", w.Code, w.Body.String())
+	}
 	if w := authRequest(h, "GET", "/api/v1/audit", "", viewerCookie, ""); w.Code != 403 {
 		t.Fatalf("viewer read audit: %d", w.Code)
 	}

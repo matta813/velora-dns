@@ -192,6 +192,53 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		}
 	}
 	upstreamHealth := dns.NewUpstreamHealth(c.DNS.Upstreams)
+	eventQueue := make(chan database.SystemEventInput, 64)
+	emitEvent := func(event database.SystemEventInput) {
+		select {
+		case <-runCtx.Done():
+		case eventQueue <- event:
+		default:
+			logger.Warn("system event queue full", "event_key", event.Key)
+		}
+	}
+	var eventWG sync.WaitGroup
+	eventWG.Go(func() {
+		publish := func(event database.SystemEventInput) {
+			writeCtx, done := context.WithTimeout(context.Background(), 2*time.Second)
+			defer done()
+			if err := db.PublishSystemEvent(writeCtx, event); err != nil {
+				logger.Warn("system event could not be saved", "event_key", event.Key, "error", err)
+			}
+		}
+		for {
+			select {
+			case event := <-eventQueue:
+				publish(event)
+			case <-runCtx.Done():
+				deadline := time.Now().Add(2 * time.Second)
+				for {
+					if time.Now().After(deadline) {
+						return
+					}
+					select {
+					case event := <-eventQueue:
+						publish(event)
+					default:
+						return
+					}
+				}
+			}
+		}
+	})
+	defer func() { cancel(); eventWG.Wait() }()
+	upstreamHealth.SetOnTransition(func(address, _, state string) {
+		if state == "unavailable" {
+			emitEvent(database.SystemEventInput{Key: "upstream:" + address, Severity: "warning", Title: "Upstream unavailable", Message: address + " is not responding; failover is active.", Link: "/", Visibility: "all"})
+		}
+		if state == "healthy" {
+			emitEvent(database.SystemEventInput{Key: "upstream-recovered:" + address, Severity: "info", Title: "Upstream recovered", Message: address + " is responding again.", Link: "/", Visibility: "all"})
+		}
+	})
 	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer, Validator: validator, Health: upstreamHealth}
 	resolver := dns.NewResolver(local, matcher, memory, forwarder, c.Filtering.BlockMode)
 	cookieSecret := make([]byte, 32)
@@ -354,7 +401,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, UpstreamHealth: upstreamHealth, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, ApplyConfig: applyConfig, ResetStats: resetStatistics}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, UpstreamHealth: upstreamHealth, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, Events: db, NotifyEvent: emitEvent, ApplyConfig: applyConfig, ResetStats: resetStatistics}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)

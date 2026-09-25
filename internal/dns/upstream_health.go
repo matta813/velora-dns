@@ -26,9 +26,16 @@ type upstreamState struct {
 // UpstreamHealth tracks only configured upstreams. Failed destinations receive
 // one trial request after a cooldown, avoiding repeated timeouts on every query.
 type UpstreamHealth struct {
-	mu    sync.Mutex
-	order []string
-	items map[string]*upstreamState
+	mu           sync.Mutex
+	order        []string
+	items        map[string]*upstreamState
+	onTransition func(string, string, string)
+}
+
+func (h *UpstreamHealth) SetOnTransition(callback func(string, string, string)) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.onTransition = callback
 }
 
 func NewUpstreamHealth(addresses []string) *UpstreamHealth {
@@ -58,11 +65,12 @@ func (h *UpstreamHealth) Begin(address string, now time.Time) bool {
 
 func (h *UpstreamHealth) Finish(address string, now time.Time, duration time.Duration, err error) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	item, ok := h.items[address]
 	if !ok {
+		h.mu.Unlock()
 		return
 	}
+	previous := item.status.State
 	item.probing = false
 	if err == nil {
 		item.status.State = "healthy"
@@ -70,15 +78,20 @@ func (h *UpstreamHealth) Finish(address string, now time.Time, duration time.Dur
 		item.status.LatencyMilliseconds = float64(duration) / float64(time.Millisecond)
 		item.status.LastSuccess = &now
 		item.retryAt = time.Time{}
-		return
-	}
-	item.status.ConsecutiveFailures++
-	item.status.LastFailure = &now
-	if item.status.ConsecutiveFailures >= upstreamFailureThreshold {
-		item.status.State = "unavailable"
-		item.retryAt = now.Add(upstreamRetryDelay)
 	} else {
-		item.status.State = "degraded"
+		item.status.ConsecutiveFailures++
+		item.status.LastFailure = &now
+		if item.status.ConsecutiveFailures >= upstreamFailureThreshold {
+			item.status.State = "unavailable"
+			item.retryAt = now.Add(upstreamRetryDelay)
+		} else {
+			item.status.State = "degraded"
+		}
+	}
+	current, callback := item.status.State, h.onTransition
+	h.mu.Unlock()
+	if callback != nil && ((current == "unavailable" && previous != current) || (current == "healthy" && previous != "healthy" && previous != "unknown")) {
+		callback(address, previous, current)
 	}
 }
 

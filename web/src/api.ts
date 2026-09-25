@@ -24,6 +24,20 @@ export interface CacheEntry {
   answers: string[];
   remaining_ttl: number;
 }
+export interface SystemEvent {
+  id: number;
+  severity: "info" | "warning" | "critical";
+  title: string;
+  message: string;
+  link: string;
+  occurred_at: string;
+  repeat_count: number;
+  read: boolean;
+}
+export interface SystemEventPage {
+  events: SystemEvent[];
+  unread_count: number;
+}
 export interface CacheEntryPage {
   entries: CacheEntry[];
   total: number;
