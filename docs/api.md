@@ -97,3 +97,25 @@ configured upstream addresses. No domain or client-IP labels. Sources currently 
 `cache`, `upstream`, `refused`, `overload` and `blocked`. Counter vectors appear after
 their first observation. Scrapes are limited
 to five concurrent requests. Prometheus should use a private management endpoint.
+
+For a Prometheus instance on the same host as Velora, create a Velora API token
+with the `read` scope and place only the token value in a file readable by
+Prometheus, for example `/etc/prometheus/velora-token`. A scrape job can then
+use the existing authenticated management listener:
+
+```yaml
+scrape_configs:
+  - job_name: velora-dns
+    metrics_path: /metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["127.0.0.1:8080"]
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/velora-token
+```
+
+If Prometheus runs on another host, configure a private, protected route to
+the management listener and include its hostname in `http.allowed_hosts`.
+Keep the token file out of version control. The scrape job uses Prometheus's
+[`authorization.credentials_file` setting](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_config).
