@@ -487,6 +487,8 @@ const pt_BR: Record<string, string> = {
   "app.nav.cluster": 'Cluster',
   "app.title.cluster": 'Visão geral do cluster',
   "cluster.loading": 'Carregando dados do cluster…',
+  "cluster.preview_notice": 'A configuração e sincronização do cluster ainda não estão disponíveis. Esta página mostra apenas registros locais experimentais; o status não representa o quórum.',
+  "cluster.refresh": 'Atualizar registros dos nós',
   "cluster.load_failed": 'Unable to load cluster data',
   "cluster.total_nodes": 'Total de nós',
   "cluster.healthy": 'Saudáveis',

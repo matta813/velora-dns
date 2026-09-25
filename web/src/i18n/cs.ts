@@ -487,6 +487,8 @@ const cs: Record<string, string> = {
   "app.nav.cluster": 'Klast',
   "app.title.cluster": 'Přehled klastu',
   "cluster.loading": 'Načítání dat klastu…',
+  "cluster.preview_notice": 'Nastavení a synchronizace clusteru zatím nejsou dostupné. Tato stránka zobrazuje pouze experimentální místní záznamy uzlů; stav neodráží kvórum.',
+  "cluster.refresh": 'Obnovit záznamy uzlů',
   "cluster.load_failed": 'Unable to load cluster data',
   "cluster.total_nodes": 'Celkový počet uzlů',
   "cluster.healthy": 'Zdravý',

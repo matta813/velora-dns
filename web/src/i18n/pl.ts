@@ -487,6 +487,8 @@ const pl: Record<string, string> = {
   "app.nav.cluster": 'Klaster',
   "app.title.cluster": 'Przegląd klastra',
   "cluster.loading": 'Ładowanie danych klastra…',
+  "cluster.preview_notice": 'Konfiguracja i synchronizacja klastra nie są jeszcze dostępne. Ta strona pokazuje tylko eksperymentalne lokalne wpisy węzłów; stan nie odzwierciedla kworum.',
+  "cluster.refresh": 'Odśwież wpisy węzłów',
   "cluster.load_failed": 'Unable to load cluster data',
   "cluster.total_nodes": 'Łączna liczba węzłów',
   "cluster.healthy": 'Zdrowe',

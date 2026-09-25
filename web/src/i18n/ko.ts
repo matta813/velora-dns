@@ -487,6 +487,8 @@ const ko: Record<string, string> = {
   "app.nav.cluster": '클러스터',
   "app.title.cluster": '클러스터 개요',
   "cluster.loading": '클러스터 데이터 불러오는 중…',
+  "cluster.preview_notice": '클러스터 설정과 동기화는 아직 사용할 수 없습니다. 이 페이지에는 실험적인 로컬 노드 기록만 표시되며 상태는 쿼럼을 나타내지 않습니다.',
+  "cluster.refresh": '노드 기록 새로 고침',
   "cluster.load_failed": 'Unable to load cluster data',
   "cluster.total_nodes": '노드 합계',
   "cluster.healthy": '정상',

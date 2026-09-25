@@ -487,6 +487,8 @@ const ja: Record<string, string> = {
   "app.nav.cluster": 'クラスター',
   "app.title.cluster": 'クラスター概要',
   "cluster.loading": 'クラスターデータを読み込み中…',
+  "cluster.preview_notice": 'クラスターの設定と同期はまだ利用できません。このページには実験的なローカルノード記録のみが表示され、状態はクォーラムを示しません。',
+  "cluster.refresh": 'ノード記録を更新',
   "cluster.load_failed": 'Unable to load cluster data',
   "cluster.total_nodes": 'ノード合計',
   "cluster.healthy": '正常',

@@ -487,6 +487,8 @@ const sv: Record<string, string> = {
   "app.nav.cluster": 'Kluster',
   "app.title.cluster": 'Klusteröversikt',
   "cluster.loading": 'Laddar klusterdata…',
+  "cluster.preview_notice": 'Klusterkonfiguration och synkronisering är ännu inte tillgängliga. Sidan visar bara experimentella lokala nodposter; statusen visar inte kvorum.',
+  "cluster.refresh": 'Uppdatera nodposter',
   "cluster.load_failed": 'Unable to load cluster data',
   "cluster.total_nodes": 'Totalt antal noder',
   "cluster.healthy": 'Frisk',

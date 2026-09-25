@@ -487,6 +487,8 @@ const nl: Record<string, string> = {
   "app.nav.cluster": 'Cluster',
   "app.title.cluster": 'Clusteroverzicht',
   "cluster.loading": 'Clustergegevens laden…',
+  "cluster.preview_notice": 'Clusterinstelling en synchronisatie zijn nog niet beschikbaar. Deze pagina toont alleen experimentele lokale knooppuntgegevens; de status geeft geen quorum aan.',
+  "cluster.refresh": 'Knooppuntgegevens vernieuwen',
   "cluster.load_failed": 'Unable to load cluster data',
   "cluster.total_nodes": 'Totaal nodes',
   "cluster.healthy": 'Gezond',
