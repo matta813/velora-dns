@@ -14,6 +14,7 @@ import (
 
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
+	internaldns "github.com/matta813/velora-dns/internal/dns"
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/querylog"
 	"github.com/miekg/dns"
@@ -74,6 +75,17 @@ func TestAPIAndOriginProtection(t *testing.T) {
 		if w.Code != tc.code {
 			t.Fatalf("%s: %d", tc.path, w.Code)
 		}
+	}
+}
+
+func TestUpstreamHealthEndpoint(t *testing.T) {
+	c := cache.New(10)
+	health := internaldns.NewUpstreamHealth([]string{"127.0.0.1:53"})
+	h := New(Dependencies{Database: fakeDB{}, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: config.Default(), Started: time.Now(), UpstreamHealth: health})
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/v1/upstreams/health", nil))
+	if w.Code != http.StatusOK || !bytes.Contains(w.Body.Bytes(), []byte(`"state":"unknown"`)) {
+		t.Fatalf("upstream health: %d %s", w.Code, w.Body.String())
 	}
 }
 func TestCacheEntriesEndpoint(t *testing.T) {

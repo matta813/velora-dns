@@ -41,3 +41,14 @@ it("shows unavailable rankings without requesting history when logging is disabl
   render(withI18n(<Dashboard data={snapshot} history={[]} queryLoggingEnabled={false} />));
   expect(screen.getAllByText(/Unavailable while query logging is disabled/)).toHaveLength(2);
 });
+
+it("shows live upstream health from the backend", async () => {
+  vi.stubGlobal("fetch", vi.fn((url: string) => Promise.resolve({
+    ok: true,
+    json: async () => ({ data: url === "/api/v1/upstreams/health"
+      ? [{ address: "127.0.0.1:53", state: "degraded", consecutive_failures: 2, latency_milliseconds: 50 }]
+      : { first_run: false, user_count: 1, config_ready: true } }),
+  })));
+  render(withI18n(<Dashboard data={snapshot} history={[]} queryLoggingEnabled={false} />));
+  expect(await screen.findByText("Degraded")).toBeInTheDocument();
+});

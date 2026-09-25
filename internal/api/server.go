@@ -36,27 +36,28 @@ type Version struct {
 	Built   string `json:"built"`
 }
 type Dependencies struct {
-	Database    Database
-	Zones       ZoneStore
-	Filtering   BlocklistStore
-	Queries     QueryStore
-	Auth        AuthStore
-	DNS         DNS
-	Cache       *cache.Cache
-	Metrics     *metrics.Metrics
-	Config      config.Config
-	ConfigPath  string
-	Version     Version
-	Started     time.Time
-	TSIG        TSIGStore
-	Update      UpdateStore
-	Onboarding  OnboardingStore
-	Backup      BackupStore
-	Settings    SettingsStore
-	RateLimit   *dns.RateLimitState
-	DHCP        DHCPStore
-	Cluster     ClusterStore
-	ApplyConfig func(config.Config) error
+	Database       Database
+	Zones          ZoneStore
+	Filtering      BlocklistStore
+	Queries        QueryStore
+	Auth           AuthStore
+	DNS            DNS
+	Cache          *cache.Cache
+	Metrics        *metrics.Metrics
+	Config         config.Config
+	ConfigPath     string
+	Version        Version
+	Started        time.Time
+	TSIG           TSIGStore
+	Update         UpdateStore
+	Onboarding     OnboardingStore
+	Backup         BackupStore
+	Settings       SettingsStore
+	RateLimit      *dns.RateLimitState
+	UpstreamHealth *dns.UpstreamHealth
+	DHCP           DHCPStore
+	Cluster        ClusterStore
+	ApplyConfig    func(config.Config) error
 }
 type Error struct {
 	Code    string `json:"code"`
@@ -82,6 +83,11 @@ func New(d Dependencies) http.Handler {
 		currentConfig = d.Config
 	)
 	mux := http.NewServeMux()
+	if d.UpstreamHealth != nil {
+		mux.HandleFunc("GET /api/v1/upstreams/health", func(w http.ResponseWriter, r *http.Request) {
+			respond(w, 200, d.UpstreamHealth.Snapshot())
+		})
+	}
 	registerDiagnostics(mux, d, func() config.Config {
 		cfgMu.RLock()
 		defer cfgMu.RUnlock()
