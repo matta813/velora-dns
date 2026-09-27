@@ -54,6 +54,9 @@ SCHEMAS = {
     "BlocklistInput": obj({"name": STRING, "url": STRING, "enabled": BOOL, "update_interval": INTERVAL}, ("name", "url")),
     "Query": obj({"id": INT, "occurred_at": TIME, "client_ip": STRING, "domain": STRING, "type": STRING, "rcode": STRING, "duration": NUMBER, "source": STRING, "upstream": STRING, "cache_hit": BOOL, "client_name": {"type": "string", "description": "Friendly name of the matching client definition, when any"}}, ("id", "domain", "type", "rcode", "source")),
     "QueryRanking": obj({"value": STRING, "count": INT, "name": {"type": "string", "description": "Client name for top_clients entries, when known"}}, ("value", "count")),
+    "AnalyticsBucket": obj({"start": TIME, "total": INT, "blocked": INT, "cached": INT, "failed": {"type": "integer", "description": "SERVFAIL answers"}, "average_ms": {"type": "number", "description": "Average upstream response time of answered queries"}}, ("start", "total", "blocked", "cached", "failed", "average_ms")),
+    "UpstreamUsage": obj({"address": STRING, "queries": INT, "failed": INT, "average_ms": NUMBER}, ("address", "queries", "failed", "average_ms")),
+    "Analytics": obj({"range": {"type": "string", "enum": ["1h", "24h", "7d", "30d"]}, "window_start": TIME, "window_end": TIME, "bucket_seconds": INT, "history_start": {"type": ["string", "null"], "format": "date-time", "description": "Oldest retained query"}, "totals": ref("AnalyticsBucket"), "series": arr(ref("AnalyticsBucket")), "query_types": arr(ref("QueryRanking")), "response_codes": arr(ref("QueryRanking")), "sources": arr(ref("QueryRanking")), "upstreams": arr(ref("UpstreamUsage")), "top_blocked": arr(ref("QueryRanking"))}, ("range", "window_start", "window_end", "bucket_seconds", "history_start", "totals", "series", "query_types", "response_codes", "sources", "upstreams", "top_blocked")),
     "QuerySummary": obj({"window_start": TIME, "window_end": TIME, "total": INT, "blocked": INT, "top_domains": arr(ref("QueryRanking")), "top_clients": arr(ref("QueryRanking"))}),
     "AuditEvent": obj({"id": INT, "occurred_at": TIME, "actor": STRING, "role": STRING, "action": STRING, "target": STRING, "result": STRING, "status_code": INT}),
     "SystemEvent": obj({"id": INT, "severity": {"type": "string", "enum": ["info", "warning", "critical"]}, "title": STRING, "message": STRING, "link": STRING, "occurred_at": TIME, "repeat_count": INT, "read": BOOL}, ("id", "severity", "title", "message", "occurred_at", "repeat_count", "read")),
@@ -109,6 +112,7 @@ SCHEMAS = {
 RESPONSE_MODELS = {
     "/api/v1/status": "Status", "/api/v1/version": "Version", "/api/v1/stats": "Statistics", "/api/v1/stats/reset": "Statistics",
     "/api/v1/cache": "CacheStats", "/api/v1/cache/entries": "CacheEntryPage", "/api/v1/cache/invalidate": "CacheInvalidateResult",
+    "/api/v1/analytics": "Analytics",
     "/api/v1/clients": "ClientList", "/api/v1/clients/{id}": "Client",
     "/api/v1/webhooks": ["Webhook"], "/api/v1/webhooks/{id}": "Webhook", "/api/v1/webhooks/{id}/test": "WebhookTestResult", "/api/v1/webhooks/event-types": "WebhookEventTypes",
     "/api/v1/policies": ["Policy"], "/api/v1/policies/{id}": "Policy", "/api/v1/policies/effective": "EffectivePolicy",

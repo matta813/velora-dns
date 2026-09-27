@@ -51,6 +51,7 @@ and contain no credentials, tokens, or production data.
 | `blocklists.png` | Blocklist sources with enable switches and status |
 | `cache.png` | Cache usage and live cache entries |
 | `clients.png` | Named clients with activity and unnamed addresses |
+| `analytics.png` | Analytics: queries over time, response times and breakdowns |
 | `policies.png` | Per-client filtering policies |
 | `webhooks.png` | Webhook destinations with delivery status |
 | `dhcp.png` | DHCP pools and active leases |

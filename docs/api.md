@@ -35,6 +35,7 @@ metrics require an authenticated session or scoped API token.
 | POST | /api/v1/update/request | Start the release selected by the configured updater agent |
 | GET | /api/v1/stats | Persisted query counters, rolling 60-second QPS and cache hit ratio |
 | POST | /api/v1/stats/reset | Reset persisted query, cache and rate-limit counters (admin only) |
+| GET | /api/v1/analytics?range= | Bucketed query history for `1h`, `24h`, `7d` or `30d` from the query log: totals, time series, query types, response codes, sources, upstream usage and top blocked domains ([details](query-logging.md#analytics)) |
 | GET | /api/v1/settings/rate-limit/status | Enabled state, persisted rejection count and last rejection time; no client addresses |
 | GET | /api/v1/upstreams/health | Passive upstream health, recent latency and failure count for configured resolvers |
 | GET | /api/v1/cache | Live entries, capacity, persisted hits and misses |

@@ -11,6 +11,54 @@
     }
   ],
   "paths": {
+    "/api/v1/analytics": {
+      "get": {
+        "operationId": "get_analytics",
+        "summary": "Get analytics",
+        "tags": [
+          "analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Analytics"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
     "/api/v1/audit": {
       "get": {
         "operationId": "get_audit",
@@ -6738,6 +6786,155 @@
         "required": [
           "value",
           "count"
+        ]
+      },
+      "AnalyticsBucket": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "blocked": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "cached": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "failed": {
+            "type": "integer",
+            "description": "SERVFAIL answers"
+          },
+          "average_ms": {
+            "type": "number",
+            "description": "Average upstream response time of answered queries"
+          }
+        },
+        "required": [
+          "start",
+          "total",
+          "blocked",
+          "cached",
+          "failed",
+          "average_ms"
+        ]
+      },
+      "UpstreamUsage": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "queries": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "average_ms": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "address",
+          "queries",
+          "failed",
+          "average_ms"
+        ]
+      },
+      "Analytics": {
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "string",
+            "enum": [
+              "1h",
+              "24h",
+              "7d",
+              "30d"
+            ]
+          },
+          "window_start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "window_end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "bucket_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "history_start": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Oldest retained query"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/AnalyticsBucket"
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsBucket"
+            }
+          },
+          "query_types": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryRanking"
+            }
+          },
+          "response_codes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryRanking"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryRanking"
+            }
+          },
+          "upstreams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpstreamUsage"
+            }
+          },
+          "top_blocked": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryRanking"
+            }
+          }
+        },
+        "required": [
+          "range",
+          "window_start",
+          "window_end",
+          "bucket_seconds",
+          "history_start",
+          "totals",
+          "series",
+          "query_types",
+          "response_codes",
+          "sources",
+          "upstreams",
+          "top_blocked"
         ]
       },
       "QuerySummary": {
