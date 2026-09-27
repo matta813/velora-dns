@@ -20,11 +20,8 @@ and progress; substantial new work should get its own issue before implementatio
 
 - Improve upstream health visibility and failover diagnostics; test behavior under
   slow, malformed, and unreachable upstreams.
-- Add clearer cache inspection and controls, including visibility into effective
-  TTLs and safe invalidation; review conditional forwarding and local rewrites as
-  separate proposals.
-- Improve per-client filtering policy and blocklist update diagnostics without
-  exposing query data unnecessarily.
+- Show effective TTLs next to cached answers and explain which rule (rewrite,
+  forwarding rule, client policy or blocklist) produced a given answer.
 
 ### Observability and security
 
@@ -35,17 +32,16 @@ and progress; substantial new work should get its own issue before implementatio
 
 ### Usability and developer experience
 
-- Improve mobile layout, keyboard accessibility, onboarding, and form validation
-  across the management UI.
-- Strengthen API documentation, local test fixtures, and CI coverage for deployment
-  and upgrade paths.
+- Improve first-run onboarding and keep the browser and accessibility suites in
+  step with new pages.
+- Strengthen API documentation and CI coverage for deployment and upgrade paths.
 
 ## Later — planned direction
 
 ### Deployment and resilience
 
-- Improve backup/restore tooling and rehearse upgrade compatibility for SQLite and
-  PostgreSQL deployments before expanding production guidance.
+- Rehearse upgrade compatibility for SQLite and PostgreSQL deployments, and
+  document a PostgreSQL backup path alongside the online SQLite restore.
 - Continue systemd and Compose installer hardening, architecture support, and
   release artifact verification.
 
@@ -60,18 +56,16 @@ and progress; substantial new work should get its own issue before implementatio
 
 ### High availability
 
-- Evaluate multi-node membership, configuration and zone replication, central
-  management, and PostgreSQL cluster behavior. Foundation packages exist, but
-  these capabilities are **not connected to the production runtime**; single-node
-  deployment remains the supported model. See the
-  [production assessment](production-assessment.md).
+- A single-writer primary/replica cluster keeps local zones in sync
+  ([cluster setup](cluster.md)). Replicating settings, filtering and clients, and
+  PostgreSQL cluster behavior, are not covered yet.
 - Define failure, consistency, and recovery semantics before considering any
   quorum-based write or automatic failover design.
 
 ### Network services and extensibility
 
-- Assess whether DHCP, webhooks, and additional language packs belong in the core
-  product or should remain separate integrations.
+- Assess whether DHCP and additional language packs belong in the core product
+  or should remain separate integrations.
 
 ## Completed work
 
