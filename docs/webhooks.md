@@ -16,6 +16,8 @@ view and change webhooks, in **System → Webhooks** or through
 | `backup.created` | info | An encrypted backup was created |
 | `backup.failed` | warning | A backup could not be created |
 | `config.rollback` | warning or critical | A configuration change was rolled back |
+| `cluster.sync_failed` | warning | A cluster replica could not sync from its primary |
+| `cluster.sync_recovered` | info | The replica syncs from its primary again |
 | `webhook.test` | info | Sent only by the Test action |
 
 Each webhook can subscribe to specific types (none selected means all of them)

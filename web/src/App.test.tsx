@@ -136,7 +136,7 @@ it("updates the document title for the current route", async () => {
 
 it.each([
   ["/dhcp", "DHCP Server", "/api/v1/dhcp/pools", "No DHCP pools configured"],
-  ["/cluster", "Cluster Overview", "/api/v1/cluster/nodes", "No cluster nodes registered"],
+  ["/cluster", "Cluster Overview", "/api/v1/cluster/overview", "This node is standalone"],
 ])("renders the %s application route", async (route, title, endpoint, emptyState) => {
   const responses: Record<string, unknown> = {
     "/api/v1/status": {
@@ -157,6 +157,7 @@ it.each([
     "/api/v1/dhcp/pools": null,
     "/api/v1/dhcp/leases": null,
     "/api/v1/cluster/nodes": null,
+    "/api/v1/cluster/overview": { state: { role: "standalone", node_id: "a".repeat(24), cluster_id: "", node_name: "", advertised_url: "", primary_url: "", allow_insecure: false, created_at: null, last_sync_at: null, last_sync_error: "", applied_revision: "" }, revision: "", members: [], zones_read_only: false, protocol: 1, version: "dev", replicated_zones: 0 },
     "/api/v1/cluster/config-versions?limit=20": null,
   };
   const fetchMock = vi.fn((path: string) =>

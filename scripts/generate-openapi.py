@@ -41,6 +41,14 @@ SCHEMAS = {
     "RestoreState": {"type": ["object", "null"], "properties": {"state": {"type": "string", "enum": ["pending", "applied", "completed", "rolled_back", "failed"]}, "metadata": ref("BackupMetadata"), "safety_copy": STRING, "error": STRING, "updated_at": TIME}},
     "RestoreScheduled": obj({"state": {"type": "string", "enum": ["restarting", "pending"]}, "metadata": ref("BackupMetadata")}, ("state", "metadata")),
     "SearchResult": obj({"kind": {"type": "string", "enum": ["zone", "record", "client", "rewrite", "forwarding", "blocklist"]}, "title": STRING, "subtitle": STRING, "link": {"type": "string", "description": "Web interface path"}}, ("kind", "title", "link")),
+    "ClusterState": obj({"role": {"type": "string", "enum": ["standalone", "primary", "replica"]}, "cluster_id": STRING, "node_id": STRING, "node_name": STRING, "advertised_url": STRING, "primary_url": STRING, "allow_insecure": BOOL, "created_at": {"type": ["string", "null"], "format": "date-time"}, "last_sync_at": {"type": ["string", "null"], "format": "date-time"}, "last_sync_error": STRING, "applied_revision": STRING}, ("role", "node_id")),
+    "ClusterMember": obj({"node_id": STRING, "name": STRING, "address": STRING, "version": STRING, "joined_at": TIME, "last_seen_at": {"type": ["string", "null"], "format": "date-time"}, "applied_revision": STRING, "last_error": STRING, "status": {"type": "string", "enum": ["in_sync", "behind", "stale", "error", "never_synced"]}}, ("node_id", "name", "status")),
+    "ClusterOverview": obj({"state": ref("ClusterState"), "revision": {"type": "string", "description": "Zone snapshot revision served (primary) or applied (replica)"}, "members": arr(ref("ClusterMember")), "zones_read_only": BOOL, "protocol": INT, "version": STRING, "replicated_zones": INT}, ("state", "revision", "members", "zones_read_only", "protocol", "version", "replicated_zones")),
+    "ClusterJoinToken": obj({"token": {"type": "string", "description": "One-time token, valid 30 minutes; shown only once"}, "expires_at": TIME}, ("token", "expires_at")),
+    "ClusterPeerInfo": obj({"role": STRING, "protocol": INT, "version": STRING, "cluster_id": STRING, "name": STRING}, ("role", "protocol", "version")),
+    "ClusterJoinRequest": obj({"token": STRING, "protocol": INT, "node_id": STRING, "name": STRING, "version": STRING}, ("token", "protocol", "node_id", "name")),
+    "ClusterJoinResponse": obj({"cluster_id": STRING, "node_secret": {"type": "string", "description": "Node credential; returned once"}, "primary_name": STRING, "primary_version": STRING}, ("cluster_id", "node_secret")),
+    "ClusterSnapshot": obj({"protocol": INT, "cluster_id": STRING, "revision": STRING, "generated_at": TIME, "primary": obj({"node_id": STRING, "name": STRING, "version": STRING}), "zones": arr(obj({"name": STRING, "primary_ns": STRING, "contact": STRING, "records": arr(obj({"name": STRING, "type": STRING, "ttl": INT, "value": STRING, "priority": INT}))}))}, ("protocol", "cluster_id", "revision", "zones")),
     "ConfigCheck": obj({"valid": BOOL, "errors": arr(ref("FieldError")), "restart_required": {"type": "array", "items": STRING, "description": "Changed fields that cannot be applied without a restart"}}, ("valid", "errors", "restart_required")),
     "ErrorResponse": obj({"error": ref("Error")}, ("error",)),
     "Version": obj({"version": STRING, "commit": STRING, "built": STRING}, ("version", "commit", "built")),
@@ -109,7 +117,7 @@ SCHEMAS = {
     "EffectivePolicy": obj({"client": {"oneOf": [ref("Client"), {"type": "null"}]}, "policy": {"oneOf": [ref("Policy"), {"type": "null"}]}, "mode": {"type": "string", "enum": ["default", "disabled", "custom"]}}, ("client", "policy", "mode")),
     "Webhook": obj({"id": INT, "name": STRING, "url": STRING, "events": {"type": "array", "items": STRING, "description": "Subscribed event types; empty means all"}, "min_severity": {"type": "string", "enum": ["info", "warning", "critical"]}, "allow_private": BOOL, "enabled": BOOL, "has_token": {"type": "boolean", "description": "Whether a bearer token is stored; the token itself is never returned"}, "last_delivery_at": {"type": ["string", "null"], "format": "date-time"}, "last_status": STRING, "last_error": STRING, "consecutive_failures": INT}, ("id", "name", "url", "events", "min_severity", "allow_private", "enabled", "has_token")),
     "WebhookInput": obj({"name": STRING, "url": {"type": "string", "description": "http:// or https:// URL without credentials"}, "events": {"type": "array", "items": STRING}, "min_severity": {"type": "string", "enum": ["info", "warning", "critical"]}, "allow_private": {"type": "boolean", "description": "Allow private and loopback destinations; link-local and metadata addresses are always rejected"}, "enabled": BOOL, "token": {"type": ["string", "null"], "description": "Write-only bearer token. On update, omit or null to keep the stored token, empty string to remove it"}}, ("name", "url")),
-    "WebhookEventTypes": {"type": "array", "items": {"type": "string", "enum": ["upstream.unavailable", "upstream.recovered", "blocklist.refresh_failed", "blocklist.refresh_recovered", "backup.created", "backup.failed", "config.rollback"]}},
+    "WebhookEventTypes": {"type": "array", "items": {"type": "string", "enum": ["upstream.unavailable", "upstream.recovered", "blocklist.refresh_failed", "blocklist.refresh_recovered", "backup.created", "backup.failed", "config.rollback", "cluster.sync_failed", "cluster.sync_recovered"]}},
     "WebhookTestResult": obj({"ok": BOOL, "error": STRING, "webhook": ref("Webhook")}, ("ok", "error", "webhook")),
     "ClientActivity": obj({"client_ip": STRING, "queries": INT, "last_seen": TIME}, ("client_ip", "queries", "last_seen")),
     "ClientList": obj({"clients": arr(obj({"id": INT, "name": STRING, "addresses": STRINGS, "group": STRING, "description": STRING, "enabled": BOOL, "activity": {"type": ["object", "null"], "properties": {"queries": INT, "last_seen": {"type": ["string", "null"], "format": "date-time"}}, "description": "Last 24 hours of retained queries; null when query logging is disabled"}})), "unnamed": arr(ref("ClientActivity"))}, ("clients", "unnamed")),
@@ -120,6 +128,9 @@ RESPONSE_MODELS = {
     "/api/v1/status": "Status", "/api/v1/version": "Version", "/api/v1/stats": "Statistics", "/api/v1/stats/reset": "Statistics",
     "/api/v1/cache": "CacheStats", "/api/v1/cache/entries": "CacheEntryPage", "/api/v1/cache/invalidate": "CacheInvalidateResult",
     "/api/v1/analytics": "Analytics",
+    "/api/v1/cluster/overview": "ClusterOverview", "/api/v1/cluster/create": "ClusterOverview", "/api/v1/cluster/connect": "ClusterOverview", "/api/v1/cluster/sync": "ClusterOverview",
+    "/api/v1/cluster/members/{id}": "ClusterOverview", "/api/v1/cluster/leave": "ClusterOverview", "/api/v1/cluster/dissolve": "ClusterOverview", "/api/v1/cluster/join-tokens": "ClusterJoinToken",
+    "/api/v1/cluster/peer/info": "ClusterPeerInfo", "/api/v1/cluster/peer/join": "ClusterJoinResponse", "/api/v1/cluster/peer/leave": "ClusterPeerInfo",
     "/api/v1/search": ["SearchResult"],
     "/api/v1/backup/inspect": "BackupInspection",
     "/api/v1/config/validate": "ConfigCheck",
@@ -149,6 +160,9 @@ REQUEST_MODELS = {
     ("POST", "/api/v1/auth/login"): obj({"username": STRING, "password": {"type": "string", "format": "password", "writeOnly": True}}, ("username", "password")),
     ("PUT", "/api/v1/config"): ref("Config"),
     ("POST", "/api/v1/config/validate"): ref("Config"),
+    ("POST", "/api/v1/cluster/create"): obj({"name": STRING, "advertised_url": {"type": "string", "description": "Base URL other nodes use to reach this node"}, "allow_insecure": {"type": "boolean", "description": "Permit plain HTTP"}, "skip_check": {"type": "boolean", "description": "Skip the reachability self-check"}}, ("name", "advertised_url")),
+    ("POST", "/api/v1/cluster/connect"): obj({"primary_url": STRING, "token": STRING, "name": STRING, "allow_insecure": BOOL}, ("primary_url", "token", "name")),
+    ("POST", "/api/v1/cluster/peer/join"): ref("ClusterJoinRequest"),
     ("POST", "/api/v1/backup/restore"): obj({"token": STRING, "confirm": {"type": "boolean", "description": "Must be true"}}, ("token", "confirm")),
     ("PUT", "/api/v1/preferences"): ref("Preferences"),
     ("PUT", "/api/v1/settings/rate-limit"): ref("RateLimitSettings"),
@@ -188,6 +202,8 @@ def response_model(method, path):
         return {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}
     if path.endswith("/export"):
         return {"text/dns": {"schema": STRING}}
+    if path == "/api/v1/cluster/peer/snapshot":
+        return {"application/json": {"schema": ref("ClusterSnapshot")}}
     if path == "/api/v1/backup/restore":
         return {"application/json": {"schema": obj({"data": ref("RestoreScheduled" if method == "POST" else "RestoreState")}, ("data",))}}
     if path in RESPONSE_MODELS:
@@ -227,7 +243,7 @@ def operation(method, path):
         "summary": method.title() + " " + path.removeprefix("/api/v1/"),
         "tags": [path.split("/")[3] if len(path.split("/")) > 3 else "management"],
         "responses": {
-            "202" if method == "POST" and path in {"/api/v1/update/request", "/api/v1/backup/restore"} else "201" if method == "POST" and path in {"/api/v1/users", "/api/v1/tokens", "/api/v1/tsig-keys", "/api/v1/zones", "/api/v1/zones/secondary", "/api/v1/zones/import", "/api/v1/zones/{id}/records", "/api/v1/blocklists", "/api/v1/forwarding", "/api/v1/rewrites", "/api/v1/clients", "/api/v1/policies", "/api/v1/webhooks", "/api/v1/dhcp/pools", "/api/v1/dhcp/pools/{id}/reservations"} else "200": {"description": "Successful response", "content": response_model(method, path)},
+            "202" if method == "POST" and path in {"/api/v1/update/request", "/api/v1/backup/restore"} else "201" if method == "POST" and path in {"/api/v1/users", "/api/v1/tokens", "/api/v1/tsig-keys", "/api/v1/zones", "/api/v1/zones/secondary", "/api/v1/zones/import", "/api/v1/zones/{id}/records", "/api/v1/blocklists", "/api/v1/forwarding", "/api/v1/rewrites", "/api/v1/clients", "/api/v1/policies", "/api/v1/webhooks", "/api/v1/cluster/create", "/api/v1/cluster/join-tokens", "/api/v1/dhcp/pools", "/api/v1/dhcp/pools/{id}/reservations"} else "200": {"description": "Successful response", "content": response_model(method, path)},
             "default": {"description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.", "content": {"application/json": {"schema": ref("ErrorResponse")}}},
         },
     }
@@ -252,7 +268,7 @@ def operation(method, path):
     if path.endswith("/read") and path.startswith("/api/v1/events/"):
         op["description"] = "A viewer may acknowledge an event using a session and CSRF token. Bearer tokens require write or admin scope."
     if "{" in path:
-        op["parameters"] = [{"name": name, "in": "path", "required": True, "schema": STRING if name == "name" or path.startswith("/api/v1/cluster/nodes/") else INT} for name in re.findall(r"\{([^}]+)\}", path)]
+        op["parameters"] = [{"name": name, "in": "path", "required": True, "schema": STRING if name == "name" or path.startswith(("/api/v1/cluster/nodes/", "/api/v1/cluster/members/")) else INT} for name in re.findall(r"\{([^}]+)\}", path)]
     if method in ("POST", "PUT", "PATCH"):
         schema = REQUEST_MODELS.get((method, path))
         if schema is None and path.startswith("/api/v1/dhcp/"):
@@ -275,7 +291,7 @@ def operation(method, path):
 
 def generate():
     routes = set()
-    for source in (ROOT / "internal/api").glob("*.go"):
+    for source in [*(ROOT / "internal/api").glob("*.go"), ROOT / "internal/cluster/peer.go"]:
         if source.name.endswith("_test.go"):
             continue
         routes.update(ROUTE.findall(source.read_text()))

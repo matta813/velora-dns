@@ -2281,3 +2281,24 @@ kbd {
 .palette-option[aria-selected="true"] .palette-text small {
   color: var(--text);
 }
+
+/* ---------- Cluster ---------- */
+
+.join-token {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.join-token p {
+  margin: 4px 0;
+}
+.token-value {
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+small.block {
+  display: block;
+}
+.danger-zone .panel-heading {
+  border-bottom: 0;
+}

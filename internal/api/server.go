@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/matta813/velora-dns/internal/cache"
+	"github.com/matta813/velora-dns/internal/cluster"
 	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/database"
 	"github.com/matta813/velora-dns/internal/dns"
@@ -63,12 +64,14 @@ type Dependencies struct {
 	NotifyEvent    func(database.SystemEventInput)
 	DHCP           DHCPStore
 	Cluster        ClusterStore
-	Forwarding     ForwardingStore
-	Rewrites       RewriteStore
-	Clients        ClientStore
-	Activity       ActivityStore
-	Policies       PolicyStore
-	Webhooks       WebhookStore
+	// ClusterNode runs primary/replica zone replication; nil disables it.
+	ClusterNode *cluster.Service
+	Forwarding  ForwardingStore
+	Rewrites    RewriteStore
+	Clients     ClientStore
+	Activity    ActivityStore
+	Policies    PolicyStore
+	Webhooks    WebhookStore
 	// RequestRestart stops the server so its supervisor starts it again.
 	RequestRestart func()
 	ApplyConfig    func(config.Config) error
@@ -212,6 +215,10 @@ func New(d Dependencies) http.Handler {
 		registerDHCP(mux, d.DHCP)
 		capabilities = append(capabilities, "dhcp")
 	}
+	if d.ClusterNode != nil {
+		registerClusterManagement(mux, d.ClusterNode)
+		cluster.RegisterPeerRoutes(mux, d.ClusterNode)
+	}
 	if d.Cluster != nil {
 		registerCluster(mux, d.Cluster)
 	}
@@ -232,6 +239,9 @@ func New(d Dependencies) http.Handler {
 			"dns_listen":     d.DNS.Addresses(),
 			"version":        d.Version,
 			"capabilities":   capabilities,
+		}
+		if d.ClusterNode != nil {
+			status["cluster_role"] = d.ClusterNode.Current().Role
 		}
 		if d.Cluster != nil {
 			nodes, err := d.Cluster.ListNodes(r.Context())
@@ -493,7 +503,10 @@ func New(d Dependencies) http.Handler {
 				return
 			}
 		}
-		if d.Auth != nil && (strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/metrics") && r.URL.Path != "/api/v1/auth/login" {
+		// Node-to-node cluster endpoints authenticate with join tokens and node
+		// credentials instead of browser sessions.
+		peer := d.ClusterNode != nil && strings.HasPrefix(r.URL.Path, "/api/v1/cluster/peer/")
+		if d.Auth != nil && (strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/metrics") && r.URL.Path != "/api/v1/auth/login" && !peer {
 			authenticated, csrf, ok := authenticate(r, d.Auth)
 			if !ok {
 				failure(w, http.StatusUnauthorized, "authentication_required", "Sign in to access management")
@@ -506,6 +519,14 @@ func New(d Dependencies) http.Handler {
 			unsafe := r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
 			if (strings.HasPrefix(r.URL.Path, "/api/v1/users") || strings.HasPrefix(r.URL.Path, "/api/v1/webhooks") || r.URL.Path == "/api/v1/audit" || r.URL.Path == "/api/v1/stats/reset" || r.URL.Path == "/api/v1/backup/create" || r.URL.Path == "/api/v1/backup/inspect" || r.URL.Path == "/api/v1/backup/restore") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
 				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
+				return
+			}
+			if unsafe && strings.HasPrefix(r.URL.Path, "/api/v1/cluster/") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
+				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
+				return
+			}
+			if unsafe && strings.HasPrefix(r.URL.Path, "/api/v1/zones") && d.ClusterNode != nil && d.ClusterNode.ZonesReadOnly() {
+				failure(w, http.StatusConflict, "zones_managed_by_primary", "This node is a cluster replica; change zones on the primary")
 				return
 			}
 			markRead := strings.HasPrefix(r.URL.Path, "/api/v1/events/") && strings.HasSuffix(r.URL.Path, "/read") && r.Method == http.MethodPost
