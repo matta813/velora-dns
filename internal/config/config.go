@@ -255,117 +255,270 @@ func Parse(data []byte, lookup func(string) (string, bool)) (Config, error) {
 	}
 	return c, c.Validate()
 }
+
+// FieldError names one invalid configuration field by its YAML/JSON path,
+// for example "dns.allowed_clients[1]".
+type FieldError struct {
+	Field   string `json:"field"`
+	Message string `json:"message"`
+}
+
+// ValidationError lists every problem found in a candidate configuration.
+type ValidationError struct{ Fields []FieldError }
+
+func (e *ValidationError) Error() string {
+	parts := make([]string, 0, len(e.Fields))
+	for _, field := range e.Fields {
+		parts = append(parts, field.Field+": "+field.Message)
+	}
+	return strings.Join(parts, "; ")
+}
+
+// Validate checks the whole configuration and reports all problems at once
+// as a *ValidationError, so the API and UI can point at each field.
 func (c Config) Validate() error {
+	var errs []FieldError
+	add := func(field, format string, args ...any) {
+		errs = append(errs, FieldError{Field: field, Message: fmt.Sprintf(format, args...)})
+	}
+	check := func(field string, err error) {
+		if err != nil {
+			add(field, "%s", err.Error())
+		}
+	}
 	if (c.Management.BootstrapUsername == "") != (c.Management.BootstrapPassword == "") || (c.Management.BootstrapPassword != "" && len(c.Management.BootstrapPassword) < 12) {
-		return fmt.Errorf("bootstrap username and password must both be set; password requires at least 12 characters")
+		add("management.bootstrap_password", "bootstrap username and password must both be set; password requires at least 12 characters")
 	}
 	if c.Filtering.BlockMode != "" && c.Filtering.BlockMode != "NXDOMAIN" && c.Filtering.BlockMode != "ZERO" {
-		return fmt.Errorf("filtering.block_mode must be NXDOMAIN or ZERO")
+		add("filtering.block_mode", "must be NXDOMAIN or ZERO")
 	}
-	if len(c.DNS.Listen) == 0 || len(c.DNS.Listen) > 8 || len(c.DNS.Upstreams) == 0 || len(c.DNS.Upstreams) > 8 {
-		return fmt.Errorf("DNS requires 1–8 listeners and upstreams")
+	for list, domains := range map[string][]string{"filtering.blocklist": c.Filtering.Blocklist, "filtering.allowlist": c.Filtering.Allowlist} {
+		for i, domain := range domains {
+			if !validDomain(domain) {
+				add(fmt.Sprintf("%s[%d]", list, i), "%q is not a valid domain", domain)
+			}
+		}
+	}
+	if len(c.DNS.Listen) == 0 || len(c.DNS.Listen) > 8 {
+		add("dns.listen", "DNS requires 1–8 listeners")
+	}
+	if len(c.DNS.Upstreams) == 0 || len(c.DNS.Upstreams) > 8 {
+		add("dns.upstreams", "DNS requires 1–8 upstreams")
 	}
 	if (c.DNS.TLSCertFile == "") != (c.DNS.TLSKeyFile == "") {
-		return fmt.Errorf("dns.tls_cert_file and dns.tls_key_file must both be set")
+		add("dns.tls_key_file", "dns.tls_cert_file and dns.tls_key_file must both be set")
+	}
+	for field, value := range map[string]string{"dns.tls_cert_file": c.DNS.TLSCertFile, "dns.tls_key_file": c.DNS.TLSKeyFile} {
+		if value != "" {
+			check(field, safePath(value))
+		}
 	}
 	if c.DNS.DNSSEC && len(c.DNS.TrustAnchors) == 0 {
-		return fmt.Errorf("dns.trust_anchors is required when DNSSEC validation is enabled")
+		add("dns.trust_anchors", "required when DNSSEC validation is enabled")
 	}
 	if c.DHCP.Enabled {
 		if c.DHCP.Listen == "" {
 			c.DHCP.Listen = "0.0.0.0:67"
 		}
-		if err := address(c.DHCP.Listen, true); err != nil {
-			return fmt.Errorf("invalid dhcp.listen: %w", err)
-		}
+		check("dhcp.listen", address(c.DHCP.Listen, true))
 	}
-	for _, anchor := range c.DNS.TrustAnchors {
+	for i, anchor := range c.DNS.TrustAnchors {
 		rr, err := wire.NewRR(anchor)
-		if err != nil || rr.Header().Rrtype != wire.TypeDS {
-			return fmt.Errorf("invalid DNSSEC DS trust anchor %q", anchor)
+		if err != nil || rr == nil || rr.Header().Rrtype != wire.TypeDS {
+			add(fmt.Sprintf("dns.trust_anchors[%d]", i), "invalid DNSSEC DS trust anchor %q", anchor)
 		}
 	}
-	for name, value := range map[string]string{"dot": c.DNS.DoTListen, "doh": c.DNS.DoHListen, "doq": c.DNS.DoQListen} {
-		if value != "" {
+	for _, item := range []struct{ name, field, value string }{{"TLS", "dns.dot_listen", c.DNS.DoTListen}, {"HTTPS", "dns.doh_listen", c.DNS.DoHListen}, {"QUIC", "dns.doq_listen", c.DNS.DoQListen}} {
+		if item.value != "" {
 			if c.DNS.TLSCertFile == "" {
-				return fmt.Errorf("DNS-over-%s requires TLS certificate and key", name)
+				add(item.field, "DNS-over-%s requires a TLS certificate and key", item.name)
 			}
-			if err := address(value, true); err != nil {
-				return fmt.Errorf("invalid DNS-over-%s listener: %w", name, err)
-			}
+			check(item.field, address(item.value, true))
 		}
 	}
 	seen := map[string]bool{}
-	for _, a := range c.DNS.Listen {
+	for i, a := range c.DNS.Listen {
+		field := fmt.Sprintf("dns.listen[%d]", i)
 		if err := address(a, true); err != nil {
-			return err
+			check(field, err)
+			continue
 		}
 		if seen[a] {
-			return fmt.Errorf("duplicate listener")
+			add(field, "duplicate listener %q", a)
 		}
 		seen[a] = true
 	}
-	for _, a := range c.DNS.Upstreams {
+	for i, a := range c.DNS.Upstreams {
+		field := fmt.Sprintf("dns.upstreams[%d]", i)
 		if err := address(a, false); err != nil {
-			return err
+			check(field, err)
+			continue
 		}
 		if seen[a] {
-			return fmt.Errorf("upstream equals listener")
+			add(field, "upstream %q is one of this server's own listeners", a)
 		}
 	}
-	if err := address(c.HTTP.Listen, true); err != nil {
-		return err
+	check("http.listen", address(c.HTTP.Listen, true))
+	for _, conflict := range c.listenerConflicts() {
+		add(conflict.Field, "%s", conflict.Message)
 	}
 	if len(c.HTTP.AllowedHosts) == 0 {
-		return fmt.Errorf("http.allowed_hosts cannot be empty")
+		add("http.allowed_hosts", "cannot be empty")
 	}
-	for _, host := range c.HTTP.AllowedHosts {
+	for i, host := range c.HTTP.AllowedHosts {
 		if !validHost(host) {
-			return fmt.Errorf("invalid HTTP allowed host %q", host)
+			add(fmt.Sprintf("http.allowed_hosts[%d]", i), "invalid host %q", host)
 		}
 	}
 	if len(c.DNS.AllowedClients) == 0 {
-		return fmt.Errorf("allowed_clients cannot be empty")
+		add("dns.allowed_clients", "cannot be empty")
 	}
-	for _, v := range c.DNS.AllowedClients {
-		if _, err := netip.ParsePrefix(v); err != nil {
-			return fmt.Errorf("invalid client CIDR %q", v)
+	for i, v := range c.DNS.AllowedClients {
+		if prefix, err := netip.ParsePrefix(v); err != nil || prefix.Addr().Zone() != "" {
+			add(fmt.Sprintf("dns.allowed_clients[%d]", i), "invalid client network %q; use CIDR notation such as 192.168.1.0/24", v)
 		}
 	}
-	if c.DNS.Timeout < 10*time.Millisecond || c.DNS.Timeout > 10*time.Second || c.DNS.Retries < 0 || c.DNS.Retries > 3 {
-		return fmt.Errorf("timeout must be 10ms–10s and retries 0–3")
+	if c.DNS.Timeout < 10*time.Millisecond || c.DNS.Timeout > 10*time.Second {
+		add("dns.timeout", "must be 10ms–10s")
 	}
-	if c.Cache.MaxEntries < 0 || c.Cache.MaxEntries > 1000000 || c.DNS.MaxConcurrent < 1 || c.DNS.MaxConcurrent > 10000 || c.DNS.GlobalQPS < 1 || c.DNS.GlobalQPS > 100000 || c.DNS.ClientQPS < 1 || c.DNS.ClientQPS > 100000 || c.DNS.RateLimitBurst < 1 || c.DNS.RateLimitBurst > 100000 || c.DNS.MaxTCPConns < 1 || c.DNS.MaxTCPConns > 100000 {
-		return fmt.Errorf("invalid cache or concurrency limit")
+	if c.DNS.Retries < 0 || c.DNS.Retries > 3 {
+		add("dns.retries", "must be 0–3")
 	}
-	if c.Cache.UpstreamTTL < 0 || c.Cache.UpstreamTTL > 604800 {
-		return fmt.Errorf("cache.upstream_ttl must be 0–604800 seconds")
+	for _, limit := range []struct {
+		field    string
+		value    int
+		min, max int
+	}{
+		{"cache.max_entries", c.Cache.MaxEntries, 0, 1000000},
+		{"dns.max_concurrent", c.DNS.MaxConcurrent, 1, 10000},
+		{"dns.global_qps", c.DNS.GlobalQPS, 1, 100000},
+		{"dns.client_qps", c.DNS.ClientQPS, 1, 100000},
+		{"dns.rate_limit_burst", c.DNS.RateLimitBurst, 1, 100000},
+		{"dns.max_tcp_connections", c.DNS.MaxTCPConns, 1, 100000},
+		{"cache.upstream_ttl", c.Cache.UpstreamTTL, 0, 604800},
+		{"query_log.queue_size", c.QueryLog.QueueSize, 1, 100000},
+		{"query_log.max_rows", c.QueryLog.MaxRows, 1, 1000000},
+	} {
+		if limit.value < limit.min || limit.value > limit.max {
+			add(limit.field, "must be %d–%d", limit.min, limit.max)
+		}
 	}
-	if c.QueryLog.QueueSize < 1 || c.QueryLog.QueueSize > 100000 || c.QueryLog.Retention < time.Minute || c.QueryLog.Retention > 365*24*time.Hour || c.QueryLog.MaxRows < 1 || c.QueryLog.MaxRows > 1000000 {
-		return fmt.Errorf("invalid query_log settings")
+	if c.QueryLog.Retention < time.Minute || c.QueryLog.Retention > 365*24*time.Hour {
+		add("query_log.retention", "must be 1 minute to 365 days")
 	}
 	if c.DatabaseDriver == "" {
 		c.DatabaseDriver = "sqlite"
 	}
 	if c.DatabaseDriver != "sqlite" && c.DatabaseDriver != "postgres" {
-		return fmt.Errorf("database_driver must be sqlite or postgres")
+		add("database_driver", "must be sqlite or postgres")
 	}
 	if c.DatabaseDriver == "postgres" && c.DatabaseURL == "" {
-		return fmt.Errorf("database_url is required when database_driver is postgres")
+		add("database_url", "required when database_driver is postgres")
 	}
-	if c.DatabaseDriver == "sqlite" && c.DatabasePath == "" {
-		return fmt.Errorf("database_path cannot be empty for sqlite")
+	if c.DatabaseDriver == "sqlite" {
+		if c.DatabasePath == "" {
+			add("database_path", "cannot be empty for sqlite")
+		} else {
+			check("database_path", safePath(c.DatabasePath))
+		}
 	}
 	if c.HTTP.WebDir == "" {
-		return fmt.Errorf("web_dir cannot be empty")
+		add("http.web_dir", "cannot be empty")
+	} else {
+		check("http.web_dir", safePath(c.HTTP.WebDir))
 	}
 	switch c.LogLevel {
 	case "debug", "info", "warn", "error":
 	default:
-		return fmt.Errorf("invalid log_level")
+		add("log_level", "must be debug, info, warn or error")
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return &ValidationError{Fields: errs}
+}
+
+// safePath rejects values that are not plain filesystem paths.
+func safePath(value string) error {
+	if strings.ContainsAny(value, "\x00\r\n") || strings.Contains(value, "://") || len(value) > 4096 {
+		return fmt.Errorf("must be a plain filesystem path")
+	}
+	for _, segment := range strings.FieldsFunc(value, func(r rune) bool { return r == '/' || r == '\\' }) {
+		if segment == ".." {
+			return fmt.Errorf("must not contain .. segments")
+		}
 	}
 	return nil
 }
+
+func validDomain(value string) bool {
+	value = strings.TrimSuffix(strings.TrimPrefix(strings.ToLower(strings.TrimSpace(value)), "*."), ".")
+	if value == "" || len(value) > 253 {
+		return false
+	}
+	for _, label := range strings.Split(value, ".") {
+		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, r := range label {
+			if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' && r != '_' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+type socket struct {
+	field, network string
+	addr           netip.AddrPort
+}
+
+// listenerConflicts finds listeners that would bind the same port and
+// protocol, including a wildcard address overlapping a specific one.
+func (c Config) listenerConflicts() []FieldError {
+	var sockets []socket
+	addSocket := func(field, value string, networks ...string) {
+		addr, err := netip.ParseAddrPort(value)
+		if err != nil {
+			return
+		}
+		for _, network := range networks {
+			sockets = append(sockets, socket{field: field, network: network, addr: netip.AddrPortFrom(addr.Addr().Unmap(), addr.Port())})
+		}
+	}
+	for i, value := range c.DNS.Listen {
+		addSocket(fmt.Sprintf("dns.listen[%d]", i), value, "udp", "tcp")
+	}
+	addSocket("dns.dot_listen", c.DNS.DoTListen, "tcp")
+	addSocket("dns.doh_listen", c.DNS.DoHListen, "tcp")
+	addSocket("dns.doq_listen", c.DNS.DoQListen, "udp")
+	addSocket("http.listen", c.HTTP.Listen, "tcp")
+	if c.DHCP.Enabled {
+		listen := c.DHCP.Listen
+		if listen == "" {
+			listen = "0.0.0.0:67"
+		}
+		addSocket("dhcp.listen", listen, "udp")
+	}
+	var out []FieldError
+	reported := map[string]bool{}
+	for i, a := range sockets {
+		for _, b := range sockets[:i] {
+			if a.field == b.field || a.network != b.network || a.addr.Port() != b.addr.Port() || reported[a.field+b.field] {
+				continue
+			}
+			sameFamily := a.addr.Addr().Is4() == b.addr.Addr().Is4()
+			overlap := a.addr.Addr() == b.addr.Addr() || (sameFamily && (a.addr.Addr().IsUnspecified() || b.addr.Addr().IsUnspecified()))
+			if overlap {
+				reported[a.field+b.field] = true
+				out = append(out, FieldError{Field: a.field, Message: fmt.Sprintf("%s/%d conflicts with %s (%s)", a.network, a.addr.Port(), b.field, b.addr)})
+			}
+		}
+	}
+	return out
+}
+
 func address(a string, listen bool) error {
 	if !listen {
 		if strings.HasPrefix(a, "https://") {

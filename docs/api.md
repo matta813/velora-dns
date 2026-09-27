@@ -43,7 +43,8 @@ metrics require an authenticated session or scoped API token.
 | GET | /api/v1/cache/entries | Page through cached answers (`limit` 1–200, `offset`); filter with `domain` (case-insensitive substring) and `type` (for example `AAAA`) |
 | POST | /api/v1/cache/invalidate | Remove cached answers for `name`; optional `type` limits it to one record type and `include_subdomains` also removes names below it |
 | GET | /api/v1/config | Current config, excluding database path and secrets |
-| PUT | /api/v1/config | Validate and apply supported live settings, then save atomically; `409 config_requires_restart` lists fields that cannot be applied live |
+| PUT | /api/v1/config | Validate and apply supported live settings, then save atomically; `400 invalid_config` and `409 config_requires_restart` list the affected `fields` |
+| POST | /api/v1/config/validate | Dry run: validate a candidate (same body as PUT) and list field errors and restart-only changes without applying or saving anything |
 | GET | /api/v1/clients | Named clients with 24-hour activity, plus busy unnamed addresses seen recently |
 | POST | /api/v1/clients | Create a client: `name`, `addresses` (1–16 IPs or CIDR networks), optional `group`, `description`, `enabled` |
 | PUT | /api/v1/clients/{id} | Replace a client |
@@ -90,6 +91,31 @@ previous live configuration. Listener addresses, upstreams, TLS settings and
 other fields without a live apply path return `config_requires_restart` with
 field names; the candidate is neither activated nor saved. Change those fields
 in the configuration file and restart the service.
+
+The flow for `PUT /api/v1/config` is: merge the request onto the active
+configuration → validate every field → apply live → check DNS and database
+readiness → save the YAML file atomically (temporary file, then rename) →
+make it the active configuration. Success is reported only after all steps. Any
+failure after apply restores the previous settings
+and reports `config_apply_failed`, `config_not_ready` or `config_save_failed`;
+if the rollback itself fails the response is `config_rollback_failed` and a
+critical system event is raised. Changes are serialized, so concurrent saves
+never interleave.
+
+Validation errors name each field with its configuration path, for example:
+
+```json
+{"error": {"code": "invalid_config", "message": "dns.allowed_clients[1]: invalid client network \"lan\"; …",
+  "fields": [{"field": "dns.allowed_clients[1]", "message": "invalid client network \"lan\"; use CIDR notation such as 192.168.1.0/24"}]}}
+```
+
+Validation covers listen and upstream addresses and ports, client networks,
+allowed hosts, filtering domains, cache, rate-limit and query-log bounds, TLS,
+DNSSEC anchors, database settings and paths (no `..` segments, URLs or control
+characters), and listeners that would bind the same port and protocol — for
+example the web interface on TCP/53 next to a wildcard DNS listener. Actual
+port availability is checked when a restart-only listener change is started
+with the new file; the running service is never torn down by an API request.
 
 System events currently include upstream outage/recovery and configuration
 rollback outcomes. Repeated events with the same key are combined for ten

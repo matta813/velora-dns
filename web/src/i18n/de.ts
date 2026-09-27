@@ -828,6 +828,12 @@ const de: Record<string, string> = {
   "updates.reconnecting": "Velora startet neu. Warte auf die Rückkehr…",
   "updates.keep_open": "Sie können diese Seite offen lassen; sie aktualisiert sich selbst. DNS antwortet bis zum Wechsel mit der laufenden Version.",
   "updates.completed_text": "Das Update ist abgeschlossen und hat die Integritätsprüfungen bestanden. Laden Sie die Seite neu, um die neue Oberfläche zu laden.",
+  "settings.entry": "Eintrag",
+  "settings.fix_fields": "Es wurde nichts geändert. Korrigieren Sie die markierten Felder und versuchen Sie es erneut.",
+  "settings.restart_required": "Es wurde nichts geändert. Die markierten Felder wirken erst nach einem Neustart: Konfigurationsdatei bearbeiten und Velora DNS neu starten.",
+  "settings.restart_field": "Erfordert einen Neustart",
+  "settings.check": "Prüfen",
+  "settings.check_ok": "Diese Einstellungen sind gültig und können ohne Neustart übernommen werden.",
 };
 
 export default de;

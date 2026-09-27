@@ -108,10 +108,17 @@ export interface BlocklistSource {
   consecutive_failures?: number;
   next_update_at?: string | null;
 }
+export interface FieldError {
+  field: string;
+  message: string;
+}
 export class APIError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** Field-level problems, e.g. for invalid configuration. */
+    public fields: FieldError[] = [],
+    public code = "",
   ) {
     super(message);
     this.name = "APIError";
@@ -208,13 +215,17 @@ export async function request<T>(
   });
   if (!response.ok) {
     let message = `Management API returned HTTP ${response.status}`;
+    let fields: FieldError[] = [];
+    let code = "";
     try {
-      const body: { error?: { message?: string } } = await response.json();
+      const body: { error?: { message?: string; code?: string; fields?: FieldError[] } } = await response.json();
       if (typeof body.error?.message === "string") message = body.error.message;
+      if (Array.isArray(body.error?.fields)) fields = body.error.fields;
+      if (typeof body.error?.code === "string") code = body.error.code;
     } catch {
       /* Proxies may return non-JSON error pages. */
     }
-    throw new APIError(response.status, message);
+    throw new APIError(response.status, message, fields, code);
   }
   const body: { data: T } = await response.json();
   return body.data;
@@ -286,6 +297,14 @@ export async function requestUpdate(signal?: AbortSignal): Promise<{ status: str
   });
 }
 
+export interface ConfigCheck {
+  valid: boolean;
+  errors: FieldError[];
+  restart_required: string[];
+}
+export async function validateConfig(config: Config): Promise<ConfigCheck> {
+  return request<ConfigCheck>("/api/v1/config/validate", undefined, "POST", { body: config });
+}
 export async function saveConfig(config: Config, signal?: AbortSignal): Promise<{ status: string; message: string }> {
   return request<{ status: string; message: string }>("/api/v1/config", signal, "PUT", { body: config });
 }
