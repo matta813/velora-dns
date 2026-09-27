@@ -1,8 +1,20 @@
 import { useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { EyeOff, Filter, RefreshCw, SearchX, ShieldBan } from "lucide-react";
 import { request, type QueryLogEntry } from "../api";
 import { useI18n } from "../i18n-context";
+import { Badge } from "../components/Badge";
+import { EmptyState, Loading } from "../components/EmptyState";
+import type { BadgeTone } from "../components/tone";
 const empty = { domain: "", client: "", type: "", source: "" };
+const SOURCES = ["cache", "local", "upstream", "blocked", "refused", "overload"];
+const SOURCE_TONES: Record<string, BadgeTone> = {
+  cache: "info",
+  local: "brand",
+  upstream: "neutral",
+  blocked: "danger",
+  refused: "warning",
+  overload: "warning",
+};
 export function QueryLog({ enabled }: { enabled: boolean }) {
   const { t } = useI18n();
   const [entries, setEntries] = useState<QueryLogEntry[] | null>(null);
@@ -48,18 +60,17 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
   }
   if (!enabled) {
     return (
-      <section className="panel zone-empty large" role="status">
-        <h2>{t("querylog.unavailable_title")}</h2>
-        <p>{t("querylog.unavailable_text")}</p>
+      <section className="panel" role="status">
+        <EmptyState icon={<EyeOff size={22} />} title={t("querylog.unavailable_title")}>
+          {t("querylog.unavailable_text")}
+        </EmptyState>
       </section>
     );
   }
   return (
     <>
       <div className="zones-toolbar">
-        <span className="zone-count">
-          {t("querylog.up_to_100")}
-        </span>
+        <span className="zone-count">{t("querylog.up_to_100")}</span>
         <button className="button" disabled={loading} onClick={() => apply()}>
           <RefreshCw size={15} />
           {t("querylog.refresh")}
@@ -74,7 +85,7 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
             apply();
           }}
         >
-          <div className="form-grid">
+          <div className="form-grid filters">
             <label>
               {t("querylog.domain")}
               <input
@@ -100,11 +111,9 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
                 onChange={(e) => setDraft({ ...draft, type: e.target.value })}
               >
                 <option value="">{t("querylog.all_types")}</option>
-                {["A", "AAAA", "CNAME", "TXT", "MX", "NS", "PTR", "SOA"].map(
-                  (v) => (
-                    <option key={v}>{v}</option>
-                  ),
-                )}
+                {["A", "AAAA", "CNAME", "TXT", "MX", "NS", "PTR", "SOA"].map((v) => (
+                  <option key={v}>{v}</option>
+                ))}
               </select>
             </label>
             <label>
@@ -115,35 +124,32 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
                 onChange={(e) => setDraft({ ...draft, source: e.target.value })}
               >
                 <option value="">{t("querylog.all_sources")}</option>
-                {[
-                  "cache",
-                  "local",
-                  "upstream",
-                  "blocked",
-                  "refused",
-                  "overload",
-                ].map((v) => (
+                {SOURCES.map((v) => (
                   <option key={v}>{v}</option>
                 ))}
               </select>
             </label>
           </div>
-          <button className="button primary" disabled={loading}>
-            {t("querylog.apply_filters")}
-          </button>
-          <button
-            className="button"
-            type="button"
-            disabled={loading}
-            onClick={() => {
-              const blocked = { ...empty, source: "blocked" };
-              setDraft(blocked);
-              setLoading(true);
-              setFilter({ ...blocked, before: "", revision: filter.revision + 1 });
-            }}
-          >
-            {t("querylog.show_blocked")}
-          </button>
+          <div className="form-actions">
+            <button className="button primary" disabled={loading}>
+              <Filter size={15} />
+              {t("querylog.apply_filters")}
+            </button>
+            <button
+              className="button"
+              type="button"
+              disabled={loading}
+              onClick={() => {
+                const blocked = { ...empty, source: "blocked" };
+                setDraft(blocked);
+                setLoading(true);
+                setFilter({ ...blocked, before: "", revision: filter.revision + 1 });
+              }}
+            >
+              <ShieldBan size={15} />
+              {t("querylog.show_blocked")}
+            </button>
+          </div>
         </form>
       </section>
       {error && (
@@ -151,13 +157,16 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
           {error}. {t("querylog.error_stale")}
         </div>
       )}
-      {loading && <p role="status">{t("querylog.loading")}</p>}
+      {loading && (
+        <section className="panel form-panel">
+          <Loading>{t("querylog.loading")}</Loading>
+        </section>
+      )}
       {entries?.length === 0 && !error && !loading && (
-        <section className="panel zone-empty large">
-          <h2>{t("querylog.no_matches")}</h2>
-          <p>
+        <section className="panel">
+          <EmptyState icon={<SearchX size={22} />} title={t("querylog.no_matches")}>
             {t("querylog.no_matches_text")}
-          </p>
+          </EmptyState>
         </section>
       )}
       {Boolean(entries?.length) && (
@@ -167,55 +176,60 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
               <caption className="sr-only">{t("querylog.caption")}</caption>
               <thead>
                 <tr>
-                  {[
-                    t("querylog.col_timestamp"),
-                    t("querylog.col_client"),
-                    t("querylog.col_domain"),
-                    t("querylog.col_type"),
-                    t("querylog.col_source"),
-                    t("querylog.col_response"),
-                    t("querylog.col_latency"),
-                  ].map((v) => (
-                    <th key={v}>{v}</th>
-                  ))}
+                  <th>{t("querylog.col_timestamp")}</th>
+                  <th>{t("querylog.col_client")}</th>
+                  <th>{t("querylog.col_domain")}</th>
+                  <th>{t("querylog.col_type")}</th>
+                  <th>{t("querylog.col_source")}</th>
+                  <th>{t("querylog.col_response")}</th>
+                  <th className="num">{t("querylog.col_latency")}</th>
                 </tr>
               </thead>
               <tbody>
                 {entries?.map((e) => (
                   <tr key={e.id}>
-                    <td>{new Date(e.occurred_at).toLocaleString()}</td>
+                    <td className="cell-muted">{new Date(e.occurred_at).toLocaleString()}</td>
                     <td>
                       <code>{e.client_ip}</code>
                     </td>
                     <td className="record-value">
                       <code>{e.domain}</code>
                     </td>
-                    <td>{e.type}</td>
-                    <td title={e.upstream || undefined}>{e.source}</td>
-                    <td>{e.rcode}</td>
-                    <td>{(e.duration / 1e6).toFixed(2)} ms</td>
+                    <td>
+                      <span className={`record-type type-${e.type}`}>{e.type}</span>
+                    </td>
+                    <td title={e.upstream || undefined}>
+                      <Badge tone={SOURCE_TONES[e.source] ?? "neutral"}>{e.source}</Badge>
+                    </td>
+                    <td>
+                      <span className={e.rcode === "NOERROR" ? "cell-muted" : "danger"}>{e.rcode}</span>
+                    </td>
+                    <td className="num mono">{(e.duration / 1e6).toFixed(2)} ms</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {entries?.length === 100 && (
+            <div className="panel-footer">
+              <span />
+              <button
+                className="button"
+                disabled={loading}
+                onClick={() => {
+                  setLoading(true);
+                  setFilter({
+                    ...filter,
+                    before: String(entries[entries.length - 1].id),
+                    revision: filter.revision + 1,
+                  });
+                }}
+              >
+                {t("querylog.older")}
+              </button>
+            </div>
+          )}
         </section>
-      )}
-      {entries?.length === 100 && (
-        <button
-          className="button"
-          disabled={loading}
-          onClick={() => {
-            setLoading(true);
-            setFilter({
-              ...filter,
-              before: String(entries[entries.length - 1].id),
-              revision: filter.revision + 1,
-            });
-          }}
-        >
-          {t("querylog.older")}
-        </button>
       )}
     </>
   );

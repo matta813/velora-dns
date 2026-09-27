@@ -44,7 +44,7 @@ export function RecordTable({
                 <code>{ownerName(record.name, zone.name)}</code>
               </td>
               <td>
-                <span className="record-type">{record.type}</span>
+                <span className={`record-type type-${record.type}`}>{record.type}</span>
               </td>
               <td className="record-value">
                 <code>

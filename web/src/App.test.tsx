@@ -61,7 +61,7 @@ it("renders server counters from the operational API", async () => {
   expect(screen.getByText("50.0%")).toBeInTheDocument();
   expect(screen.getByText("Resolver online")).toBeInTheDocument();
   expect(screen.getByTestId("running-version")).toHaveTextContent("Velora DNS dev");
-  expect(document.querySelector(".mobile-signout")).toHaveTextContent(
+  expect(document.querySelector(".signout")).toHaveTextContent(
     "Sign out",
   );
 });

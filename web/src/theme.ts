@@ -14,6 +14,7 @@ export function normalizeTheme(theme?: string): Theme {
 export function resolveTheme(theme: Theme): "light" | "dark" {
   if (theme === "auto") {
     return typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
         window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
       : "light";

@@ -1,22 +1,27 @@
 import {
-  Activity,
-  Globe2,
   ArrowUpRight,
-  Database,
-  LayoutDashboard,
-  RefreshCw,
-  Settings2,
-  ShieldCheck,
-  ShieldBan,
-  ScrollText,
-  Download,
-  HardDrive,
-  Network,
-  Server,
-  Stethoscope,
-  ClipboardList,
   Bell,
+  ClipboardList,
+  Database,
+  Download,
+  Globe2,
+  HardDrive,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Moon,
+  Network,
+  RefreshCw,
+  ScrollText,
+  Server,
+  Settings2,
+  ShieldBan,
+  ShieldCheck,
+  Stethoscope,
+  Sun,
+  X,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useSnapshot } from "./useSnapshot";
@@ -33,16 +38,85 @@ import { Cluster } from "./pages/Cluster";
 import { Diagnostics } from "./pages/Diagnostics";
 import { AuditLog } from "./pages/AuditLog";
 import { EventCenter } from "./pages/EventCenter";
+import { Loading } from "./components/EmptyState";
 import { logout, request, type SystemEventPage } from "./api";
 import { useAuthUser } from "./auth-context";
 import { useI18n } from "./i18n-context";
+import { useTheme } from "./theme-context";
+import { resolveTheme } from "./theme";
+
+interface NavItem {
+  to: string;
+  key: string;
+  icon: ReactNode;
+  adminOnly?: boolean;
+}
+
+// Routes grouped the way operators think about them: watch, name, serve, maintain.
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  {
+    label: "app.nav.group_monitor",
+    items: [
+      { to: "/", key: "overview", icon: <LayoutDashboard size={18} /> },
+      { to: "/queries", key: "queries", icon: <ScrollText size={18} /> },
+      { to: "/events", key: "events", icon: <Bell size={18} /> },
+    ],
+  },
+  {
+    label: "app.nav.group_dns",
+    items: [
+      { to: "/zones", key: "zones", icon: <Globe2 size={18} /> },
+      { to: "/blocklists", key: "blocklists", icon: <ShieldBan size={18} /> },
+      { to: "/cache", key: "cache", icon: <Database size={18} /> },
+    ],
+  },
+  {
+    label: "app.nav.group_network",
+    items: [
+      { to: "/dhcp", key: "dhcp", icon: <Network size={18} /> },
+      { to: "/cluster", key: "cluster", icon: <Server size={18} /> },
+    ],
+  },
+  {
+    label: "app.nav.group_system",
+    items: [
+      { to: "/settings", key: "settings", icon: <Settings2 size={18} /> },
+      { to: "/updates", key: "updates", icon: <Download size={18} /> },
+      { to: "/backup", key: "backup", icon: <HardDrive size={18} /> },
+      { to: "/diagnostics", key: "diagnostics", icon: <Stethoscope size={18} /> },
+      { to: "/audit", key: "audit", icon: <ClipboardList size={18} />, adminOnly: true },
+    ],
+  },
+];
+
+const ROUTE_KEYS: Record<string, string> = {
+  "/": "overview",
+  "/events": "events",
+  "/zones": "zones",
+  "/queries": "queries",
+  "/blocklists": "blocklists",
+  "/cache": "cache",
+  "/settings": "settings",
+  "/updates": "updates",
+  "/backup": "backup",
+  "/dhcp": "dhcp",
+  "/cluster": "cluster",
+  "/diagnostics": "diagnostics",
+  "/audit": "audit",
+};
+
+// Pages that manage their own reload controls.
+const SELF_REFRESHING = ["/zones", "/queries", "/blocklists"];
+
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
   const user = useAuthUser();
   const { t } = useI18n();
+  const { theme, setTheme } = useTheme();
   const readOnly = user?.role === "viewer";
   const { pathname } = useLocation();
   const [unreadEvents, setUnreadEvents] = useState(0);
+  const [navOpen, setNavOpen] = useState(false);
   const refreshEvents = useCallback(() => {
     void request<SystemEventPage>("/api/v1/events?limit=1")
       .then((page) => setUnreadEvents(page.unread_count))
@@ -54,119 +128,81 @@ export default function App() {
     const timer = window.setInterval(refreshEvents, 10000);
     return () => window.clearInterval(timer);
   }, [user, refreshEvents]);
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNavOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navOpen]);
   const signOut = () => void logout().then(() => window.location.reload());
-  const title =
-    pathname === "/events"
-      ? t("app.title.events")
-      : pathname === "/zones"
-      ? t("app.title.zones")
-      : pathname === "/queries"
-        ? t("app.title.queries")
-        : pathname === "/blocklists"
-          ? t("app.title.blocklists")
-          : pathname === "/cache"
-            ? t("app.title.cache")
-            : pathname === "/settings"
-              ? t("app.title.settings")
-              : pathname === "/updates"
-                ? t("app.title.updates")
-                : pathname === "/backup"
-                  ? t("app.title.backup")
-                  : pathname === "/dhcp"
-                    ? t("app.title.dhcp")
-                    : pathname === "/cluster"
-                      ? t("app.title.cluster")
-                      : pathname === "/diagnostics"
-                        ? t("app.title.diagnostics")
-                        : pathname === "/audit"
-                          ? t("app.title.audit")
-                      : t("app.title.overview");
+  const routeKey = ROUTE_KEYS[pathname] ?? "overview";
+  const title = t(`app.title.${routeKey}`);
+  const subtitle =
+    routeKey === "overview" ? t("app.subtitle.overview") : t(`app.subtitle.${routeKey}`);
   useEffect(() => {
     document.title = `Velora DNS · ${title}`;
   }, [title]);
+  const dark = resolveTheme(theme) === "dark";
+  const connection = error
+    ? { className: "offline", label: t("app.connection_lost") }
+    : data?.status.ready
+      ? { className: "", label: t("app.resolver_online") }
+      : { className: "pending", label: t("app.connecting") };
+  const closeNav = () => setNavOpen(false);
+
   return (
-    <div className="app">
+    <div className={`app${navOpen ? " nav-open" : ""}`}>
       <a className="skip-link" href="#main">
         {t("app.skip_to_content")}
       </a>
-      <aside className="sidebar">
-        <a className="brand" href="/">
-          <img src="/favicon.svg" width="38" height="38" alt="" />
-          <span>
-            velora<span className="brand-dns">DNS</span>
-          </span>
-        </a>
-        <div className="workspace">
-          <span className="workspace-icon">
-            <Activity size={18} />
-          </span>
-          <div>
-            <strong>{t("app.local_resolver")}</strong>
-            <small>{t("app.self_hosted_foundation")}</small>
-          </div>
+      <aside className="sidebar" id="sidebar">
+        <div className="sidebar-header">
+          <a className="app-brand" href="/">
+            <img src="/favicon.svg" width="30" height="30" alt="" />
+            <span>
+              velora<span className="brand-dns">DNS</span>
+            </span>
+          </a>
+          <button
+            className="icon-button sidebar-close"
+            onClick={closeNav}
+            aria-label={t("app.menu_close")}
+          >
+            <X size={18} />
+          </button>
         </div>
-        <span className="nav-label">{t("app.workspace_label")}</span>
-        <nav aria-label={t("app.nav.main")}>
-          <NavLink to="/" end>
-            <LayoutDashboard size={18} />
-            {t("app.nav.overview")}
-          </NavLink>
-          <NavLink to="/zones">
-            <Globe2 size={18} />
-            {t("app.nav.zones")}
-          </NavLink>
-          <NavLink to="/queries">
-            <ScrollText size={18} />
-            {t("app.nav.queries")}
-          </NavLink>
-          <NavLink to="/blocklists">
-            <ShieldBan size={18} />
-            {t("app.nav.blocklists")}
-          </NavLink>
-          <NavLink to="/cache">
-            <Database size={18} />
-            {t("app.nav.cache")}
-          </NavLink>
-          <NavLink to="/settings">
-            <Settings2 size={18} />
-            {t("app.nav.settings")}
-          </NavLink>
-          <NavLink to="/updates">
-            <Download size={18} />
-            {t("app.nav.updates")}
-          </NavLink>
-          <NavLink to="/backup">
-            <HardDrive size={18} />
-            {t("app.nav.backup")}
-          </NavLink>
-          <NavLink to="/dhcp">
-            <Network size={18} />
-            {t("app.nav.dhcp")}
-          </NavLink>
-          <NavLink to="/cluster">
-            <Server size={18} />
-            {t("app.nav.cluster")}
-          </NavLink>
-          <NavLink to="/diagnostics">
-            <Stethoscope size={18} />
-            {t("app.nav.diagnostics")}
-          </NavLink>
-          <NavLink to="/events">
-            <Bell size={18} />
-            {t("app.nav.events")}
-            {unreadEvents > 0 && <span className="event-count">{unreadEvents}</span>}
-          </NavLink>
-          {user?.role === "admin" && <NavLink to="/audit">
-            <ClipboardList size={18} />
-            {t("app.nav.audit")}
-          </NavLink>}
-        </nav>
-        <button className="button secondary mobile-signout" onClick={signOut}>
-          {t("app.sign_out")}
-        </button>
-        <div className="sidebar-bottom">
+        <div className="sidebar-scroll">
+          <nav aria-label={t("app.nav.main")}>
+            {NAV_GROUPS.map((group) => {
+              const items = group.items.filter(
+                (item) => !item.adminOnly || user?.role === "admin",
+              );
+              return (
+                <div className="nav-group" key={group.label}>
+                  <span className="nav-label">{t(group.label)}</span>
+                  <ul className="nav-list">
+                    {items.map((item) => (
+                      <li key={item.to}>
+                        <NavLink to={item.to} end={item.to === "/"} onClick={closeNav}>
+                          {item.icon}
+                          {t(`app.nav.${item.key}`)}
+                          {item.key === "events" && unreadEvents > 0 && (
+                            <span className="event-count">{unreadEvents}</span>
+                          )}
+                        </NavLink>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </nav>
+        </div>
+        <div className="sidebar-footer">
           <div className="privacy">
-            <ShieldCheck size={18} />
+            <ShieldCheck size={16} />
             <div>
               <strong>{t("app.private_by_default")}</strong>
               <p>
@@ -176,46 +212,81 @@ export default function App() {
               </p>
             </div>
           </div>
-          <a href="https://github.com/matta813/velora-dns">
-            {t("app.github_repo")} <ArrowUpRight size={15} />
-          </a>
-          <button className="button secondary" onClick={signOut}>{t("app.sign_out")}</button>
+          {user && (
+            <div className="user-card">
+              <span className="avatar" aria-hidden="true">
+                {user.username.slice(0, 1)}
+              </span>
+              <div className="user-meta">
+                <strong title={`${t("app.signed_in_as")} ${user.username}`}>{user.username}</strong>
+                <span>{user.role}</span>
+              </div>
+            </div>
+          )}
+          <button className="button signout" onClick={signOut}>
+            <LogOut size={15} />
+            {t("app.sign_out")}
+          </button>
+          <div className="sidebar-links">
+            <a href="https://github.com/matta813/velora-dns">
+              {t("app.github_repo")} <ArrowUpRight size={13} />
+            </a>
+          </div>
         </div>
       </aside>
+      <div className="scrim" onClick={closeNav} aria-hidden="true" />
       <div className="main-wrap">
         <header className="topbar">
-          <span>
-            {t("app.workspace")} <span className="slash">/</span> <strong>{title}</strong>
+          <button
+            className="icon-button menu-button"
+            onClick={() => setNavOpen(true)}
+            aria-label={t("app.menu_open")}
+            aria-controls="sidebar"
+            aria-expanded={navOpen}
+          >
+            <Menu size={20} />
+          </button>
+          <span className="breadcrumb">
+            <span className="crumb-root">{t("app.workspace")}</span>
+            <span className="slash">/</span>
+            <strong>{title}</strong>
           </span>
-          <NavLink to="/events" className="event-entry" aria-label={`${t("app.nav.events")}: ${unreadEvents} ${t("events.unread")}`}>
-            <Bell size={18} />
-            {unreadEvents > 0 && <span className="event-count">{unreadEvents}</span>}
-          </NavLink>
-          <span className={`connection ${error ? "offline" : ""}`}>
-            <i className="dot" />
-            {error
-              ? t("app.connection_lost")
-              : data?.status.ready
-                ? t("app.resolver_online")
-                : t("app.connecting")}
-          </span>
+          <div className="topbar-actions">
+            <span className={`connection ${connection.className}`} title={connection.label}>
+              <i className="dot" />
+              <span className="connection-label">{connection.label}</span>
+            </span>
+            <button
+              className="icon-button"
+              onClick={() => setTheme(dark ? "light" : "dark")}
+              aria-label={dark ? t("app.theme_to_light") : t("app.theme_to_dark")}
+              title={dark ? t("app.theme_to_light") : t("app.theme_to_dark")}
+            >
+              {dark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <NavLink
+              to="/events"
+              className="icon-button event-entry"
+              aria-label={`${t("app.nav.events")}: ${unreadEvents} ${t("events.unread")}`}
+            >
+              <Bell size={18} />
+              {unreadEvents > 0 && <span className="event-count">{unreadEvents}</span>}
+            </NavLink>
+          </div>
         </header>
         <main id="main">
           <div className="page-heading">
             <div>
-              <span className="eyebrow">{t("app.eyebrow")}</span>
               <h1>{title}</h1>
-              <p>
-                {pathname === "/"
-                  ? t("app.subtitle.overview")
-                  : t("app.subtitle.default")}
-              </p>
+              <p>{subtitle}</p>
             </div>
-            {!["/zones", "/queries", "/blocklists"].includes(pathname) && (
-              <button className="button" onClick={refresh}>
-                <RefreshCw size={15} />
-                {t("app.refresh")}
-              </button>
+            {!SELF_REFRESHING.includes(pathname) && (
+              <div className="page-actions">
+                <button className="button" onClick={refresh} aria-label={t("app.refresh")}>
+                  <RefreshCw size={15} />
+                  <span className="label">{t("app.refresh")}</span>
+                </button>
+              </div>
             )}
           </div>
           {error && (
@@ -227,14 +298,14 @@ export default function App() {
             </div>
           )}
           {readOnly && ["/zones", "/blocklists", "/cache"].includes(pathname) && (
-            <div className="notice" role="status">
+            <div className="notice info" role="status">
               {t("app.viewer_readonly")}
             </div>
           )}
           {!data && !error && (
-            <div className="panel padded" role="status">
-              {t("app.connecting_panel")}
-            </div>
+            <section className="panel">
+              <Loading>{t("app.connecting_panel")}</Loading>
+            </section>
           )}
           {data && (
             <Routes>
@@ -258,14 +329,15 @@ export default function App() {
               <Route path="/zones" element={<Zones readOnly={readOnly} />} />
               <Route
                 path="/queries"
-                element={
-                  <QueryLog enabled={data.config.query_log?.enabled ?? false} />
-                }
+                element={<QueryLog enabled={data.config.query_log?.enabled ?? false} />}
               />
               <Route path="/blocklists" element={<Blocklists readOnly={readOnly} />} />
               <Route path="/settings" element={<Settings data={data} />} />
               <Route path="/updates" element={<UpdateCenter readOnly={readOnly} />} />
-              <Route path="/backup" element={<BackupAssistant readOnly={readOnly} canCreate={user?.role === "admin"} />} />
+              <Route
+                path="/backup"
+                element={<BackupAssistant readOnly={readOnly} canCreate={user?.role === "admin"} />}
+              />
               <Route path="/dhcp" element={<DHCP readOnly={readOnly} />} />
               <Route path="/cluster" element={<Cluster />} />
               <Route path="/diagnostics" element={<Diagnostics />} />
@@ -274,9 +346,7 @@ export default function App() {
             </Routes>
           )}
           <footer>
-            <span>
-              {t("app.footer.independent")}
-            </span>
+            <span>{t("app.footer.independent")}</span>
             {data?.status.version?.version && (
               <span className="running-version" data-testid="running-version">
                 Velora DNS {data.status.version.version}

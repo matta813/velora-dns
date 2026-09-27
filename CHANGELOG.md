@@ -4,6 +4,8 @@ All notable changes are documented here. This project uses Semantic Versioning.
 
 ## Unreleased
 
+- Reworked web interface: token-based light/dark design system, grouped navigation with a mobile drawer, theme toggle, and consistent panels, tables, badges and empty states across every page.
+
 - Opt-in bounded query history, filtered API and dashboard, loss metrics and graceful drain.
 
 - Authoritative local zones with transactional SQLite persistence, SOA/NS and CNAME resolution.

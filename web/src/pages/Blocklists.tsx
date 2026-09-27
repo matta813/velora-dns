@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { Plus, RefreshCw, ShieldBan, Trash2, ToggleLeft, ToggleRight, Pencil } from "lucide-react";
+import { Plus, RefreshCw, ShieldBan, Trash2, Pencil } from "lucide-react";
 import { request, type BlocklistSource } from "../api";
 import { useI18n } from "../i18n-context";
+import { Badge } from "../components/Badge";
+import { EmptyState, Loading } from "../components/EmptyState";
 
 export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [sources, setSources] = useState<BlocklistSource[] | null>(null);
   const [name, setName] = useState("");
   const [url, setURL] = useState("");
@@ -133,11 +135,7 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
             : t("blocklists.sources_label")}
         </span>
         <div>
-          <button
-            className="button"
-            onClick={() => void load()}
-            disabled={busy !== null}
-          >
+          <button className="button" onClick={() => void load()} disabled={busy !== null}>
             <RefreshCw size={15} />
             {t("blocklists.reload")}
           </button>
@@ -166,158 +164,42 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
               void add();
             }}
           >
-            <h3>{t("blocklists.add_title")}</h3>
-            <p>
-              {t("blocklists.add_text")}
-            </p>
+            <div>
+              <h3>{t("blocklists.add_title")}</h3>
+              <p>{t("blocklists.add_text")}</p>
+            </div>
             <fieldset disabled={busy !== null}>
-              <label>
-{t("blocklists.name")}
-                <input
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={t("blocklists.community_hosts")}
-                />
-              </label>
-              <label>
-                {t("blocklists.source_url")}
-                <input
-                  required
-                  type="url"
-                  value={url}
-                  onChange={(e) => setURL(e.target.value)}
-                  placeholder="https://example.org/hosts.txt"
-                />
-              </label>
+              <div className="form-grid source-grid">
+                <label>
+                  {t("blocklists.name")}
+                  <input
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={t("blocklists.community_hosts")}
+                  />
+                </label>
+                <label>
+                  {t("blocklists.source_url")}
+                  <input
+                    required
+                    type="url"
+                    value={url}
+                    onChange={(e) => setURL(e.target.value)}
+                    placeholder="https://example.org/hosts.txt"
+                  />
+                </label>
+              </div>
               <div className="form-actions">
                 <button className="button primary">
                   {busy === "new" ? t("blocklists.adding") : t("blocklists.add_source")}
                 </button>
-                <button
-                  type="button"
-                  className="button"
-                  onClick={() => setAdding(false)}
-                >
+                <button type="button" className="button" onClick={() => setAdding(false)}>
                   {t("blocklists.cancel")}
                 </button>
               </div>
             </fieldset>
           </form>
-        </section>
-      )}
-      {sources === null ? (
-        <section className="panel padded" role="status">
-          {t("blocklists.loading")}
-        </section>
-      ) : sources.length === 0 ? (
-        <section className="panel zone-empty large">
-          <ShieldBan size={32} />
-          <h2>{t("blocklists.empty_title")}</h2>
-          <p>
-            {t("blocklists.empty_text")}
-          </p>
-        </section>
-      ) : (
-        <section className="panel">
-          <div className="table-wrap">
-            <table className="records-table">
-              <caption className="sr-only">{t("blocklists.caption")}</caption>
-              <thead>
-                <tr>
-                  <th>{t("blocklists.name")}</th>
-                  <th>{t("blocklists.col_source")}</th>
-                  <th>{t("blocklists.col_domains")}</th>
-                  <th>{t("blocklists.col_status")}</th>
-                  <th>{t("blocklists.col_last_update")}</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {sources.map((source) => (
-                  <tr key={source.id}>
-                    <td>
-                      <strong>{source.name}</strong>
-                    </td>
-                    <td className="record-value">
-                      <code>{source.url || t("blocklists.local")}</code>
-                    </td>
-                    <td>
-                      {source.domain_count ?? source.domains?.length ?? 0}
-                    </td>
-                    <td>
-                      {source.last_error ? (
-                        <span className="notice error">{t("blocklists.update_failed")}</span>
-                      ) : (
-                        <span className="record-type">
-                          {source.enabled ? t("blocklists.active") : t("blocklists.disabled")}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      {source.last_updated_at
-                        ? new Date(source.last_updated_at).toLocaleString()
-                        : t("blocklists.never")}
-                    </td>
-                    <td className="blocklist-actions">
-                      <button
-                        className="button"
-                        title={source.enabled ? t("blocklists.disable") : t("blocklists.enable")}
-                        disabled={busy !== null || readOnly}
-                        onClick={() => void toggleEnabled(source.id, source.enabled)}
-                      >
-                        {source.enabled ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
-                      </button>
-                      {!source.url && (
-                        <button
-                          className="button"
-                          title={t("blocklists.edit_content")}
-                          disabled={busy !== null || readOnly}
-                          onClick={() => void startEditing(source.id)}
-                        >
-                          <Pencil size={14} />
-                        </button>
-                      )}
-                      <button
-                        className="button"
-                        disabled={busy !== null || readOnly}
-                        onClick={() => void refresh(source.id)}
-                      >
-                        <RefreshCw size={14} />
-                        {busy === source.id ? t("blocklists.updating") : t("blocklists.update")}
-                      </button>
-                      {confirmDelete === source.id ? (
-                        <>
-                          <button
-                            className="button danger"
-                            disabled={busy !== null}
-                            onClick={() => void deleteSource(source.id)}
-                          >
-                            {t("blocklists.confirm_delete")}
-                          </button>
-                          <button
-                            className="button"
-                            onClick={() => setConfirmDelete(null)}
-                          >
-                            {t("blocklists.cancel")}
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          className="button"
-                          title={t("blocklists.delete")}
-                          disabled={busy !== null || readOnly}
-                          onClick={() => setConfirmDelete(source.id)}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </section>
       )}
       {editing !== null && (
@@ -330,8 +212,10 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
               void saveContent(editing);
             }}
           >
-            <h3>{t("blocklists.edit_content_title")}</h3>
-            <p>{t("blocklists.edit_content_text")}</p>
+            <div>
+              <h3>{t("blocklists.edit_content_title")}</h3>
+              <p>{t("blocklists.edit_content_text")}</p>
+            </div>
             <fieldset disabled={busy !== null}>
               <label>
                 {t("blocklists.domains_label")}
@@ -346,16 +230,135 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
                 <button className="button primary">
                   {busy === editing ? t("blocklists.saving") : t("blocklists.save")}
                 </button>
-                <button
-                  type="button"
-                  className="button"
-                  onClick={() => setEditing(null)}
-                >
+                <button type="button" className="button" onClick={() => setEditing(null)}>
                   {t("blocklists.cancel")}
                 </button>
               </div>
             </fieldset>
           </form>
+        </section>
+      )}
+      {sources === null ? (
+        <section className="panel">
+          <Loading>{t("blocklists.loading")}</Loading>
+        </section>
+      ) : sources.length === 0 ? (
+        <section className="panel">
+          <EmptyState icon={<ShieldBan size={22} />} title={t("blocklists.empty_title")}>
+            {t("blocklists.empty_text")}
+          </EmptyState>
+        </section>
+      ) : (
+        <section className="panel">
+          <div className="table-wrap">
+            <table className="records-table">
+              <caption className="sr-only">{t("blocklists.caption")}</caption>
+              <thead>
+                <tr>
+                  <th>{t("blocklists.name")}</th>
+                  <th>{t("blocklists.col_source")}</th>
+                  <th className="num">{t("blocklists.col_domains")}</th>
+                  <th>{t("blocklists.col_status")}</th>
+                  <th>{t("blocklists.col_last_update")}</th>
+                  <th>
+                    <span className="sr-only">{t("zones.col_actions")}</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sources.map((source) => (
+                  <tr key={source.id}>
+                    <td>
+                      <span className="endpoint">
+                        <button
+                          className="switch"
+                          role="switch"
+                          aria-checked={source.enabled}
+                          aria-label={`${source.enabled ? t("blocklists.disable") : t("blocklists.enable")}: ${source.name}`}
+                          title={source.enabled ? t("blocklists.disable") : t("blocklists.enable")}
+                          disabled={busy !== null || readOnly}
+                          onClick={() => void toggleEnabled(source.id, source.enabled)}
+                        />
+                        <strong>{source.name}</strong>
+                      </span>
+                    </td>
+                    <td className="record-value">
+                      {source.url ? <code>{source.url}</code> : <Badge tone="neutral" plain>{t("blocklists.local")}</Badge>}
+                    </td>
+                    <td className="num mono">
+                      {(source.domain_count ?? source.domains?.length ?? 0).toLocaleString(language)}
+                    </td>
+                    <td>
+                      {source.last_error ? (
+                        <span title={source.last_error}>
+                          <Badge tone="danger">{t("blocklists.update_failed")}</Badge>
+                        </span>
+                      ) : source.enabled ? (
+                        <Badge tone="success">{t("blocklists.active")}</Badge>
+                      ) : (
+                        <Badge>{t("blocklists.disabled")}</Badge>
+                      )}
+                    </td>
+                    <td className="cell-muted">
+                      {source.last_updated_at
+                        ? new Date(source.last_updated_at).toLocaleString()
+                        : t("blocklists.never")}
+                    </td>
+                    <td>
+                      <div className="blocklist-actions">
+                        {confirmDelete === source.id ? (
+                          <>
+                            <button
+                              className="button danger small"
+                              disabled={busy !== null}
+                              onClick={() => void deleteSource(source.id)}
+                            >
+                              {t("blocklists.confirm_delete")}
+                            </button>
+                            <button className="button ghost small" onClick={() => setConfirmDelete(null)}>
+                              {t("blocklists.cancel")}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {!source.url && (
+                              <button
+                                className="icon-button"
+                                title={t("blocklists.edit_content")}
+                                aria-label={t("blocklists.edit_content")}
+                                disabled={busy !== null || readOnly}
+                                onClick={() => void startEditing(source.id)}
+                              >
+                                <Pencil size={15} />
+                              </button>
+                            )}
+                            <button
+                              className="icon-button"
+                              title={t("blocklists.update")}
+                              aria-label={busy === source.id ? t("blocklists.updating") : t("blocklists.update")}
+                              disabled={busy !== null || readOnly}
+                              onClick={() => void refresh(source.id)}
+                            >
+                              <RefreshCw size={15} className={busy === source.id ? "spin" : undefined} />
+                            </button>
+                            <button
+                              className="icon-button danger-icon"
+                              title={t("blocklists.delete")}
+                              aria-label={t("blocklists.delete")}
+                              disabled={busy !== null || readOnly}
+                              onClick={() => setConfirmDelete(source.id)}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
     </>
