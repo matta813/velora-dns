@@ -20,33 +20,128 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = resolve(__dirname, "../../docs/assets");
 
 const PAGES = {
-  dashboard: {
+  "dashboard": {
     path: "/",
     file: "overview.png",
     label: "Dashboard overview",
     width: 1440,
     height: 1000,
   },
-  queries: {
+  "dashboard-dark": {
+    path: "/",
+    file: "overview-dark.png",
+    label: "Dashboard overview (dark theme)",
+    width: 1440,
+    height: 1000,
+    theme: "dark",
+  },
+  "dashboard-mobile": {
+    path: "/",
+    file: "overview-mobile.png",
+    label: "Dashboard overview (mobile)",
+    width: 390,
+    height: 844,
+  },
+  "navigation-mobile": {
+    path: "/",
+    file: "navigation-mobile.png",
+    label: "Navigation drawer (mobile)",
+    width: 390,
+    height: 844,
+    openNav: true,
+  },
+  "queries": {
     path: "/queries",
     file: "query-log.png",
     label: "Query log",
     width: 1440,
     height: 1000,
   },
-  updates: {
+  "events": {
+    path: "/events",
+    file: "events.png",
+    label: "Event center",
+    width: 1440,
+    height: 1000,
+  },
+  "zones": {
+    path: "/zones",
+    file: "zones.png",
+    label: "Local zone management",
+    width: 1440,
+    height: 1000,
+  },
+  "blocklists": {
+    path: "/blocklists",
+    file: "blocklists.png",
+    label: "Blocklists",
+    width: 1440,
+    height: 1000,
+  },
+  "cache": {
+    path: "/cache",
+    file: "cache.png",
+    label: "DNS cache",
+    width: 1440,
+    height: 1000,
+  },
+  "dhcp": {
+    path: "/dhcp",
+    file: "dhcp.png",
+    label: "DHCP server",
+    width: 1440,
+    height: 1000,
+  },
+  "cluster": {
+    path: "/cluster",
+    file: "cluster.png",
+    label: "Cluster overview",
+    width: 1440,
+    height: 1000,
+  },
+  "settings": {
+    path: "/settings",
+    file: "settings.png",
+    label: "Settings",
+    width: 1440,
+    height: 1000,
+    fullPage: true,
+  },
+  "updates": {
     path: "/updates",
     file: "update-center.png",
     label: "Update Center",
     width: 1440,
     height: 1000,
   },
-  zones: {
-    path: "/zones",
-    file: "zones.png",
-    label: "Local zone management",
+  "backup": {
+    path: "/backup",
+    file: "backup.png",
+    label: "Backup and restore",
     width: 1440,
     height: 1000,
+  },
+  "diagnostics": {
+    path: "/diagnostics",
+    file: "diagnostics.png",
+    label: "Diagnostics",
+    width: 1440,
+    height: 1000,
+  },
+  "audit": {
+    path: "/audit",
+    file: "audit-log.png",
+    label: "Audit log",
+    width: 1440,
+    height: 1000,
+  },
+  "login": {
+    path: "/",
+    file: "sign-in.png",
+    label: "Sign-in screen",
+    width: 1440,
+    height: 1000,
+    signedOut: true,
   },
 };
 
@@ -93,6 +188,43 @@ const demoQueries = [
   { id: 1, occurred_at: "2026-09-21T12:02:51Z", client_ip: "192.0.2.33", domain: "example.org", type: "MX", rcode: "NOERROR", duration: 18300000, source: "upstream", upstream: "9.9.9.9:53", cache_hit: false },
 ];
 
+const hoursFromNow = (hours) => new Date(Date.now() + hours * 3600000).toISOString();
+
+const demoEvents = [
+  { id: 3, severity: "warning", title: "Blocklist refresh failed", message: "Community hosts returned HTTP 503. The previous copy stays active.", occurred_at: "2026-09-21T11:00:00Z", read: false, repeat_count: 2, link: "/blocklists" },
+  { id: 2, severity: "info", title: "Update installed", message: "Velora DNS 0.1.0-beta.10 passed its readiness check.", occurred_at: "2026-09-20T20:52:46Z", read: true, repeat_count: 1, link: "/updates" },
+  { id: 1, severity: "critical", title: "Upstream unavailable", message: "9.9.9.9:53 failed five consecutive health checks and recovered.", occurred_at: "2026-09-19T08:14:00Z", read: true, repeat_count: 1 },
+];
+
+const demoBlocklists = [
+  { id: 1, name: "Community hosts", url: "https://example.org/hosts.txt", enabled: true, domain_count: 84213, last_updated_at: "2026-09-21T10:00:00Z" },
+  { id: 2, name: "Local overrides", url: "", enabled: true, domain_count: 12, last_updated_at: "2026-09-18T09:30:00Z" },
+  { id: 3, name: "Tracker list", url: "https://example.net/trackers.txt", enabled: false, domain_count: 5120, last_updated_at: "2026-09-12T06:00:00Z" },
+];
+
+const demoCacheEntries = [
+  { name: "docs.example.", type: "A", remaining_ttl: 240, rcode: "NOERROR", answers: ["docs.example. 300 IN A 192.0.2.10"] },
+  { name: "example.org.", type: "AAAA", remaining_ttl: 61, rcode: "NOERROR", answers: ["example.org. 300 IN AAAA 2001:db8::10"] },
+  { name: "mail.example.org.", type: "MX", remaining_ttl: 1810, rcode: "NOERROR", answers: ["example.org. 3600 IN MX 10 mail.example.org."] },
+  { name: "missing.example.", type: "A", remaining_ttl: 30, rcode: "NXDOMAIN", answers: [] },
+];
+
+const demoLeases = [
+  { id: 1, pool_id: 1, mac_address: "00:00:5e:00:53:01", ip_address: "198.51.100.50", hostname: "laptop", expires_at: hoursFromNow(19), status: "active" },
+  { id: 2, pool_id: 1, mac_address: "00:00:5e:00:53:02", ip_address: "198.51.100.51", hostname: "printer", expires_at: hoursFromNow(6), status: "active" },
+];
+
+const demoNodes = [
+  { id: "a1b2c3d4e5f60718", name: "velora-1", address: "192.0.2.2:8080", status: "healthy", version: "0.1.0-beta.11", last_seen_at: hoursFromNow(0) },
+  { id: "f6e5d4c3b2a10987", name: "velora-2", address: "192.0.2.3:8080", status: "healthy", version: "0.1.0-beta.11", last_seen_at: hoursFromNow(0) },
+];
+
+const demoAudit = [
+  { id: 3, occurred_at: "2026-09-21T12:00:00Z", actor: "demo-admin", role: "admin", action: "zone.record.update", target: "/api/v1/zones/1/records/2", result: "success", status_code: 200 },
+  { id: 2, occurred_at: "2026-09-21T11:42:00Z", actor: "demo-admin", role: "admin", action: "blocklist.update", target: "/api/v1/blocklists/1/update", result: "success", status_code: 202 },
+  { id: 1, occurred_at: "2026-09-21T10:05:00Z", actor: "demo-viewer", role: "viewer", action: "cache.flush", target: "/api/v1/cache", result: "failure", status_code: 403 },
+];
+
 function demoResponse(pathname) {
   if (pathname === "/api/v1/auth/me") return { username: "demo-admin", role: "admin", csrf_token: "screenshot-only" };
   if (pathname === "/api/v1/preferences") return { language: "en", theme: "light" };
@@ -105,6 +237,19 @@ function demoResponse(pathname) {
   if (pathname === "/api/v1/queries") return demoQueries;
   if (pathname === "/api/v1/update/status") return { state: "completed", installed: "0.1.0-beta.10", last_completed: "2026-09-20T20:52:46Z", updating: false };
   if (pathname === "/api/v1/update/history") return [{ id: "demo-update", started_at: "2026-09-20T20:50:02Z", completed_at: "2026-09-20T20:52:46Z", from_version: "0.1.0-beta.9", to_version: "0.1.0-beta.10", channel: "beta", state: "completed", readiness_ok: true, rollback_used: false, deployment_mode: "compose" }];
+  if (pathname === "/api/v1/upstreams/health") return [{ address: "1.1.1.1:53", state: "healthy", consecutive_failures: 0, latency_milliseconds: 12.4 }, { address: "9.9.9.9:53", state: "healthy", consecutive_failures: 0, latency_milliseconds: 18.1 }];
+  if (pathname === "/api/v1/events") return { unread_count: 1, events: demoEvents };
+  if (pathname === "/api/v1/blocklists") return demoBlocklists;
+  if (pathname === "/api/v1/cache/entries") return { total: demoCacheEntries.length, entries: demoCacheEntries };
+  if (pathname === "/api/v1/settings/rate-limit") return { enabled: true, global_qps: 1000, client_qps: 50, rate_limit_burst: 100 };
+  if (pathname === "/api/v1/settings/rate-limit/status") return { rejected_total: 14, last_rejected_at: "2026-09-21T11:30:00Z" };
+  if (pathname === "/api/v1/backup/status") return { supported: true, last_backup_time: "2026-09-21T02:00:00Z", backup_age: "10h", verification_state: "verified", database_path: "/var/lib/velora/velora.db" };
+  if (pathname === "/api/v1/dhcp/pools") return [{ id: 1, name: "lan", interface: "eth0", subnet: "198.51.100.0/24", gateway: "198.51.100.1", dns_servers: ["198.51.100.2"], lease_seconds: 86400, enabled: true }];
+  if (pathname === "/api/v1/dhcp/leases") return demoLeases;
+  if (pathname === "/api/v1/cluster/nodes") return demoNodes;
+  if (pathname === "/api/v1/cluster/config-versions") return [{ version: 7, config_hash: "9f8e7d6c5b4a3928", applied_by: "demo-admin", applied_at: "2026-09-21T09:00:00Z" }, { version: 6, config_hash: "1a2b3c4d5e6f7081", applied_by: "demo-admin", applied_at: "2026-09-20T15:12:00Z" }];
+  if (pathname === "/api/v1/diagnostics") return { generated_at: "2026-09-21T12:00:00Z", version: { version: "0.1.0-beta.11", commit: "demo", built: "2026-09-21T12:00:00Z" }, os: "linux", architecture: "amd64", uptime_seconds: 47232, state: "healthy", components: [{ name: "dns_listener", state: "healthy", detail: "127.0.0.1:53 udp/tcp" }, { name: "upstreams", state: "healthy", detail: "2 of 2 reachable" }, { name: "database", state: "healthy", detail: "SQLite schema up to date" }, { name: "query_log", state: "healthy", detail: "Queue drained" }], upstream_count: 2, query_log_enabled: true };
+  if (pathname === "/api/v1/audit") return demoAudit;
   if (pathname === "/api/v1/update/check") return { installed_version: "0.1.0-beta.10", latest_version: "0.1.0-beta.11", update_available: true, channel: "beta", release_date: "2026-09-21T17:30:36Z", release_notes: "UI-driven updates, safer rollback, and refreshed operations tooling.", architecture: "linux/amd64", download_size: 24117248 };
   return null;
 }
@@ -175,17 +320,23 @@ async function capturePage(browser, pageName) {
 
   await page.route("**/api/v1/**", async (route) => {
     const pathname = new URL(route.request().url()).pathname;
-    const data = demoResponse(pathname);
+    if (config.signedOut && pathname === "/api/v1/auth/me") {
+      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: { message: "Sign in required" } }) });
+      return;
+    }
+    const data = pathname === "/api/v1/preferences"
+      ? { language: "en", theme: config.theme ?? "light" }
+      : demoResponse(pathname);
     if (data === null) {
       await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: { message: `No screenshot fixture for ${pathname}` } }) });
       return;
     }
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data }) });
   });
-  await page.addInitScript(() => {
+  await page.addInitScript((theme) => {
     localStorage.setItem("velora_language", "en");
-    localStorage.setItem("velora_theme", "light");
-  });
+    localStorage.setItem("velora_theme", theme);
+  }, config.theme ?? "light");
 
   try {
     await page.goto(`${baseUrl}${config.path}`, {
@@ -194,9 +345,13 @@ async function capturePage(browser, pageName) {
     });
     await page.locator("main").waitFor();
     await page.waitForTimeout(500);
+    if (config.openNav) {
+      await page.click(".menu-button");
+      await page.waitForTimeout(400);
+    }
 
     const outputPath = resolve(ASSETS_DIR, config.file);
-    await page.screenshot({ path: outputPath, fullPage: false });
+    await page.screenshot({ path: outputPath, fullPage: Boolean(config.fullPage) });
     console.log(`  ${config.label} -> ${config.file}`);
     return true;
   } catch (err) {
