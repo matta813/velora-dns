@@ -134,6 +134,13 @@ const demoAudit = [
 ];
 
 export function demoResponse(pathname) {
+  if (pathname === "/api/v1/search") return [
+    { kind: "zone", title: "home.arpa", subtitle: "ns.home.arpa", link: "/zones?zone=1" },
+    { kind: "record", title: "nas.home.arpa A", subtitle: "192.0.2.20", link: "/zones?zone=1" },
+    { kind: "record", title: "router.home.arpa A", subtitle: "192.0.2.1", link: "/zones?zone=1" },
+    { kind: "client", title: "Home Assistant", subtitle: "192.0.2.21, 2001:db8::21", link: "/clients?name=Home+Assistant" },
+    { kind: "rewrite", title: "nas.home.arpa A", subtitle: "192.0.2.20", link: "/rewrites?q=nas.home.arpa" },
+  ];
   if (pathname === "/api/v1/auth/me") return { username: "demo-admin", role: "admin", csrf_token: "screenshot-only" };
   if (pathname === "/api/v1/preferences") return { language: "en", theme: "light" };
   if (pathname === "/api/v1/status") return { ready: true, uptime_seconds: 47232, dns_listen: ["127.0.0.1:53"], version: { version: "0.1.0-beta.11", commit: "demo", built: "2026-09-21T12:00:00Z" }, capabilities: [] };

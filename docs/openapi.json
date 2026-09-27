@@ -3797,6 +3797,57 @@
         }
       }
     },
+    "/api/v1/search": {
+      "get": {
+        "operationId": "get_search",
+        "summary": "Get search",
+        "tags": [
+          "search"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SearchResult"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
     "/api/v1/settings/rate-limit": {
       "get": {
         "operationId": "get_settings_rate_limit",
@@ -6555,6 +6606,37 @@
         "required": [
           "state",
           "metadata"
+        ]
+      },
+      "SearchResult": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "zone",
+              "record",
+              "client",
+              "rewrite",
+              "forwarding",
+              "blocklist"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string",
+            "description": "Web interface path"
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "link"
         ]
       },
       "ConfigCheck": {

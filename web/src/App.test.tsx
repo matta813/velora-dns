@@ -3,6 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
 import { withI18n } from "./test-i18n";
+import { AuthUserContext } from "./auth-context";
 afterEach(() => {
   vi.unstubAllGlobals();
   document.title = "";
@@ -223,4 +224,41 @@ it("moves focus to the page heading after navigation", async () => {
   fireEvent.click(await screen.findByRole("link", { name: "Query log" }));
   await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toHaveFocus());
   expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Query log");
+});
+
+function renderAs(role: "admin" | "viewer") {
+  stubEmptyApi();
+  render(
+    <MemoryRouter>
+      <AuthUserContext.Provider value={{ username: "demo", role, csrf_token: "x" }}>{withI18n(<App />)}</AuthUserContext.Provider>
+    </MemoryRouter>,
+  );
+}
+
+it("opens the command palette with Ctrl+K and offers role-appropriate actions", async () => {
+  renderAs("admin");
+  fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+  const input = await screen.findByRole("combobox");
+  expect(input).toHaveFocus();
+  expect(screen.getByRole("option", { name: /Add a client/ })).toBeInTheDocument();
+  expect(screen.getByRole("option", { name: /Create a backup/ })).toBeInTheDocument();
+  expect(screen.getByRole("option", { name: /Audit log/ })).toBeInTheDocument();
+  fireEvent.change(input, { target: { value: "query log" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await waitFor(() => expect(screen.queryByRole("combobox")).not.toBeInTheDocument());
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Query log");
+  fireEvent.keyDown(window, { key: "k", metaKey: true });
+  expect(await screen.findByRole("combobox")).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "k", metaKey: true });
+  await waitFor(() => expect(screen.queryByRole("combobox")).not.toBeInTheDocument());
+});
+
+it("gives viewers no write shortcuts or admin pages in the palette", async () => {
+  renderAs("viewer");
+  fireEvent.click(await screen.findByRole("button", { name: "Search" }));
+  await screen.findByRole("combobox");
+  expect(screen.queryByRole("option", { name: /Add a client/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("option", { name: /Create a backup/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("option", { name: /Audit log/ })).not.toBeInTheDocument();
+  expect(screen.getByRole("option", { name: /Check for updates/ })).toBeInTheDocument();
 });

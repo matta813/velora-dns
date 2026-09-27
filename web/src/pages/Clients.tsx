@@ -26,7 +26,8 @@ export function Clients({ readOnly = false, queryLogging = true }: { readOnly?: 
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [editor, setEditor] = useState<Editor | null>(null);
+  // ?new=1 opens the add form (quick action in the command palette).
+  const [editor, setEditor] = useState<Editor | null>(() => (params.get("new") === "1" && !readOnly ? { ...blank } : null));
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {

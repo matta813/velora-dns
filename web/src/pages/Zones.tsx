@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Globe2, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { useZones } from "../zones/useZones";
 import { ZoneForm } from "../zones/ZoneForm";
@@ -11,7 +12,9 @@ import "../zones/zones.css";
 export function Zones({ readOnly = false }: { readOnly?: boolean }) {
   const { t } = useI18n();
   const state = useZones();
-  const [selectedID, setSelectedID] = useState<number | null>(null);
+  const [params] = useSearchParams();
+  // ?zone=<id> preselects a zone (links from search and the command palette).
+  const [selectedID, setSelectedID] = useState<number | null>(() => Number(params.get("zone")) || null);
   const [creating, setCreating] = useState(false);
   const [editor, setEditor] = useState<{
     zone: Zone;

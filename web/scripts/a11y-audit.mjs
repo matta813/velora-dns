@@ -116,6 +116,20 @@ for (const theme of themes) for (const viewport of VIEWPORTS) {
       if (focus) findings.push(`focus not visible: ${focus}`);
     }
 
+    // The command palette is a modal dialog; audit it open on the overview.
+    if (path === "/") {
+      await page.keyboard.press("Control+K");
+      await page.getByRole("combobox").waitFor();
+      await page.keyboard.type("home");
+      await page.waitForTimeout(400);
+      const palette = await page.evaluate(async () => {
+        const result = await globalThis.axe.run(document.querySelector(".palette"), { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] } });
+        return result.violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.slice(0, 3).map((n) => n.target.join(" ")).join(" | ")}`);
+      });
+      findings.push(...palette.map((v) => `palette axe ${v}`));
+      await page.keyboard.press("Escape");
+    }
+
     const unique = [...new Set(findings)];
     if (unique.length) {
       problems += unique.length;

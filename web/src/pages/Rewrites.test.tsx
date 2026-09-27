@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import { Rewrites } from "./Rewrites";
 import { withI18n } from "../test-i18n";
@@ -23,7 +24,7 @@ function stubFetch(list: unknown = rewrites) {
 
 it("lists rewrites with precedence hints", async () => {
   stubFetch();
-  render(withI18n(<Rewrites />));
+  render(<MemoryRouter>{withI18n(<Rewrites />)}</MemoryRouter>);
   expect(await screen.findByText("nas.home")).toBeInTheDocument();
   expect(screen.getByText("Overrides local zone: home")).toBeInTheDocument();
   expect(screen.getByText("Blocked first by a blocklist")).toBeInTheDocument();
@@ -32,7 +33,7 @@ it("lists rewrites with precedence hints", async () => {
 
 it("filters by name or answer", async () => {
   stubFetch();
-  render(withI18n(<Rewrites />));
+  render(<MemoryRouter>{withI18n(<Rewrites />)}</MemoryRouter>);
   await screen.findByText("nas.home");
   fireEvent.change(screen.getByPlaceholderText("Filter rewrites"), { target: { value: "2001:db8" } });
   expect(screen.queryByText("nas.home")).not.toBeInTheDocument();
@@ -41,7 +42,7 @@ it("filters by name or answer", async () => {
 
 it("creates a CNAME rewrite", async () => {
   const fetch = stubFetch();
-  render(withI18n(<Rewrites />));
+  render(<MemoryRouter>{withI18n(<Rewrites />)}</MemoryRouter>);
   await screen.findByText("nas.home");
   fireEvent.click(screen.getByRole("button", { name: "Add rewrite" }));
   fireEvent.change(screen.getByLabelText("Name"), { target: { value: " docs.home " } });
@@ -59,11 +60,22 @@ it("creates a CNAME rewrite", async () => {
 it("confirms before deleting and stays read-only for viewers", async () => {
   const fetch = stubFetch();
   vi.stubGlobal("confirm", vi.fn().mockReturnValue(false));
-  const { unmount } = render(withI18n(<Rewrites />));
+  const { unmount } = render(<MemoryRouter>{withI18n(<Rewrites />)}</MemoryRouter>);
   fireEvent.click(await screen.findByLabelText("Delete nas.home A"));
   expect(fetch.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
   unmount();
-  render(withI18n(<Rewrites readOnly />));
+  render(<MemoryRouter>{withI18n(<Rewrites readOnly />)}</MemoryRouter>);
   expect(await screen.findByLabelText("Delete nas.home A")).toBeDisabled();
   expect(screen.getByRole("button", { name: "Add rewrite" })).toBeDisabled();
+});
+
+it("starts filtered when opened from search", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: true, json: async () => ({ data: [
+    { id: 1, name: "nas.home.arpa", type: "A", value: "192.0.2.20", enabled: true, description: "" },
+    { id: 2, name: "tv.home.arpa", type: "A", value: "192.0.2.30", enabled: true, description: "" },
+  ] }) })));
+  render(<MemoryRouter initialEntries={["/rewrites?q=nas"]}>{withI18n(<Rewrites />)}</MemoryRouter>);
+  expect(await screen.findByText("nas.home.arpa")).toBeInTheDocument();
+  expect(screen.queryByText("tv.home.arpa")).not.toBeInTheDocument();
+  expect(screen.getByRole("searchbox")).toHaveValue("nas");
 });

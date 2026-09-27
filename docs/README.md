@@ -13,6 +13,7 @@
 - [Clients and devices](clients.md)
 - [Per-client filtering policies](policies.md)
 - [Webhook notifications](webhooks.md)
+- [Command palette and keyboard shortcuts](command-palette.md)
 - [Local DNS rewrites](rewrites.md)
 - [Conditional forwarding and query precedence](forwarding.md)
 - [Query history, retention and filters](query-logging.md)
@@ -51,6 +52,7 @@ and contain no credentials, tokens, or production data.
 | `blocklists.png` | Blocklist sources with enable switches and status |
 | `cache.png` | Cache usage and live cache entries |
 | `clients.png` | Named clients with activity and unnamed addresses |
+| `command-palette.png` | Command palette with page, action and resource results |
 | `analytics.png` | Analytics: queries over time, response times and breakdowns |
 | `policies.png` | Per-client filtering policies |
 | `webhooks.png` | Webhook destinations with delivery status |

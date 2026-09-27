@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Pencil, Plus, RefreshCw, Replace, Search, Trash2 } from "lucide-react";
 import {
   createRewrite,
@@ -26,7 +27,8 @@ export function Rewrites({ readOnly = false }: { readOnly?: boolean }) {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
-  const [filter, setFilter] = useState("");
+  const [params] = useSearchParams();
+  const [filter, setFilter] = useState(() => params.get("q") ?? "");
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
