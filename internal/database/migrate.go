@@ -71,6 +71,7 @@ func (s *Store) adaptMigration(sql string) string {
 	// Rewrite SQLite integer booleans to PostgreSQL BOOLEAN columns.
 	sql = strings.ReplaceAll(sql, "enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1))", "enabled BOOLEAN NOT NULL DEFAULT true CHECK(enabled IN (false, true))")
 	sql = strings.ReplaceAll(sql, "disabled INTEGER NOT NULL DEFAULT 0 CHECK(disabled IN (0, 1))", "disabled BOOLEAN NOT NULL DEFAULT false CHECK(disabled IN (false, true))")
+	sql = strings.ReplaceAll(sql, "allow_private INTEGER NOT NULL DEFAULT 0 CHECK(allow_private IN (0,1))", "allow_private BOOLEAN NOT NULL DEFAULT false")
 	sql = strings.ReplaceAll(sql, "cache_hit INTEGER NOT NULL DEFAULT 0", "cache_hit BOOLEAN NOT NULL DEFAULT false")
 	return sql
 }

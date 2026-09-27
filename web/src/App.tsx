@@ -20,6 +20,7 @@ import {
   Settings2,
   ShieldBan,
   ShieldCheck,
+  Webhook as WebhookIcon,
   Stethoscope,
   Sun,
   X,
@@ -44,6 +45,7 @@ import { DHCP } from "./pages/DHCP";
 import { Cluster } from "./pages/Cluster";
 import { Diagnostics } from "./pages/Diagnostics";
 import { AuditLog } from "./pages/AuditLog";
+import { Webhooks } from "./pages/Webhooks";
 import { EventCenter } from "./pages/EventCenter";
 import { Loading } from "./components/EmptyState";
 import { logout, request, type SystemEventPage } from "./api";
@@ -96,6 +98,7 @@ const NAV: (NavItem | NavGroup)[] = [
       { to: "/backup", key: "backup", icon: <HardDrive size={16} /> },
       { to: "/diagnostics", key: "diagnostics", icon: <Stethoscope size={16} /> },
       { to: "/events", key: "events", icon: <Bell size={16} /> },
+      { to: "/webhooks", key: "webhooks", icon: <WebhookIcon size={16} />, adminOnly: true },
       { to: "/audit", key: "audit", icon: <ClipboardList size={16} />, adminOnly: true },
     ],
   },
@@ -125,10 +128,11 @@ const ROUTE_KEYS: Record<string, string> = {
   "/cluster": "cluster",
   "/diagnostics": "diagnostics",
   "/audit": "audit",
+  "/webhooks": "webhooks",
 };
 
 // Pages that manage their own reload controls.
-const SELF_REFRESHING = ["/zones", "/queries", "/blocklists", "/forwarding", "/rewrites", "/clients", "/policies"];
+const SELF_REFRESHING = ["/zones", "/queries", "/blocklists", "/forwarding", "/rewrites", "/clients", "/policies", "/webhooks"];
 
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
@@ -373,6 +377,7 @@ export default function App() {
               <Route path="/cluster" element={<Cluster />} />
               <Route path="/diagnostics" element={<Diagnostics />} />
               <Route path="/audit" element={<AuditLog />} />
+              <Route path="/webhooks" element={<Webhooks />} />
               <Route path="*" element={<p>{t("app.not_found")}</p>} />
             </Routes>
           )}

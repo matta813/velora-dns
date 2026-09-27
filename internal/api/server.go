@@ -68,6 +68,7 @@ type Dependencies struct {
 	Clients        ClientStore
 	Activity       ActivityStore
 	Policies       PolicyStore
+	Webhooks       WebhookStore
 	ApplyConfig    func(config.Config) error
 }
 type Error struct {
@@ -142,6 +143,10 @@ func New(d Dependencies) http.Handler {
 		registerClients(mux, d.Clients, d.Activity, queryLogging)
 		clientName = d.Clients.Name
 		capabilities = append(capabilities, "clients")
+	}
+	if d.Webhooks != nil {
+		registerWebhooks(mux, d.Webhooks)
+		capabilities = append(capabilities, "webhooks")
 	}
 	if d.Policies != nil {
 		registerPolicies(mux, d.Policies, d.Clients, d.Filtering)
@@ -291,7 +296,7 @@ func New(d Dependencies) http.Handler {
 	mux.HandleFunc("PUT /api/v1/config", func(w http.ResponseWriter, r *http.Request) {
 		notifyRollback := func(severity, message string) {
 			if d.NotifyEvent != nil {
-				d.NotifyEvent(database.SystemEventInput{Key: "configuration_rollback", Severity: severity, Title: "Configuration rollback", Message: message, Link: "/settings", Visibility: "admin"})
+				d.NotifyEvent(database.SystemEventInput{Type: "config.rollback", Key: "configuration_rollback", Severity: severity, Title: "Configuration rollback", Message: message, Link: "/settings", Visibility: "admin"})
 			}
 		}
 		cfgWriteMu.Lock()
@@ -429,7 +434,7 @@ func New(d Dependencies) http.Handler {
 			token, isToken := r.Context().Value(tokenContextKey{}).(database.APIToken)
 			tokenScopes := token.Scopes
 			unsafe := r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
-			if (strings.HasPrefix(r.URL.Path, "/api/v1/users") || r.URL.Path == "/api/v1/audit" || r.URL.Path == "/api/v1/stats/reset" || r.URL.Path == "/api/v1/backup/create") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
+			if (strings.HasPrefix(r.URL.Path, "/api/v1/users") || strings.HasPrefix(r.URL.Path, "/api/v1/webhooks") || r.URL.Path == "/api/v1/audit" || r.URL.Path == "/api/v1/stats/reset" || r.URL.Path == "/api/v1/backup/create") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
 				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
 				return
 			}
