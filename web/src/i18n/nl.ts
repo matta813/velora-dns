@@ -819,6 +819,7 @@ const nl: Record<string, string> = {
   "restore.state_applied": "Terugzetten toegepast; wachten op gereedheid.",
   "restore.state_pending": "Terugzetten gepland.",
   "restore.passphrase": "Wachtwoordzin van de back-up",
+  "app.scrollable_table": "horizontaal scrollbaar",
 };
 
 export default nl;

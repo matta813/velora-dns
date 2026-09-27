@@ -176,3 +176,51 @@ it.each([
   await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(endpoint, expect.anything()));
   expect(await screen.findByText(new RegExp(emptyState))).toBeInTheDocument();
 });
+
+function stubEmptyApi() {
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+}
+
+it("opens navigation dropdowns from the keyboard and returns focus on Escape", async () => {
+  stubEmptyApi();
+  render(<MemoryRouter>{withI18n(<App />)}</MemoryRouter>);
+  const toggle = await screen.findByRole("button", { name: /^DNS/ });
+  toggle.focus();
+  fireEvent.keyDown(toggle, { key: "ArrowDown" });
+  const first = await screen.findByRole("link", { name: "Local zones" });
+  await waitFor(() => expect(first).toHaveFocus());
+  fireEvent.keyDown(first, { key: "ArrowDown" });
+  expect(screen.getByRole("link", { name: "Blocklists" })).toHaveFocus();
+  fireEvent.keyDown(document.activeElement!, { key: "End" });
+  expect(screen.getByRole("link", { name: "DNS cache" })).toHaveFocus();
+  fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
+  expect(first).toHaveFocus();
+  fireEvent.keyDown(first, { key: "Escape" });
+  expect(toggle).toHaveFocus();
+  expect(screen.queryByRole("link", { name: "Local zones" })).not.toBeInTheDocument();
+});
+
+it("traps focus in the mobile menu and closes it with Escape", async () => {
+  stubEmptyApi();
+  render(<MemoryRouter>{withI18n(<App />)}</MemoryRouter>);
+  const menuButton = await screen.findByRole("button", { name: "Open navigation" });
+  fireEvent.click(menuButton);
+  const nav = screen.getByRole("navigation", { name: /main/i });
+  const links = nav.querySelectorAll<HTMLElement>("a[href], button");
+  await waitFor(() => expect(links[0]).toHaveFocus());
+  links[links.length - 1].focus();
+  fireEvent.keyDown(window, { key: "Tab" });
+  expect(screen.getByRole("button", { name: "Close navigation" })).toHaveFocus();
+  fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+  expect(links[links.length - 1]).toHaveFocus();
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(screen.getByRole("button", { name: "Open navigation" })).toHaveFocus();
+});
+
+it("moves focus to the page heading after navigation", async () => {
+  stubEmptyApi();
+  render(<MemoryRouter>{withI18n(<App />)}</MemoryRouter>);
+  fireEvent.click(await screen.findByRole("link", { name: "Query log" }));
+  await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toHaveFocus());
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Query log");
+});

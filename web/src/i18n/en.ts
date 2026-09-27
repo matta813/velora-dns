@@ -869,6 +869,7 @@ const en: Record<string, string> = {
   "restore.state_applied": "Restore applied; waiting for readiness.",
   "restore.state_pending": "Restore scheduled.",
   "restore.passphrase": "Backup passphrase",
+  "app.scrollable_table": "scrolls sideways",
 };
 
 export default en;

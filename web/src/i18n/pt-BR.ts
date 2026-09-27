@@ -819,6 +819,7 @@ const pt_BR: Record<string, string> = {
   "restore.state_applied": "Restauração aplicada; aguardando prontidão.",
   "restore.state_pending": "Restauração agendada.",
   "restore.passphrase": "Frase-senha do backup",
+  "app.scrollable_table": "rola na horizontal",
 };
 
 export default pt_BR;

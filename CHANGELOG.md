@@ -4,6 +4,7 @@ All notable changes are documented here. This project uses Semantic Versioning.
 
 ## Unreleased
 
+- Accessibility and mobile: WCAG AA contrast in light and dark themes, 24 px minimum targets (40 px on touch screens), no horizontal page scrolling on phones, keyboard-operable navigation dropdowns, a focus-trapped mobile menu, focus moved to the page heading on navigation, focusable scrollable tables and the document language set for screen readers; a repeatable axe-core audit script covers every page (#251).
 - Restore from the web interface: upload and check an encrypted backup (metadata, contents, compatibility warnings) without changing anything, then confirm to restart and apply it with a safety copy; the restored start is confirmed once ready and rolled back automatically if it never gets there (#172).
 - Configuration validation reports every invalid field with its path (API `fields`, highlighted in Settings), detects conflicting listeners, rejects unsafe paths and invalid filtering domains, and offers a dry-run `POST /api/v1/config/validate`; tests cover rollback failure, readiness rollback and concurrent changes (#175).
 - Simpler Updates page: one Check for updates button, an Update button only when a newer version exists, live progress through the restart, clear errors, the new version shown on completion, and a server-side guard against concurrent update requests (#244).

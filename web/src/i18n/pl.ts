@@ -819,6 +819,7 @@ const pl: Record<string, string> = {
   "restore.state_applied": "Przywracanie zastosowane; oczekiwanie na gotowość.",
   "restore.state_pending": "Przywracanie zaplanowane.",
   "restore.passphrase": "Hasło kopii",
+  "app.scrollable_table": "przewijana w poziomie",
 };
 
 export default pl;

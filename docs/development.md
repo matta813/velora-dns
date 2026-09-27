@@ -49,3 +49,31 @@ For a manual end-to-end check, run Compose and query with `dig`. Check HTTP read
 cache hit counters, cache flush and SIGTERM exit. Verify desktop/mobile UI layout and
 stale snapshot behavior with browser network failures. Documentation screenshots show
 the actual running development server, not synthetic dashboard data.
+
+## Accessibility and responsive checks
+
+`web/scripts/a11y-audit.mjs` loads every page with the shared demo responses from
+`web/scripts/fixtures.mjs` at phone (390 px), tablet (820 px) and desktop (1440 px)
+widths in light and dark themes, and fails on:
+
+- axe-core violations of the WCAG 2.2 A/AA rules (contrast, names, roles, landmarks)
+- horizontal page overflow (tables scroll inside their own region instead)
+- controls smaller than the 24 × 24 px target size (WCAG 2.5.8); a checkbox counts
+  its label as the target
+- keyboard focus that is not visibly indicated while tabbing
+
+```bash
+cd web
+npm run build
+npx vite preview --port 4173 &
+npm run audit:a11y -- --base-url http://127.0.0.1:4173
+```
+
+Pass `--pages /zones` (repeatable) or `--theme dark` to narrow a run and set
+`CHROMIUM_PATH` to use an existing Chromium. Unit tests cover keyboard behavior that
+the audit cannot see: the navigation dropdowns follow the menu-button pattern (arrow
+keys, Home/End, Escape returns focus), the mobile menu traps focus and closes with
+Escape, focus moves to the page heading after navigation, scrollable tables become
+labelled focusable regions only when they overflow, and the document language
+follows the selected UI language. Animations and transitions are disabled when the
+system asks for reduced motion.

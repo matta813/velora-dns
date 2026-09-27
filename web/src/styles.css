@@ -14,20 +14,22 @@
 
   --text: #495057;
   --heading: #212529;
-  --muted: #8a929e;
+  --muted: #626b79;
 
-  --primary: #1a7f64;
-  --primary-hover: #156a53;
+  --primary: #16705a;
+  --on-primary: #ffffff;
+  --on-red: #ffffff;
+  --primary-hover: #125e4b;
   --primary-light: #e8f3ef;
   --link: #2f6fb3;
 
-  --green: #3d9a1b;
+  --green: #2f7a14;
   --green-light: #ecf6e6;
   --red: #cd201f;
   --red-light: #fbeaea;
-  --orange: #d9730d;
+  --orange: #a65507;
   --orange-light: #fdf1e5;
-  --blue: #3b73c4;
+  --blue: #2c5fa8;
   --blue-light: #ebf1fa;
   --gray-light: #eef0f3;
 
@@ -65,16 +67,18 @@
 
   --text: #c3cbd5;
   --heading: #e8ecf1;
-  --muted: #7f8998;
+  --muted: #959fae;
 
-  --primary: #2fa37f;
-  --primary-hover: #38b890;
-  --primary-light: rgba(47, 163, 127, 0.15);
+  --primary: #3cb68f;
+  --on-primary: #0b1a15;
+  --on-red: #2a0a08;
+  --primary-hover: #4cc39d;
+  --primary-light: rgba(60, 182, 143, 0.15);
   --link: #6ea8e8;
 
   --green: #7cc35a;
   --green-light: rgba(124, 195, 90, 0.14);
-  --red: #ef6b62;
+  --red: #f58a82;
   --red-light: rgba(239, 107, 98, 0.14);
   --orange: #f0a04b;
   --orange-light: rgba(240, 160, 75, 0.14);
@@ -274,6 +278,10 @@ fieldset {
   align-items: center;
   gap: 8px;
   cursor: pointer;
+  min-height: 24px;
+}
+.check-row {
+  min-height: 24px;
 }
 .form-grid {
   display: grid;
@@ -323,7 +331,7 @@ select.inline-select {
   cursor: not-allowed;
 }
 .button.primary {
-  color: #fff;
+  color: var(--on-primary);
   background: var(--primary);
   border-color: var(--primary);
 }
@@ -332,7 +340,7 @@ select.inline-select {
   border-color: var(--primary-hover);
 }
 .button.danger {
-  color: #fff;
+  color: var(--on-red);
   background: var(--red);
   border-color: var(--red);
 }
@@ -344,7 +352,7 @@ select.inline-select {
   border-color: var(--red);
 }
 .button.outline-danger:hover:not(:disabled) {
-  color: #fff;
+  color: var(--on-red);
   background: var(--red);
 }
 .button.secondary,
@@ -384,24 +392,25 @@ select.inline-select {
   cursor: not-allowed;
 }
 
+/* 40×24 keeps the switch at least the WCAG 2.5.8 minimum target size. */
 .switch {
   position: relative;
-  width: 34px;
-  height: 18px;
+  width: 40px;
+  height: 24px;
   padding: 0;
   flex-shrink: 0;
   background: var(--border-strong);
   border: 0;
-  border-radius: 9px;
+  border-radius: 12px;
   transition: background 0.15s;
 }
 .switch::after {
   content: "";
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
   background: #fff;
   border-radius: 50%;
   transition: transform 0.15s;
@@ -675,7 +684,7 @@ select.inline-select {
   font-weight: 700;
   line-height: 17px;
   text-align: center;
-  color: #fff;
+  color: var(--on-red);
   background: var(--red);
   border-radius: 9px;
 }
@@ -984,7 +993,10 @@ footer {
 
 /* ---------- Tables ---------- */
 
+/* Positioned so visually hidden headers stay inside the scroll area
+   instead of widening the page on small screens. */
 .table-wrap {
+  position: relative;
   overflow-x: auto;
 }
 table {
@@ -2080,4 +2092,47 @@ select[aria-invalid="true"] {
   .restore-facts {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* ---------- Touch targets ---------- */
+
+/* Links that act as row actions get the 24px minimum hit area. */
+.endpoint a,
+.system-event-actions a,
+td > a,
+td > span > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+}
+details > summary {
+  min-height: 24px;
+  line-height: 24px;
+}
+.system-event-actions a {
+  padding: 0 4px;
+}
+@media (pointer: coarse) {
+  /* Larger targets for touch screens. */
+  .button,
+  .icon-button,
+  .segmented button {
+    min-height: 40px;
+  }
+  .icon-button {
+    min-width: 40px;
+  }
+  input:not([type="checkbox"]):not([type="radio"]),
+  select {
+    min-height: 40px;
+  }
+}
+
+/* Headings receive focus after navigation; they are not controls. */
+h1[tabindex="-1"]:focus {
+  outline: none;
+}
+.table-wrap[role="region"]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }

@@ -26,10 +26,11 @@ import {
   Sun,
   X,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useSnapshot } from "./useSnapshot";
+import { watchScrollRegions } from "./scroll-regions";
 import { Dashboard } from "./pages/Dashboard";
 import { CachePage } from "./pages/CachePage";
 import { Settings } from "./pages/Settings";
@@ -149,6 +150,11 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const navRef = useRef<HTMLElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const toggleRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const firstRoute = useRef(true);
   const refreshEvents = useCallback(() => {
     void request<SystemEventPage>("/api/v1/events?limit=1")
       .then((page) => setUnreadEvents(page.unread_count))
@@ -175,6 +181,83 @@ export default function App() {
       document.removeEventListener("mousedown", onPointer);
     };
   }, [openGroup]);
+  // Move focus to the new page heading after navigation so screen reader and
+  // keyboard users start at the content, not wherever the link was.
+  useEffect(() => {
+    if (firstRoute.current) {
+      firstRoute.current = false;
+      return;
+    }
+    headingRef.current?.focus();
+  }, [pathname]);
+  useEffect(() => {
+    if (!mainRef.current) return;
+    return watchScrollRegions(mainRef.current, t("app.scrollable_table"));
+  }, [t]);
+  // The mobile menu behaves like a dialog: focus moves in, Tab stays inside,
+  // and Escape closes it and returns focus to the menu button.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const focusables = () =>
+      [menuButtonRef.current, ...(navRef.current?.querySelectorAll<HTMLElement>("a[href], button") ?? [])].filter(
+        (el): el is HTMLElement => Boolean(el),
+      );
+    focusables()[1]?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        menuButtonRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusables();
+      if (!items.length) return;
+      const index = items.indexOf(document.activeElement as HTMLElement);
+      if (event.shiftKey && index <= 0) {
+        event.preventDefault();
+        items[items.length - 1].focus();
+      } else if (!event.shiftKey && index === items.length - 1) {
+        event.preventDefault();
+        items[0].focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
+  // Menu-button pattern for the desktop dropdowns.
+  const menuKeys = (label: string, event: ReactKeyboardEvent<HTMLElement>) => {
+    const menu = document.getElementById(`menu-${label.split(".").pop()}`);
+    const links = [...(menu?.querySelectorAll<HTMLElement>("a[href]") ?? [])];
+    const index = links.indexOf(document.activeElement as HTMLElement);
+    const focusAt = (i: number) => links[(i + links.length) % links.length]?.focus();
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        if (openGroup !== label) {
+          setOpenGroup(label);
+          requestAnimationFrame(() => document.getElementById(`menu-${label.split(".").pop()}`)?.querySelector<HTMLElement>("a[href]")?.focus());
+        } else focusAt(index + 1);
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        if (index >= 0) focusAt(index - 1);
+        break;
+      case "Home":
+        if (index >= 0) { event.preventDefault(); focusAt(0); }
+        break;
+      case "End":
+        if (index >= 0) { event.preventDefault(); focusAt(links.length - 1); }
+        break;
+      case "Escape":
+        if (openGroup === label) {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpenGroup(null);
+          toggleRefs.current[label]?.focus();
+        }
+        break;
+    }
+  };
   const signOut = () => void logout().then(() => window.location.reload());
   const routeKey = ROUTE_KEYS[pathname] ?? "overview";
   const title = t(`app.title.${routeKey}`);
@@ -242,6 +325,7 @@ export default function App() {
               </button>
             </div>
             <button
+              ref={menuButtonRef}
               className="icon-button menu-button"
               onClick={() => setMenuOpen((open) => !open)}
               aria-label={menuOpen ? t("app.menu_close") : t("app.menu_open")}
@@ -277,8 +361,16 @@ export default function App() {
               const open = openGroup === entry.label || menuOpen;
               const menuId = `menu-${entry.label.split(".").pop()}`;
               return (
-                <li key={entry.label}>
+                <li
+                  key={entry.label}
+                  onKeyDown={(event) => menuKeys(entry.label, event)}
+                  onBlur={(event) => {
+                    // Close a desktop dropdown once focus leaves it.
+                    if (!menuOpen && !event.currentTarget.contains(event.relatedTarget as Node)) setOpenGroup((current) => (current === entry.label ? null : current));
+                  }}
+                >
                   <button
+                    ref={(element) => { toggleRefs.current[entry.label] = element; }}
                     className={`nav-tab group-toggle${active ? " active" : ""}`}
                     aria-expanded={open}
                     aria-controls={menuId}
@@ -309,10 +401,10 @@ export default function App() {
           </ul>
         </div>
       </nav>
-      <main id="main" className="container">
+      <main id="main" className="container" ref={mainRef}>
           <div className="page-heading">
             <div>
-              <h1>{title}</h1>
+              <h1 ref={headingRef} tabIndex={-1}>{title}</h1>
               <p>{subtitle}</p>
             </div>
             {!SELF_REFRESHING.includes(pathname) && (

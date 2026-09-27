@@ -869,6 +869,7 @@ const de: Record<string, string> = {
   "restore.state_applied": "Wiederherstellung angewendet; warte auf Bereitschaft.",
   "restore.state_pending": "Wiederherstellung geplant.",
   "restore.passphrase": "Backup-Passphrase",
+  "app.scrollable_table": "seitlich scrollbar",
 };
 
 export default de;

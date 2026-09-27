@@ -41,6 +41,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       .catch(() => {});
   }, []);
   useEffect(() => {
+    // Screen readers pick pronunciation from the document language.
+    document.documentElement.lang = language;
+  }, [language]);
+  useEffect(() => {
     applyTheme(theme);
     // "auto" should follow the operating system live, not just at load time.
     if (theme !== "auto" || typeof window.matchMedia !== "function") return;
