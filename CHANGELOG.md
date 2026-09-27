@@ -4,6 +4,7 @@ All notable changes are documented here. This project uses Semantic Versioning.
 
 ## Unreleased
 
+- Restore from the web interface: upload and check an encrypted backup (metadata, contents, compatibility warnings) without changing anything, then confirm to restart and apply it with a safety copy; the restored start is confirmed once ready and rolled back automatically if it never gets there (#172).
 - Configuration validation reports every invalid field with its path (API `fields`, highlighted in Settings), detects conflicting listeners, rejects unsafe paths and invalid filtering domains, and offers a dry-run `POST /api/v1/config/validate`; tests cover rollback failure, readiness rollback and concurrent changes (#175).
 - Simpler Updates page: one Check for updates button, an Update button only when a newer version exists, live progress through the restart, clear errors, the new version shown on completion, and a server-side guard against concurrent update requests (#244).
 - Analytics page: queries, blocked, cached and failed answers over 1 hour to 30 days, upstream response-time trend, query types, response codes, answer sources, upstream usage and top blocked domains, aggregated in the database from retained query history (#253).

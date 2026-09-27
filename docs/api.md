@@ -25,6 +25,9 @@ metrics require an authenticated session or scoped API token.
 | GET | /api/v1/status | Listener readiness, uptime, version and implemented capabilities |
 | GET | /api/v1/diagnostics | Sanitized system health and support report |
 | POST | /api/v1/backup/create | Admin-only encrypted SQLite configuration and state bundle download |
+| POST | /api/v1/backup/inspect | Admin-only multipart upload (`passphrase` first, then `bundle`) that validates a backup without changing anything and returns metadata, a content summary, warnings and a 30-minute `token` |
+| POST | /api/v1/backup/restore | Admin-only: `{token, confirm: true}` schedules the inspected backup and restarts Velora to apply it (`202`, state `restarting`) |
+| GET | /api/v1/backup/restore | Admin-only result of the last online restore: `pending`, `applied`, `completed`, `rolled_back` or `failed` ([details](backup.md#restore-from-the-web-interface)) |
 | GET | /api/v1/audit | Admin-only audit events with actor, action, result and cursor filters |
 | GET | /api/v1/events | Recent system events and unread count, filtered by role |
 | POST | /api/v1/events/{id}/read | Mark an accessible event as read for the current user |

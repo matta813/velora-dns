@@ -332,6 +332,203 @@
         }
       }
     },
+    "/api/v1/backup/inspect": {
+      "post": {
+        "operationId": "post_backup_inspect",
+        "summary": "Post backup/inspect",
+        "tags": [
+          "backup"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BackupInspection"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "passphrase": {
+                    "type": "string",
+                    "description": "Must be the first part"
+                  },
+                  "bundle": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Encrypted .vdns bundle, at most 2 GiB"
+                  }
+                },
+                "required": [
+                  "passphrase",
+                  "bundle"
+                ]
+              },
+              "encoding": {
+                "bundle": {
+                  "contentType": "application/octet-stream"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backup/restore": {
+      "get": {
+        "operationId": "get_backup_restore",
+        "summary": "Get backup/restore",
+        "tags": [
+          "backup"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RestoreState"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      },
+      "post": {
+        "operationId": "post_backup_restore",
+        "summary": "Post backup/restore",
+        "tags": [
+          "backup"
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RestoreScheduled"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "confirm": {
+                    "type": "boolean",
+                    "description": "Must be true"
+                  }
+                },
+                "required": [
+                  "token",
+                  "confirm"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/backup/status": {
       "get": {
         "operationId": "get_backup_status",
@@ -6192,6 +6389,172 @@
         "required": [
           "code",
           "message"
+        ]
+      },
+      "BackupMetadata": {
+        "type": "object",
+        "properties": {
+          "format_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "velora_version": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "schema_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "format_version",
+          "velora_version",
+          "created_at",
+          "schema_version",
+          "components"
+        ]
+      },
+      "BackupInspection": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Pass to POST /api/v1/backup/restore within expires_at"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/BackupMetadata"
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "zones": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "records": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "blocklists": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "clients": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "rewrites": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "forward_rules": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "users": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "dns_listen": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "upstreams": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "http_listen": {
+                "type": "string"
+              },
+              "current_version": {
+                "type": "string"
+              },
+              "current_schema": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "warnings": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "token",
+          "expires_at",
+          "metadata",
+          "summary"
+        ]
+      },
+      "RestoreState": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "applied",
+              "completed",
+              "rolled_back",
+              "failed"
+            ]
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/BackupMetadata"
+          },
+          "safety_copy": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RestoreScheduled": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "restarting",
+              "pending"
+            ]
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/BackupMetadata"
+          }
+        },
+        "required": [
+          "state",
+          "metadata"
         ]
       },
       "ConfigCheck": {

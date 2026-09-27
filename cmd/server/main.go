@@ -24,7 +24,13 @@ var commit = "unknown"
 var built = "unknown"
 
 func main() {
-	if err := run(); err != nil {
+	err := run()
+	if errors.Is(err, app.ErrRestartRequested) {
+		// EX_TEMPFAIL: systemd (Restart=on-failure) and Docker restart us.
+		logging.New(os.Stderr, "info").Info("exiting so the supervisor restarts Velora DNS")
+		os.Exit(75)
+	}
+	if err != nil {
 		logging.New(os.Stderr, "error").Error("server failed", "error", err)
 		os.Exit(1)
 	}
@@ -77,6 +83,17 @@ func run() error {
 	c, err := config.Load(*path)
 	if err != nil {
 		return err
+	}
+	if c.DatabaseDriver == "sqlite" {
+		changed, err := backup.PrepareStartup(context.Background(), *path, c.DatabasePath)
+		if err != nil {
+			return fmt.Errorf("apply pending restore: %w", err)
+		}
+		if changed {
+			if c, err = config.Load(*path); err != nil {
+				return err
+			}
+		}
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()

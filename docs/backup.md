@@ -1,4 +1,4 @@
-# Encrypted backup and offline restore
+# Encrypted backup and restore
 
 Velora DNS can export a versioned encrypted backup of its effective configuration
 and persistent SQLite database from **Backup & Restore** in the WebUI. This
@@ -17,12 +17,47 @@ The encrypted bundle is streamed to the browser and its server-side temporary
 file is removed after the download. Treat both the passphrase and downloaded
 bundle as sensitive.
 
-## Inspect and restore
+## Restore from the web interface
 
-Restore is offline because replacing the database while the running resolver
-holds in-memory zones and filters would leave the process inconsistent. Stop the
-service first, then inspect and restore the bundle. Use the actual configuration
-and database paths for your installation:
+Admins can restore a bundle from **Backup & Restore → Restore a backup**:
+
+1. **Check backup.** The bundle and passphrase are uploaded (up to 2 GiB) and
+   fully validated: authentication, format, schema compatibility, database
+   integrity, configuration validity, and that zones and filters load. The page
+   then shows the backup's date and Velora version, the schema change, what it
+   contains (zones, records, blocklists, rewrites, forwarding rules, clients,
+   users) and warnings such as changed listen addresses or a backup without
+   users. **Nothing is changed at this point.** The decrypted, validated files
+   are kept in a private staging directory next to the database for 30 minutes.
+2. **Restore and restart.** After you confirm, the staged files become the
+   pending restore and Velora exits with status 75 so its supervisor starts it
+   again (`Restart=on-failure` in the systemd unit, `restart: unless-stopped` in
+   Docker Compose). If Velora runs without a supervisor, start it again yourself.
+3. **Apply.** On start, before the database is opened, the pending restore
+   replaces the database and configuration. The previous files are copied to a
+   `velora-restore-safety-*` directory first, and any failure while swapping or
+   loading the restored data puts them back.
+4. **Confirm.** When the restarted server is ready (DNS and HTTP listening) the
+   restore is marked **completed**. If a start with the restored data exits
+   before that — for example because a restored listen address cannot be bound
+   — the next start restores the safety copy automatically and reports
+   **rolled back** with the reason.
+
+The page follows the restart and shows the result. Sessions come from the
+restored database, so you usually have to sign in again with an account from
+the backup. The last result stays visible on the page (`GET
+/api/v1/backup/restore`). Inspecting and restoring are admin-only, require CSRF
+tokens for session requests and are audited; the passphrase is only sent with
+the upload and never stored.
+
+Online restore supports SQLite installations. PostgreSQL installations should
+use PostgreSQL's own backup tools.
+
+## Restore from the command line
+
+The command line restore works offline. Stop the service first, then inspect and
+restore the bundle. Use the actual configuration and database paths for your
+installation:
 
 ```bash
 sudo systemctl stop velora-dns
