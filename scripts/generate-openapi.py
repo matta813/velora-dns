@@ -34,7 +34,9 @@ STRINGS = arr(STRING)
 INTERVAL = {"type": "integer", "description": "Scheduled refresh period in seconds: 0 (manual) or 3600-604800; URL sources only"}
 
 SCHEMAS = {
-    "Error": obj({"code": STRING, "message": STRING}, ("code", "message")),
+    "FieldError": obj({"field": {"type": "string", "description": "Configuration path such as dns.allowed_clients[1]"}, "message": STRING}, ("field", "message")),
+    "Error": obj({"code": STRING, "message": STRING, "fields": {"type": "array", "items": ref("FieldError"), "description": "Invalid or restart-only configuration fields (invalid_config, config_requires_restart)"}}, ("code", "message")),
+    "ConfigCheck": obj({"valid": BOOL, "errors": arr(ref("FieldError")), "restart_required": {"type": "array", "items": STRING, "description": "Changed fields that cannot be applied without a restart"}}, ("valid", "errors", "restart_required")),
     "ErrorResponse": obj({"error": ref("Error")}, ("error",)),
     "Version": obj({"version": STRING, "commit": STRING, "built": STRING}, ("version", "commit", "built")),
     "Status": obj({"ready": BOOL, "uptime_seconds": NUMBER, "dns_listen": STRINGS, "version": ref("Version"), "capabilities": STRINGS}, ("ready", "uptime_seconds", "dns_listen", "version", "capabilities")),
@@ -113,6 +115,7 @@ RESPONSE_MODELS = {
     "/api/v1/status": "Status", "/api/v1/version": "Version", "/api/v1/stats": "Statistics", "/api/v1/stats/reset": "Statistics",
     "/api/v1/cache": "CacheStats", "/api/v1/cache/entries": "CacheEntryPage", "/api/v1/cache/invalidate": "CacheInvalidateResult",
     "/api/v1/analytics": "Analytics",
+    "/api/v1/config/validate": "ConfigCheck",
     "/api/v1/clients": "ClientList", "/api/v1/clients/{id}": "Client",
     "/api/v1/webhooks": ["Webhook"], "/api/v1/webhooks/{id}": "Webhook", "/api/v1/webhooks/{id}/test": "WebhookTestResult", "/api/v1/webhooks/event-types": "WebhookEventTypes",
     "/api/v1/policies": ["Policy"], "/api/v1/policies/{id}": "Policy", "/api/v1/policies/effective": "EffectivePolicy",
@@ -138,6 +141,7 @@ RESPONSE_MODELS = {
 REQUEST_MODELS = {
     ("POST", "/api/v1/auth/login"): obj({"username": STRING, "password": {"type": "string", "format": "password", "writeOnly": True}}, ("username", "password")),
     ("PUT", "/api/v1/config"): ref("Config"),
+    ("POST", "/api/v1/config/validate"): ref("Config"),
     ("PUT", "/api/v1/preferences"): ref("Preferences"),
     ("PUT", "/api/v1/settings/rate-limit"): ref("RateLimitSettings"),
     ("POST", "/api/v1/zones"): ref("ZoneInput"),

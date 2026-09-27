@@ -74,6 +74,8 @@ type Dependencies struct {
 type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+	// Fields points at the invalid configuration fields, when known.
+	Fields []config.FieldError `json:"fields,omitempty"`
 }
 
 func respond(w http.ResponseWriter, status int, data any) {
@@ -88,6 +90,40 @@ func failure(w http.ResponseWriter, status int, code, message string) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{"error": Error{Code: code, Message: message}})
 }
+
+// configFailure reports validation and restart-required problems with the
+// fields they concern, so clients can mark the matching inputs.
+func configFailure(w http.ResponseWriter, err error) bool {
+	var invalid *config.ValidationError
+	if errors.As(err, &invalid) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(400)
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": Error{Code: "invalid_config", Message: err.Error(), Fields: invalid.Fields}})
+		return true
+	}
+	var restart *config.RestartRequiredError
+	if errors.As(err, &restart) {
+		fields := make([]config.FieldError, 0, len(restart.Fields))
+		for _, field := range restart.Fields {
+			fields = append(fields, config.FieldError{Field: field, Message: "takes effect only after a restart; edit the configuration file and restart Velora DNS"})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(409)
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": Error{Code: "config_requires_restart", Message: err.Error(), Fields: fields}})
+		return true
+	}
+	return false
+}
+
+// configCheck is the result of a dry-run validation.
+type configCheck struct {
+	Valid           bool                `json:"valid"`
+	Errors          []config.FieldError `json:"errors"`
+	RestartRequired []string            `json:"restart_required"`
+}
+
 func New(d Dependencies) http.Handler {
 	var (
 		cfgMu         sync.RWMutex
@@ -293,6 +329,33 @@ func New(d Dependencies) http.Handler {
 		cfgMu.RUnlock()
 		respond(w, 200, cfg)
 	})
+	mux.HandleFunc("POST /api/v1/config/validate", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Content-Type") != "application/json" {
+			failure(w, 415, "unsupported_media_type", "Use application/json")
+			return
+		}
+		cfgMu.RLock()
+		previous := currentConfig
+		candidate := currentConfig.Clone()
+		cfgMu.RUnlock()
+		if !readJSON(w, r, &candidate) {
+			return
+		}
+		result := configCheck{Errors: []config.FieldError{}, RestartRequired: config.RestartRequiredFields(previous, candidate)}
+		if result.RestartRequired == nil {
+			result.RestartRequired = []string{}
+		}
+		if err := candidate.Validate(); err != nil {
+			var invalid *config.ValidationError
+			if errors.As(err, &invalid) {
+				result.Errors = invalid.Fields
+			} else {
+				result.Errors = []config.FieldError{{Field: "", Message: err.Error()}}
+			}
+		}
+		result.Valid = len(result.Errors) == 0 && len(result.RestartRequired) == 0
+		respond(w, 200, result)
+	})
 	mux.HandleFunc("PUT /api/v1/config", func(w http.ResponseWriter, r *http.Request) {
 		notifyRollback := func(severity, message string) {
 			if d.NotifyEvent != nil {
@@ -316,14 +379,12 @@ func New(d Dependencies) http.Handler {
 			return
 		}
 		if err := newConfig.Validate(); err != nil {
-			failure(w, 400, "invalid_config", err.Error())
+			configFailure(w, err)
 			return
 		}
 		if d.ApplyConfig != nil {
 			if err := d.ApplyConfig(newConfig); err != nil {
-				var restart *config.RestartRequiredError
-				if errors.As(err, &restart) {
-					failure(w, 409, "config_requires_restart", err.Error())
+				if configFailure(w, err) {
 					return
 				}
 				if rollbackErr := d.ApplyConfig(currentConfig); rollbackErr != nil {

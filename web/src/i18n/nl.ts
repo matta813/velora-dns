@@ -778,6 +778,12 @@ const nl: Record<string, string> = {
   "updates.keep_open": "Laat deze pagina open; hij werkt zichzelf bij. DNS blijft antwoorden met de huidige versie tot de overstap.",
   "updates.completed_text": "De update is klaar en heeft de controles doorstaan. Herlaad de pagina voor de nieuwe interface.",
   "updates.release_date": "Uitgebracht",
+  "settings.entry": "Item",
+  "settings.fix_fields": "Er is niets gewijzigd. Corrigeer de gemarkeerde velden en probeer opnieuw.",
+  "settings.restart_required": "Er is niets gewijzigd. De gemarkeerde velden vereisen een herstart: pas het configuratiebestand aan en herstart Velora DNS.",
+  "settings.restart_field": "Vereist een herstart",
+  "settings.check": "Controleren",
+  "settings.check_ok": "Deze instellingen zijn geldig en kunnen zonder herstart worden toegepast.",
 };
 
 export default nl;

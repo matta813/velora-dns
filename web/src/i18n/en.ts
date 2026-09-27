@@ -828,6 +828,12 @@ const en: Record<string, string> = {
   "updates.reconnecting": "Velora is restarting. Waiting for it to come back…",
   "updates.keep_open": "You can keep this page open; it updates automatically. DNS keeps answering from the running version until the switch.",
   "updates.completed_text": "The update finished and passed its health checks. Reload the page to load the new web interface.",
+  "settings.entry": "Entry",
+  "settings.fix_fields": "Nothing was changed. Fix the highlighted fields and try again.",
+  "settings.restart_required": "Nothing was changed. The highlighted fields only take effect after a restart: edit the configuration file and restart Velora DNS.",
+  "settings.restart_field": "Requires a restart",
+  "settings.check": "Check",
+  "settings.check_ok": "These settings are valid and can be applied without a restart.",
 };
 
 export default en;

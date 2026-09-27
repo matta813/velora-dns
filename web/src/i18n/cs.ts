@@ -778,6 +778,12 @@ const cs: Record<string, string> = {
   "updates.keep_open": "Stránku můžete nechat otevřenou; aktualizuje se sama. DNS odpovídá z běžící verze až do přepnutí.",
   "updates.completed_text": "Aktualizace skončila a prošla kontrolami. Znovu načtěte stránku pro nové rozhraní.",
   "updates.release_date": "Vydáno",
+  "settings.entry": "Položka",
+  "settings.fix_fields": "Nic se nezměnilo. Opravte zvýrazněná pole a zkuste to znovu.",
+  "settings.restart_required": "Nic se nezměnilo. Zvýrazněná pole vyžadují restart: upravte konfigurační soubor a restartujte Velora DNS.",
+  "settings.restart_field": "Vyžaduje restart",
+  "settings.check": "Ověřit",
+  "settings.check_ok": "Nastavení je platné a lze ho použít bez restartu.",
 };
 
 export default cs;

@@ -196,3 +196,38 @@ it("saves the edited upstream cache TTL and rejects values above seven days", as
   const payload = JSON.parse(calls.find((call) => call.path === "/api/v1/config" && call.method === "PUT")!.body!);
   expect(payload.cache.upstream_ttl).toBe(7200);
 });
+
+it("highlights the fields named by a rejected configuration", async () => {
+  vi.stubGlobal("fetch", vi.fn((path: string, options?: { method?: string }) => {
+    if (path === "/api/v1/config" && options?.method === "PUT") {
+      return Promise.resolve({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: { code: "invalid_config", message: "invalid", fields: [
+          { field: "dns.allowed_clients[1]", message: "invalid client network \"lan\"" },
+          { field: "http.listen", message: "tcp/53 conflicts with dns.listen[0]" },
+        ] } }),
+      });
+    }
+    if (path === "/api/v1/config/validate") {
+      return Promise.resolve({ ok: true, json: async () => ({ data: { valid: false, errors: [], restart_required: ["dns.listen"] } }) });
+    }
+    return Promise.resolve({ ok: true, json: async () => ({ data: { enabled: false, global_qps: 1, client_qps: 1, rate_limit_burst: 1 } }) });
+  }));
+  render(withI18n(<Settings data={data} />));
+  fireEvent.change(screen.getByLabelText(/Allowed client networks/), { target: { value: "127.0.0.0/8, lan" } });
+  fireEvent.click(screen.getByRole("button", { name: /Save configuration/ }));
+  expect(await screen.findByText(/Entry 2: invalid client network "lan"/)).toBeInTheDocument();
+  expect(screen.getByLabelText(/Allowed client networks/)).toHaveAttribute("aria-invalid", "true");
+  expect(screen.getByText("tcp/53 conflicts with dns.listen[0]")).toBeInTheDocument();
+  expect(screen.getByText(/Fix the highlighted fields/)).toBeInTheDocument();
+
+  // Editing a field clears its error.
+  fireEvent.change(screen.getByLabelText(/Allowed client networks/), { target: { value: "127.0.0.0/8" } });
+  expect(screen.getByLabelText(/Allowed client networks/)).not.toHaveAttribute("aria-invalid");
+
+  // The dry run marks restart-only fields without saving.
+  fireEvent.click(screen.getByRole("button", { name: "Check" }));
+  expect(await screen.findByText(/only take effect after a restart/)).toBeInTheDocument();
+  expect(screen.getByText("Requires a restart")).toBeInTheDocument();
+});

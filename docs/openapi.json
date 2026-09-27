@@ -1702,6 +1702,65 @@
         }
       }
     },
+    "/api/v1/config/validate": {
+      "post": {
+        "operationId": "post_config_validate",
+        "summary": "Post config/validate",
+        "tags": [
+          "config"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ConfigCheck"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Config"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/dhcp/leases": {
       "get": {
         "operationId": "get_dhcp_leases",
@@ -6097,6 +6156,22 @@
       }
     },
     "schemas": {
+      "FieldError": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "description": "Configuration path such as dns.allowed_clients[1]"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ]
+      },
       "Error": {
         "type": "object",
         "properties": {
@@ -6105,11 +6180,44 @@
           },
           "message": {
             "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "description": "Invalid or restart-only configuration fields (invalid_config, config_requires_restart)"
           }
         },
         "required": [
           "code",
           "message"
+        ]
+      },
+      "ConfigCheck": {
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          },
+          "restart_required": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Changed fields that cannot be applied without a restart"
+          }
+        },
+        "required": [
+          "valid",
+          "errors",
+          "restart_required"
         ]
       },
       "ErrorResponse": {

@@ -778,6 +778,12 @@ const ja: Record<string, string> = {
   "updates.keep_open": "このページは開いたままで構いません。自動で更新されます。切り替えまで DNS は現在のバージョンで応答します。",
   "updates.completed_text": "更新が完了し、ヘルスチェックに合格しました。新しい画面を読み込むにはページを再読み込みしてください。",
   "updates.release_date": "リリース日",
+  "settings.entry": "項目",
+  "settings.fix_fields": "何も変更されていません。強調表示された項目を修正して再試行してください。",
+  "settings.restart_required": "何も変更されていません。強調表示された項目は再起動後に反映されます。設定ファイルを編集して Velora DNS を再起動してください。",
+  "settings.restart_field": "再起動が必要",
+  "settings.check": "確認",
+  "settings.check_ok": "この設定は有効で、再起動なしで適用できます。",
 };
 
 export default ja;

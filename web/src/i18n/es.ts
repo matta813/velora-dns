@@ -778,6 +778,12 @@ const es: Record<string, string> = {
   "updates.keep_open": "Puedes dejar esta página abierta; se actualiza sola. El DNS sigue respondiendo con la versión actual hasta el cambio.",
   "updates.completed_text": "La actualización terminó y superó las comprobaciones. Recarga la página para cargar la nueva interfaz.",
   "updates.release_date": "Publicada",
+  "settings.entry": "Entrada",
+  "settings.fix_fields": "No se cambió nada. Corrige los campos marcados e inténtalo de nuevo.",
+  "settings.restart_required": "No se cambió nada. Los campos marcados requieren reiniciar: edita el archivo de configuración y reinicia Velora DNS.",
+  "settings.restart_field": "Requiere reiniciar",
+  "settings.check": "Comprobar",
+  "settings.check_ok": "La configuración es válida y puede aplicarse sin reiniciar.",
 };
 
 export default es;

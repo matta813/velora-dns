@@ -778,6 +778,12 @@ const sv: Record<string, string> = {
   "updates.keep_open": "Du kan låta sidan vara öppen; den uppdateras automatiskt. DNS svarar från nuvarande version fram till bytet.",
   "updates.completed_text": "Uppdateringen är klar och godkänd. Ladda om sidan för att hämta det nya gränssnittet.",
   "updates.release_date": "Släppt",
+  "settings.entry": "Post",
+  "settings.fix_fields": "Inget ändrades. Rätta de markerade fälten och försök igen.",
+  "settings.restart_required": "Inget ändrades. De markerade fälten kräver omstart: redigera konfigurationsfilen och starta om Velora DNS.",
+  "settings.restart_field": "Kräver omstart",
+  "settings.check": "Kontrollera",
+  "settings.check_ok": "Inställningarna är giltiga och kan tillämpas utan omstart.",
 };
 
 export default sv;
