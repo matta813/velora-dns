@@ -360,3 +360,47 @@
     flex-direction: column;
   }
 }
+
+/* Client policies */
+.zone-form .form-grid.policy-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.zone-form textarea {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.policy-lists {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+.policy-lists legend {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--heading);
+}
+.zone-form .policy-lists .check-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+}
+.policy-lookup {
+  display: flex;
+  gap: 8px;
+  max-width: 360px;
+}
+@media (max-width: 640px) {
+  .zone-form .form-grid.policy-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .policy-lookup {
+    max-width: none;
+    width: 100%;
+  }
+  .policy-lookup input {
+    flex: 1;
+    min-width: 0;
+  }
+}

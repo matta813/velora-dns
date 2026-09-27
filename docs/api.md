@@ -46,7 +46,12 @@ metrics require an authenticated session or scoped API token.
 | GET | /api/v1/clients | Named clients with 24-hour activity, plus busy unnamed addresses seen recently |
 | POST | /api/v1/clients | Create a client: `name`, `addresses` (1–16 IPs or CIDR networks), optional `group`, `description`, `enabled` |
 | PUT | /api/v1/clients/{id} | Replace a client |
-| DELETE | /api/v1/clients/{id} | Remove a client |
+| DELETE | /api/v1/clients/{id} | Remove a client and its filtering policy |
+| GET | /api/v1/policies | Per-client filtering policies |
+| POST | /api/v1/policies | Create a policy: `client_id`, `mode` (`default`, `disabled` or `custom`), and for custom mode `blocklists` (source IDs), `allow` and `block` domains; optional `enabled` |
+| PUT | /api/v1/policies/{id} | Replace a policy |
+| DELETE | /api/v1/policies/{id} | Remove a policy; the client returns to global filtering |
+| GET | /api/v1/policies/effective?ip= | The client and policy that apply to an address |
 | GET | /api/v1/rewrites | Local DNS rewrites with precedence hints (`blocked_by`, `overrides_zone`) |
 | POST | /api/v1/rewrites | Create a rewrite: `name` (host or `*.parent`), `type` (A, AAAA, CNAME), `value`, optional `enabled`, `description` |
 | PUT | /api/v1/rewrites/{id} | Replace a rewrite |

@@ -106,6 +106,13 @@ const PAGES = {
     width: 1440,
     height: 1000,
   },
+  "policies": {
+    path: "/policies",
+    file: "policies.png",
+    label: "Client filtering policies",
+    width: 1440,
+    height: 1000,
+  },
   "dhcp": {
     path: "/dhcp",
     file: "dhcp.png",
@@ -233,6 +240,13 @@ const demoClients = {
   unnamed: [{ client_ip: "192.0.2.33", queries: 241, last_seen: hoursFromNow(-0.3) }, { client_ip: "192.0.2.61", queries: 57, last_seen: hoursFromNow(-5) }],
 };
 
+const demoPolicies = [
+  { id: 1, client_id: 1, mode: "custom", blocklists: [1, 3], allow: ["streaming.example"], block: ["ads.tv.example", "telemetry.tv.example"], enabled: true },
+  { id: 2, client_id: 2, mode: "disabled", blocklists: [], allow: [], block: [], enabled: true },
+  { id: 3, client_id: 3, mode: "custom", blocklists: [1, 2, 3], allow: [], block: ["games.example"], enabled: true },
+  { id: 4, client_id: 4, mode: "default", blocklists: [], allow: [], block: [], enabled: false },
+];
+
 const demoRewrites = [
   { id: 1, name: "nas.home.arpa", type: "A", value: "192.0.2.20", enabled: true, description: "Replaces the zone record during migration", overrides_zone: "home.arpa" },
   { id: 2, name: "nas.home.arpa", type: "AAAA", value: "2001:db8::20", enabled: true, description: "", overrides_zone: "home.arpa" },
@@ -288,6 +302,7 @@ function demoResponse(pathname) {
   if (pathname === "/api/v1/forwarding") return demoForwarding;
   if (pathname === "/api/v1/rewrites") return demoRewrites;
   if (pathname === "/api/v1/clients") return demoClients;
+  if (pathname === "/api/v1/policies") return demoPolicies;
   if (pathname === "/api/v1/cache/entries") return { total: demoCacheEntries.length, entries: demoCacheEntries };
   if (pathname === "/api/v1/settings/rate-limit") return { enabled: true, global_qps: 1000, client_qps: 50, rate_limit_burst: 100 };
   if (pathname === "/api/v1/settings/rate-limit/status") return { rejected_total: 14, last_rejected_at: "2026-09-21T11:30:00Z" };

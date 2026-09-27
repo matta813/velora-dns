@@ -1,8 +1,10 @@
 package dns
 
 import (
-	wire "github.com/miekg/dns"
+	"context"
 	"net"
+
+	wire "github.com/miekg/dns"
 )
 
 func (r *Resolver) blocked(q *wire.Msg) Result {
@@ -21,15 +23,15 @@ func (r *Resolver) blocked(q *wire.Msg) Result {
 	}
 	return Result{Message: m, Source: "blocked"}
 }
-func (r *Resolver) blockedAnswer(m *wire.Msg) bool {
+func (r *Resolver) blockedAnswer(ctx context.Context, m *wire.Msg) bool {
 	if r.Filter == nil {
 		return false
 	}
 	for _, rr := range m.Answer {
-		if r.Filter.Blocked(rr.Header().Name) {
+		if r.blockedName(ctx, rr.Header().Name) {
 			return true
 		}
-		if alias, ok := rr.(*wire.CNAME); ok && r.Filter.Blocked(alias.Target) {
+		if alias, ok := rr.(*wire.CNAME); ok && r.blockedName(ctx, alias.Target) {
 			return true
 		}
 	}
