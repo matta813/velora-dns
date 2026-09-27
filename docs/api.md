@@ -44,8 +44,8 @@ metrics require an authenticated session or scoped API token.
 | GET | /api/v1/config | Current config, excluding database path and secrets |
 | PUT | /api/v1/config | Validate and apply supported live settings, then save atomically; `409 config_requires_restart` lists fields that cannot be applied live |
 | GET | /api/v1/blocklists | Blocklist sources with domain counts and status |
-| POST | /api/v1/blocklists | Add an HTTP(S) or local blocklist source |
-| PUT | /api/v1/blocklists/{id} | Enable or disable a source |
+| POST | /api/v1/blocklists | Add an HTTP(S) or local blocklist source; optional `update_interval` schedules automatic refreshes |
+| PUT | /api/v1/blocklists/{id} | Enable or disable a source (`enabled`) and/or change its refresh schedule (`update_interval`) |
 | PUT | /api/v1/blocklists/{id}/content | Replace a local source's domains |
 | POST | /api/v1/blocklists/{id}/update | Refresh a remote source, preserving prior rules on failure |
 | DELETE | /api/v1/blocklists/{id} | Remove a source and its domains |

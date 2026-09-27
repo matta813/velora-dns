@@ -538,6 +538,19 @@ const nl: Record<string, string> = {
   "cache.invalidate_failed": "Ongeldig maken mislukt",
   "cache.flush_confirm": "Alle gecachte antwoorden wissen? Teller voor treffers en missers blijft behouden.",
   "cache.no_matches": "Geen cache-items komen overeen met dit filter.",
+  "blocklists.schedule": "Updateschema",
+  "blocklists.schedule_for": "Updateschema voor",
+  "blocklists.manual": "Handmatig",
+  "blocklists.every_1h": "Elk uur",
+  "blocklists.every_6h": "Elke 6 uur",
+  "blocklists.every_12h": "Elke 12 uur",
+  "blocklists.every_24h": "Dagelijks",
+  "blocklists.every_7d": "Wekelijks",
+  "blocklists.col_next_update": "Volgende update",
+  "blocklists.due_now": "Nu gepland",
+  "blocklists.never_updated": "Nooit bijgewerkt",
+  "blocklists.retry_count": "mislukte pogingen",
+  "blocklists.schedule_failed": "Schema kon niet worden gewijzigd",
 };
 
 export default nl;

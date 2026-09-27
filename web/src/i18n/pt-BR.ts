@@ -538,6 +538,19 @@ const pt_BR: Record<string, string> = {
   "cache.invalidate_failed": "Falha na invalidação",
   "cache.flush_confirm": "Limpar todas as respostas em cache? Os contadores de acertos e falhas são mantidos.",
   "cache.no_matches": "Nenhuma entrada corresponde a este filtro.",
+  "blocklists.schedule": "Agendamento de atualização",
+  "blocklists.schedule_for": "Agendamento de atualização de",
+  "blocklists.manual": "Manual",
+  "blocklists.every_1h": "A cada hora",
+  "blocklists.every_6h": "A cada 6 horas",
+  "blocklists.every_12h": "A cada 12 horas",
+  "blocklists.every_24h": "Diariamente",
+  "blocklists.every_7d": "Semanalmente",
+  "blocklists.col_next_update": "Próxima atualização",
+  "blocklists.due_now": "Pendente agora",
+  "blocklists.never_updated": "Nunca atualizada",
+  "blocklists.retry_count": "tentativas com falha",
+  "blocklists.schedule_failed": "Não foi possível alterar o agendamento",
 };
 
 export default pt_BR;

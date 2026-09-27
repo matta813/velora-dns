@@ -689,11 +689,12 @@
                 "properties": {
                   "enabled": {
                     "type": "boolean"
+                  },
+                  "update_interval": {
+                    "type": "integer",
+                    "description": "Scheduled refresh period in seconds: 0 (manual) or 3600-604800; URL sources only"
                   }
-                },
-                "required": [
-                  "enabled"
-                ]
+                }
               }
             }
           }
@@ -5207,6 +5208,26 @@
           },
           "last_error": {
             "type": "string"
+          },
+          "update_interval": {
+            "type": "integer",
+            "description": "Scheduled refresh period in seconds: 0 (manual) or 3600-604800; URL sources only"
+          },
+          "last_attempt_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "consecutive_failures": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "next_update_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Derived; null when the source is manual, local or disabled"
           }
         },
         "required": [
@@ -5227,6 +5248,10 @@
           },
           "enabled": {
             "type": "boolean"
+          },
+          "update_interval": {
+            "type": "integer",
+            "description": "Scheduled refresh period in seconds: 0 (manual) or 3600-604800; URL sources only"
           }
         },
         "required": [

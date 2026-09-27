@@ -538,6 +538,19 @@ const sv: Record<string, string> = {
   "cache.invalidate_failed": "Ogiltigförklaring misslyckades",
   "cache.flush_confirm": "Rensa alla cachade svar? Räknare för träffar och missar behålls.",
   "cache.no_matches": "Inga cacheposter matchar filtret.",
+  "blocklists.schedule": "Uppdateringsschema",
+  "blocklists.schedule_for": "Uppdateringsschema för",
+  "blocklists.manual": "Manuellt",
+  "blocklists.every_1h": "Varje timme",
+  "blocklists.every_6h": "Var 6:e timme",
+  "blocklists.every_12h": "Var 12:e timme",
+  "blocklists.every_24h": "Dagligen",
+  "blocklists.every_7d": "Varje vecka",
+  "blocklists.col_next_update": "Nästa uppdatering",
+  "blocklists.due_now": "Nu",
+  "blocklists.never_updated": "Aldrig uppdaterad",
+  "blocklists.retry_count": "misslyckade försök",
+  "blocklists.schedule_failed": "Det gick inte att ändra schemat",
 };
 
 export default sv;

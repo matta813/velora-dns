@@ -590,6 +590,19 @@ const de: Record<string, string> = {
   "cache.invalidate_failed": "Invalidierung fehlgeschlagen",
   "cache.flush_confirm": "Alle gecachten Antworten löschen? Die Zähler für Treffer und Fehlschläge bleiben erhalten.",
   "cache.no_matches": "Keine Cache-Einträge passen zu diesem Filter.",
+  "blocklists.schedule": "Aktualisierungsplan",
+  "blocklists.schedule_for": "Aktualisierungsplan für",
+  "blocklists.manual": "Manuell",
+  "blocklists.every_1h": "Stündlich",
+  "blocklists.every_6h": "Alle 6 Stunden",
+  "blocklists.every_12h": "Alle 12 Stunden",
+  "blocklists.every_24h": "Täglich",
+  "blocklists.every_7d": "Wöchentlich",
+  "blocklists.col_next_update": "Nächste Aktualisierung",
+  "blocklists.due_now": "Jetzt fällig",
+  "blocklists.never_updated": "Nie aktualisiert",
+  "blocklists.retry_count": "fehlgeschlagene Versuche",
+  "blocklists.schedule_failed": "Plan konnte nicht geändert werden",
 };
 
 export default de;

@@ -29,7 +29,7 @@ func (s *Store) LoadSources(ctx context.Context) ([]filtering.Source, error) {
 	}
 	defer func() { _ = tx.Rollback() }()
 	p := s.placeholder
-	query := fmt.Sprintf("SELECT id,name,url,enabled,last_updated_at,last_error FROM blocklist_sources ORDER BY id LIMIT %s", p(1))
+	query := fmt.Sprintf("SELECT id,name,url,enabled,last_updated_at,last_error,update_interval_seconds,last_attempt_at,consecutive_failures FROM blocklist_sources ORDER BY id LIMIT %s", p(1))
 	rows, err := tx.QueryContext(ctx, query, filtering.MaxSources+1)
 	if err != nil {
 		return nil, err
@@ -38,24 +38,24 @@ func (s *Store) LoadSources(ctx context.Context) ([]filtering.Source, error) {
 	index := map[int64]int{}
 	for rows.Next() {
 		var source filtering.Source
-		var updated sql.NullString
-		if err = rows.Scan(&source.ID, &source.Name, &source.URL, &source.Enabled, &updated, &source.LastError); err != nil {
+		var updated, attempted sql.NullString
+		if err = rows.Scan(&source.ID, &source.Name, &source.URL, &source.Enabled, &updated, &source.LastError, &source.UpdateInterval, &attempted, &source.ConsecutiveFailures); err != nil {
 			_ = rows.Close()
 			return nil, err
 		}
-		if updated.Valid {
-			var timestamp time.Time
-			for _, layout := range []string{time.RFC3339Nano, "2006-01-02 15:04:05.999999999 -0700 MST"} {
-				timestamp, err = time.Parse(layout, updated.String)
-				if err == nil {
-					break
-				}
+		for _, field := range []struct {
+			raw    sql.NullString
+			target **time.Time
+		}{{updated, &source.LastUpdatedAt}, {attempted, &source.LastAttemptAt}} {
+			if !field.raw.Valid {
+				continue
 			}
-			if err != nil {
+			timestamp, parseErr := parseSourceTime(field.raw.String)
+			if parseErr != nil {
 				_ = rows.Close()
-				return nil, fmt.Errorf("invalid source timestamp: %w", err)
+				return nil, fmt.Errorf("invalid source timestamp: %w", parseErr)
 			}
-			source.LastUpdatedAt = &timestamp
+			*field.target = &timestamp
 		}
 		index[source.ID] = len(out)
 		out = append(out, source)
@@ -98,27 +98,43 @@ func (s *Store) LoadSources(ctx context.Context) ([]filtering.Source, error) {
 	return out, nil
 }
 
+func parseSourceTime(value string) (time.Time, error) {
+	var err error
+	for _, layout := range []string{time.RFC3339Nano, "2006-01-02 15:04:05.999999999 -0700 MST"} {
+		var timestamp time.Time
+		if timestamp, err = time.Parse(layout, value); err == nil {
+			return timestamp, nil
+		}
+	}
+	return time.Time{}, err
+}
+
+func sourceTime(value *time.Time) any {
+	if value == nil {
+		return nil
+	}
+	return value.UTC().Format(time.RFC3339Nano)
+}
+
 func (s *Store) SaveSource(ctx context.Context, source filtering.Source) (filtering.Source, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return source, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	var timestamp any
-	if source.LastUpdatedAt != nil {
-		timestamp = source.LastUpdatedAt.UTC().Format(time.RFC3339Nano)
-	}
+	timestamp, attempted := sourceTime(source.LastUpdatedAt), sourceTime(source.LastAttemptAt)
 	p := s.placeholder
 	if source.ID == 0 {
-		insertSQL := fmt.Sprintf("INSERT INTO blocklist_sources(name,url,enabled,last_updated_at,last_error) VALUES(%s,%s,%s,%s,%s)%s", p(1), p(2), p(3), p(4), p(5), s.insertReturning())
+		insertSQL := fmt.Sprintf("INSERT INTO blocklist_sources(name,url,enabled,last_updated_at,last_error,update_interval_seconds,last_attempt_at,consecutive_failures) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)%s", p(1), p(2), p(3), p(4), p(5), p(6), p(7), p(8), s.insertReturning())
+		args := []any{source.Name, source.URL, source.Enabled, timestamp, source.LastError, source.UpdateInterval, attempted, source.ConsecutiveFailures}
 		if s.driver == "postgres" {
 			var id int64
-			if e := tx.QueryRowContext(ctx, insertSQL, source.Name, source.URL, source.Enabled, timestamp, source.LastError).Scan(&id); e != nil {
+			if e := tx.QueryRowContext(ctx, insertSQL, args...).Scan(&id); e != nil {
 				return source, s.constraintSourceError(e)
 			}
 			source.ID = id
 		} else {
-			result, e := tx.ExecContext(ctx, insertSQL, source.Name, source.URL, source.Enabled, timestamp, source.LastError)
+			result, e := tx.ExecContext(ctx, insertSQL, args...)
 			if e != nil {
 				return source, s.constraintSourceError(e)
 			}
@@ -128,8 +144,8 @@ func (s *Store) SaveSource(ctx context.Context, source filtering.Source) (filter
 			}
 		}
 	} else {
-		updateSQL := fmt.Sprintf("UPDATE blocklist_sources SET name=%s,url=%s,enabled=%s,last_updated_at=%s,last_error=%s WHERE id=%s", p(1), p(2), p(3), p(4), p(5), p(6))
-		result, e := tx.ExecContext(ctx, updateSQL, source.Name, source.URL, source.Enabled, timestamp, source.LastError, source.ID)
+		updateSQL := fmt.Sprintf("UPDATE blocklist_sources SET name=%s,url=%s,enabled=%s,last_updated_at=%s,last_error=%s,update_interval_seconds=%s,last_attempt_at=%s,consecutive_failures=%s WHERE id=%s", p(1), p(2), p(3), p(4), p(5), p(6), p(7), p(8), p(9))
+		result, e := tx.ExecContext(ctx, updateSQL, source.Name, source.URL, source.Enabled, timestamp, source.LastError, source.UpdateInterval, attempted, source.ConsecutiveFailures, source.ID)
 		if e != nil {
 			return source, s.constraintSourceError(e)
 		}

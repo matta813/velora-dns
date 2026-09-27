@@ -5,11 +5,21 @@ import { useI18n } from "../i18n-context";
 import { Badge } from "../components/Badge";
 import { EmptyState, Loading } from "../components/EmptyState";
 
+const SCHEDULES: { seconds: number; key: string }[] = [
+  { seconds: 0, key: "blocklists.manual" },
+  { seconds: 3600, key: "blocklists.every_1h" },
+  { seconds: 6 * 3600, key: "blocklists.every_6h" },
+  { seconds: 12 * 3600, key: "blocklists.every_12h" },
+  { seconds: 24 * 3600, key: "blocklists.every_24h" },
+  { seconds: 7 * 24 * 3600, key: "blocklists.every_7d" },
+];
+
 export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
   const { t, language } = useI18n();
   const [sources, setSources] = useState<BlocklistSource[] | null>(null);
   const [name, setName] = useState("");
   const [url, setURL] = useState("");
+  const [schedule, setSchedule] = useState(24 * 3600);
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState<number | "new" | null>(null);
   const [error, setError] = useState("");
@@ -48,7 +58,7 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
     setError("");
     try {
       await request("/api/v1/blocklists", undefined, "POST", {
-        body: { name, url },
+        body: { name, url, update_interval: url.trim() ? schedule : 0 },
       });
       setName("");
       setURL("");
@@ -70,6 +80,20 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("blocklists.toggle_failed"));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const changeSchedule = async (id: number, seconds: number) => {
+    setBusy(id);
+    setError("");
+    try {
+      await request(`/api/v1/blocklists/${id}`, undefined, "PUT", {
+        body: { update_interval: seconds },
+      });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("blocklists.schedule_failed"));
     } finally {
       setBusy(null);
     }
@@ -189,6 +213,16 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
                     placeholder="https://example.org/hosts.txt"
                   />
                 </label>
+                <label>
+                  {t("blocklists.schedule")}
+                  <select value={schedule} onChange={(e) => setSchedule(Number(e.target.value))}>
+                    {SCHEDULES.map((option) => (
+                      <option key={option.seconds} value={option.seconds}>
+                        {t(option.key)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
               <div className="form-actions">
                 <button className="button primary">
@@ -259,7 +293,9 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
                   <th>{t("blocklists.col_source")}</th>
                   <th className="num">{t("blocklists.col_domains")}</th>
                   <th>{t("blocklists.col_status")}</th>
+                  <th>{t("blocklists.schedule")}</th>
                   <th>{t("blocklists.col_last_update")}</th>
+                  <th>{t("blocklists.col_next_update")}</th>
                   <th>
                     <span className="sr-only">{t("zones.col_actions")}</span>
                   </th>
@@ -293,16 +329,49 @@ export function Blocklists({ readOnly = false }: { readOnly?: boolean }) {
                         <span title={source.last_error}>
                           <Badge tone="danger">{t("blocklists.update_failed")}</Badge>
                         </span>
+                      ) : source.url && !source.last_updated_at ? (
+                        <Badge tone="warning">{t("blocklists.never_updated")}</Badge>
                       ) : source.enabled ? (
                         <Badge tone="success">{t("blocklists.active")}</Badge>
                       ) : (
                         <Badge>{t("blocklists.disabled")}</Badge>
                       )}
                     </td>
+                    <td>
+                      {source.url ? (
+                        <select
+                          className="inline-select"
+                          aria-label={`${t("blocklists.schedule_for")} ${source.name}`}
+                          value={source.update_interval ?? 0}
+                          disabled={busy !== null || readOnly}
+                          onChange={(e) => void changeSchedule(source.id, Number(e.target.value))}
+                        >
+                          {SCHEDULES.map((option) => (
+                            <option key={option.seconds} value={option.seconds}>
+                              {t(option.key)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="cell-muted">—</span>
+                      )}
+                    </td>
                     <td className="cell-muted">
                       {source.last_updated_at
                         ? new Date(source.last_updated_at).toLocaleString()
                         : t("blocklists.never")}
+                      {(source.consecutive_failures ?? 0) > 0 && (
+                        <small className="danger">
+                          {source.consecutive_failures} {t("blocklists.retry_count")}
+                        </small>
+                      )}
+                    </td>
+                    <td className="cell-muted">
+                      {source.next_update_at
+                        ? new Date(source.next_update_at) <= new Date()
+                          ? t("blocklists.due_now")
+                          : new Date(source.next_update_at).toLocaleString()
+                        : "—"}
                     </td>
                     <td>
                       <div className="blocklist-actions">

@@ -247,6 +247,16 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 			emitEvent(database.SystemEventInput{Key: "upstream-recovered:" + address, Severity: "info", Title: "Upstream recovered", Message: address + " is responding again.", Link: "/", Visibility: "all"})
 		}
 	})
+	matcher.SetRefreshObserver(func(source filtering.Source, previousFailures int, refreshErr error) {
+		key := fmt.Sprintf("blocklist:%d", source.ID)
+		switch {
+		case refreshErr != nil && previousFailures == 0:
+			emitEvent(database.SystemEventInput{Key: key, Severity: "warning", Title: "Blocklist refresh failed", Message: source.Name + " could not be updated; the previous list stays active.", Link: "/blocklists", Visibility: "all"})
+		case refreshErr == nil && previousFailures > 0:
+			emitEvent(database.SystemEventInput{Key: key + ":recovered", Severity: "info", Title: "Blocklist refresh recovered", Message: source.Name + " updated successfully again.", Link: "/blocklists", Visibility: "all"})
+		}
+	})
+	wg.Go(func() { matcher.RunScheduler(runCtx, time.Minute) })
 	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer, Validator: validator, Health: upstreamHealth}
 	resolver := dns.NewResolver(local, matcher, memory, forwarder, c.Filtering.BlockMode)
 	cookieSecret := make([]byte, 32)

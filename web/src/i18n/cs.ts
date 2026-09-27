@@ -538,6 +538,19 @@ const cs: Record<string, string> = {
   "cache.invalidate_failed": "Zneplatnění selhalo",
   "cache.flush_confirm": "Vymazat všechny odpovědi v mezipaměti? Počítadla zásahů a chyb zůstanou zachována.",
   "cache.no_matches": "Filtru neodpovídají žádné položky.",
+  "blocklists.schedule": "Plán aktualizací",
+  "blocklists.schedule_for": "Plán aktualizací pro",
+  "blocklists.manual": "Ručně",
+  "blocklists.every_1h": "Každou hodinu",
+  "blocklists.every_6h": "Každých 6 hodin",
+  "blocklists.every_12h": "Každých 12 hodin",
+  "blocklists.every_24h": "Denně",
+  "blocklists.every_7d": "Týdně",
+  "blocklists.col_next_update": "Další aktualizace",
+  "blocklists.due_now": "Nyní",
+  "blocklists.never_updated": "Nikdy neaktualizováno",
+  "blocklists.retry_count": "neúspěšné pokusy",
+  "blocklists.schedule_failed": "Plán nelze změnit",
 };
 
 export default cs;

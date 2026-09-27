@@ -538,6 +538,19 @@ const ko: Record<string, string> = {
   "cache.invalidate_failed": "무효화 실패",
   "cache.flush_confirm": "캐시된 모든 응답을 지우시겠습니까? 적중 및 실패 카운터는 유지됩니다.",
   "cache.no_matches": "이 필터와 일치하는 항목이 없습니다.",
+  "blocklists.schedule": "업데이트 일정",
+  "blocklists.schedule_for": "업데이트 일정:",
+  "blocklists.manual": "수동",
+  "blocklists.every_1h": "매시간",
+  "blocklists.every_6h": "6시간마다",
+  "blocklists.every_12h": "12시간마다",
+  "blocklists.every_24h": "매일",
+  "blocklists.every_7d": "매주",
+  "blocklists.col_next_update": "다음 업데이트",
+  "blocklists.due_now": "지금 예정",
+  "blocklists.never_updated": "업데이트 안 됨",
+  "blocklists.retry_count": "실패한 시도",
+  "blocklists.schedule_failed": "일정을 변경할 수 없습니다",
 };
 
 export default ko;

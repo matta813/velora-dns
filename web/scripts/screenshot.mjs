@@ -197,9 +197,9 @@ const demoEvents = [
 ];
 
 const demoBlocklists = [
-  { id: 1, name: "Community hosts", url: "https://example.org/hosts.txt", enabled: true, domain_count: 84213, last_updated_at: "2026-09-21T10:00:00Z" },
-  { id: 2, name: "Local overrides", url: "", enabled: true, domain_count: 12, last_updated_at: "2026-09-18T09:30:00Z" },
-  { id: 3, name: "Tracker list", url: "https://example.net/trackers.txt", enabled: false, domain_count: 5120, last_updated_at: "2026-09-12T06:00:00Z" },
+  { id: 1, name: "Community hosts", url: "https://example.org/hosts.txt", enabled: true, domain_count: 84213, last_updated_at: "2026-09-21T10:00:00Z", last_error: "", update_interval: 86400, last_attempt_at: "2026-09-21T10:00:00Z", consecutive_failures: 0, next_update_at: hoursFromNow(22) },
+  { id: 2, name: "Local overrides", url: "", enabled: true, domain_count: 12, last_updated_at: "2026-09-18T09:30:00Z", last_error: "", update_interval: 0, consecutive_failures: 0, next_update_at: null },
+  { id: 3, name: "Tracker list", url: "https://example.net/trackers.txt", enabled: true, domain_count: 5120, last_updated_at: "2026-09-20T06:00:00Z", last_error: "Download or list validation failed; previous domains retained.", update_interval: 21600, last_attempt_at: "2026-09-21T11:40:00Z", consecutive_failures: 2, next_update_at: hoursFromNow(0.25) },
 ];
 
 const demoCacheEntries = [

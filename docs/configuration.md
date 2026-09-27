@@ -157,6 +157,15 @@ to prevent DNS rebinding from bypassing the loopback management boundary.
 subdomains; an exact allowlist entry always wins. External blocklist sources are managed
 through the API and dashboard, not this configuration.
 
+URL blocklist sources can refresh automatically every 1 hour to 7 days (or stay
+manual). The schedule is stored with the source, so it survives restarts; a list
+that was never downloaded is fetched on the next scheduler pass, which runs every
+minute. A failed download never replaces the active list: the previous domains
+stay in effect, the failure is recorded, and retries back off from 5 minutes,
+doubling up to the list's own interval. Manual and scheduled refreshes of the
+same service never run at the same time. The first failure and the first success
+after failures raise system events.
+
 PostgreSQL is used when `database_driver` is set to `postgres` and `database_url` contains
 a valid connection URL. Migrations run automatically on startup. The `cluster` section
 is reserved for future primary/replica routing and currently has no runtime effect.
