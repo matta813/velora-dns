@@ -143,3 +143,37 @@ func (l *Logger) write(parent context.Context, entries []Entry) {
 	}
 	l.written.Add(uint64(len(entries)))
 }
+
+// Analytics is a bounded, bucketed view of retained query history.
+type Analytics struct {
+	Range         string            `json:"range"`
+	WindowStart   time.Time         `json:"window_start"`
+	WindowEnd     time.Time         `json:"window_end"`
+	BucketSeconds int64             `json:"bucket_seconds"`
+	HistoryStart  *time.Time        `json:"history_start"`
+	Totals        AnalyticsBucket   `json:"totals"`
+	Series        []AnalyticsBucket `json:"series"`
+	QueryTypes    []Ranking         `json:"query_types"`
+	ResponseCodes []Ranking         `json:"response_codes"`
+	Sources       []Ranking         `json:"sources"`
+	Upstreams     []UpstreamUsage   `json:"upstreams"`
+	TopBlocked    []Ranking         `json:"top_blocked"`
+}
+
+// AnalyticsBucket counts queries in one time bucket (or the whole window).
+type AnalyticsBucket struct {
+	Start   time.Time `json:"start"`
+	Total   uint64    `json:"total"`
+	Blocked uint64    `json:"blocked"`
+	Cached  uint64    `json:"cached"`
+	Failed  uint64    `json:"failed"`
+	// AverageMilliseconds covers answered queries that went upstream.
+	AverageMilliseconds float64 `json:"average_ms"`
+}
+
+type UpstreamUsage struct {
+	Address             string  `json:"address"`
+	Queries             uint64  `json:"queries"`
+	Failed              uint64  `json:"failed"`
+	AverageMilliseconds float64 `json:"average_ms"`
+}

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"github.com/matta813/velora-dns/internal/database"
 	"github.com/matta813/velora-dns/internal/querylog"
 	wire "github.com/miekg/dns"
 	"net/http"
@@ -10,6 +11,11 @@ import (
 	"strings"
 	"time"
 )
+
+// AnalyticsStore aggregates retained query history into fixed-size buckets.
+type AnalyticsStore interface {
+	QueryAnalytics(ctx context.Context, name string, end time.Time) (querylog.Analytics, error)
+}
 
 // registerQueries serves the query log. clientName, when set, adds friendly
 // client names to entries and client rankings without storing them.
@@ -86,7 +92,7 @@ func registerQueries(mux *http.ServeMux, store QueryStore, enabled func() bool, 
 			failure(w, 503, "query_logging_disabled", "Query logging is disabled")
 			return
 		}
-		windows := map[string]time.Duration{"1h": time.Hour, "24h": 24 * time.Hour, "7d": 7 * 24 * time.Hour}
+		windows := map[string]time.Duration{"1h": time.Hour, "24h": 24 * time.Hour, "7d": 7 * 24 * time.Hour, "30d": 30 * 24 * time.Hour}
 		windowName := r.URL.Query().Get("window")
 		if windowName == "" {
 			windowName = "24h"
@@ -101,7 +107,7 @@ func registerQueries(mux *http.ServeMux, store QueryStore, enabled func() bool, 
 			}
 		}
 		if !ok {
-			failure(w, 400, "invalid_filter", "Use window 1h, 24h or 7d and limit 1–50")
+			failure(w, 400, "invalid_filter", "Use window 1h, 24h, 7d or 30d and limit 1–50")
 			return
 		}
 		end := time.Now().UTC()
@@ -118,6 +124,33 @@ func registerQueries(mux *http.ServeMux, store QueryStore, enabled func() bool, 
 			}
 		}
 		respond(w, 200, summary)
+	})
+	mux.HandleFunc("GET /api/v1/analytics", func(w http.ResponseWriter, r *http.Request) {
+		if !enabled() {
+			failure(w, 503, "query_logging_disabled", "Query logging is disabled")
+			return
+		}
+		analytics, ok := store.(AnalyticsStore)
+		if !ok {
+			failure(w, 503, "storage_unavailable", "Analytics are unavailable")
+			return
+		}
+		name := r.URL.Query().Get("range")
+		if name == "" {
+			name = "24h"
+		}
+		if _, known := database.AnalyticsRanges[name]; !known {
+			failure(w, 400, "invalid_filter", "Use range 1h, 24h, 7d or 30d")
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		result, err := analytics.QueryAnalytics(ctx, name, time.Now())
+		if err != nil {
+			failure(w, 503, "storage_unavailable", "Analytics storage is unavailable")
+			return
+		}
+		respond(w, 200, result)
 	})
 	mux.HandleFunc("/api/v1/query-stats", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Allow", "GET, HEAD")

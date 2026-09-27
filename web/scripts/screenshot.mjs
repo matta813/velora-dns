@@ -120,6 +120,14 @@ const PAGES = {
     width: 1440,
     height: 1000,
   },
+  "analytics": {
+    path: "/analytics",
+    file: "analytics.png",
+    label: "Analytics",
+    width: 1440,
+    height: 1500,
+    fullPage: true,
+  },
   "dhcp": {
     path: "/dhcp",
     file: "dhcp.png",
@@ -260,6 +268,32 @@ const demoWebhooks = [
   { id: 3, name: "Team chat", url: "https://chat.example.net/hooks/ops", events: ["blocklist.refresh_failed", "backup.failed"], min_severity: "info", allow_private: false, enabled: false, has_token: true, last_delivery_at: hoursFromNow(-30), last_status: "failed", last_error: "endpoint returned HTTP 503", consecutive_failures: 4 },
 ];
 
+// A plausible home-network day: quiet at night, busy in the evening.
+function demoAnalytics() {
+  const end = new Date();
+  end.setUTCMinutes(0, 0, 0);
+  const series = Array.from({ length: 24 }, (_, i) => {
+    const start = new Date(end.getTime() - (23 - i) * 3600000);
+    const hour = start.getHours();
+    const load = 0.25 + 0.75 * Math.max(0, Math.sin(((hour - 6) / 24) * Math.PI * 2)) + (hour >= 18 && hour <= 22 ? 0.5 : 0);
+    const total = Math.round(420 + 900 * load + ((i * 37) % 60));
+    const blocked = Math.round(total * (0.028 + ((i * 7) % 5) / 400));
+    return { start: start.toISOString(), total, blocked, cached: Math.round(total * 0.83), failed: i === 15 ? 6 : i % 7 === 0 ? 1 : 0, average_ms: 14 + ((i * 13) % 9) + (i === 15 ? 38 : 0) };
+  });
+  const sum = (key) => series.reduce((acc, bucket) => acc + bucket[key], 0);
+  const total = sum("total");
+  return {
+    range: "24h", window_start: series[0].start, window_end: end.toISOString(), bucket_seconds: 3600, history_start: hoursFromNow(-24 * 6),
+    totals: { start: series[0].start, total, blocked: sum("blocked"), cached: sum("cached"), failed: sum("failed"), average_ms: 18.6 },
+    series,
+    query_types: [{ value: "A", count: Math.round(total * 0.52) }, { value: "AAAA", count: Math.round(total * 0.31) }, { value: "HTTPS", count: Math.round(total * 0.1) }, { value: "PTR", count: Math.round(total * 0.04) }, { value: "TXT", count: Math.round(total * 0.02) }, { value: "SRV", count: Math.round(total * 0.01) }],
+    response_codes: [{ value: "NOERROR", count: Math.round(total * 0.93) }, { value: "NXDOMAIN", count: Math.round(total * 0.065) }, { value: "SERVFAIL", count: sum("failed") }],
+    sources: [{ value: "cache", count: sum("cached") }, { value: "upstream", count: Math.round(total * 0.11) }, { value: "blocked", count: sum("blocked") }, { value: "local", count: Math.round(total * 0.025) }],
+    upstreams: [{ address: "1.1.1.1:53", queries: Math.round(total * 0.08), failed: 9, average_ms: 16.2 }, { address: "9.9.9.9:53", queries: Math.round(total * 0.03), failed: 2, average_ms: 24.9 }],
+    top_blocked: [{ value: "telemetry.example.", count: 412 }, { value: "ads.example.net.", count: 318 }, { value: "tracker.example.org.", count: 201 }, { value: "metrics.tv.example.", count: 96 }],
+  };
+}
+
 const demoRewrites = [
   { id: 1, name: "nas.home.arpa", type: "A", value: "192.0.2.20", enabled: true, description: "Replaces the zone record during migration", overrides_zone: "home.arpa" },
   { id: 2, name: "nas.home.arpa", type: "AAAA", value: "2001:db8::20", enabled: true, description: "", overrides_zone: "home.arpa" },
@@ -316,6 +350,7 @@ function demoResponse(pathname) {
   if (pathname === "/api/v1/rewrites") return demoRewrites;
   if (pathname === "/api/v1/clients") return demoClients;
   if (pathname === "/api/v1/policies") return demoPolicies;
+  if (pathname === "/api/v1/analytics") return demoAnalytics();
   if (pathname === "/api/v1/webhooks") return demoWebhooks;
   if (pathname === "/api/v1/webhooks/event-types") return ["upstream.unavailable", "upstream.recovered", "blocklist.refresh_failed", "blocklist.refresh_recovered", "backup.created", "backup.failed", "config.rollback"];
   if (pathname === "/api/v1/cache/entries") return { total: demoCacheEntries.length, entries: demoCacheEntries };

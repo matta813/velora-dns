@@ -50,7 +50,31 @@ network activity: restrict access to the management interface and database backu
 ## Aggregate dashboard
 
 `GET /api/v1/query-stats` returns total and blocked counts plus top domains and clients.
-`window` is restricted to `1h`, `24h` (the default), or `7d`; `limit` defaults to 10 and
+`window` is restricted to `1h`, `24h` (the default), `7d` or `30d`; `limit` defaults to 10 and
 is bounded at 50. Windows include their start and exclude their end. Rankings are computed
 on demand over retained rows and use deterministic value ordering for ties. Domain and
 client values are never exposed as Prometheus labels, avoiding unbounded metric cardinality.
+
+## Analytics
+
+The Analytics page (`GET /api/v1/analytics?range=`) turns retained history into
+time series and breakdowns. It is aggregated in the database, so the browser receives a
+fixed amount of data regardless of how many queries are stored:
+
+| Range | Buckets |
+| --- | --- |
+| `1h` | 60 × 1 minute |
+| `24h` (default) | 24 × 1 hour |
+| `7d` | 168 × 1 hour |
+| `30d` | 30 × 1 day (UTC) |
+
+Each bucket and the window total report queries, blocked answers, cache answers, SERVFAIL
+answers and the average upstream response time of answered queries. The response also
+includes query types, response codes, answer sources, per-upstream usage with failures and
+average response time, and the top blocked domains. Buckets are aligned to whole minutes,
+hours or days, so the first bucket can start slightly before the nominal window.
+
+Analytics only cover what query logging retains: `history_start` is the oldest stored query,
+and the page says so when a range reaches further back than retention allows. With query
+logging disabled, the endpoint returns `503 query_logging_disabled`. Analytics are
+available to the same roles that can read the query log.

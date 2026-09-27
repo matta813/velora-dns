@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   Bell,
   ChevronDown,
   ClipboardList,
@@ -45,6 +46,7 @@ import { DHCP } from "./pages/DHCP";
 import { Cluster } from "./pages/Cluster";
 import { Diagnostics } from "./pages/Diagnostics";
 import { AuditLog } from "./pages/AuditLog";
+import { Analytics } from "./pages/Analytics";
 import { Webhooks } from "./pages/Webhooks";
 import { EventCenter } from "./pages/EventCenter";
 import { Loading } from "./components/EmptyState";
@@ -71,6 +73,7 @@ interface NavGroup {
 const NAV: (NavItem | NavGroup)[] = [
   { to: "/", key: "overview", icon: <LayoutDashboard size={17} /> },
   { to: "/queries", key: "queries", icon: <ScrollText size={17} /> },
+  { to: "/analytics", key: "analytics", icon: <BarChart3 size={17} /> },
   {
     label: "app.nav.group_dns",
     items: [
@@ -115,6 +118,7 @@ const ROUTE_KEYS: Record<string, string> = {
   "/events": "events",
   "/zones": "zones",
   "/queries": "queries",
+  "/analytics": "analytics",
   "/blocklists": "blocklists",
   "/forwarding": "forwarding",
   "/rewrites": "rewrites",
@@ -132,7 +136,7 @@ const ROUTE_KEYS: Record<string, string> = {
 };
 
 // Pages that manage their own reload controls.
-const SELF_REFRESHING = ["/zones", "/queries", "/blocklists", "/forwarding", "/rewrites", "/clients", "/policies", "/webhooks"];
+const SELF_REFRESHING = ["/zones", "/queries", "/blocklists", "/forwarding", "/rewrites", "/clients", "/policies", "/webhooks", "/analytics"];
 
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
@@ -377,6 +381,7 @@ export default function App() {
               <Route path="/cluster" element={<Cluster />} />
               <Route path="/diagnostics" element={<Diagnostics />} />
               <Route path="/audit" element={<AuditLog />} />
+              <Route path="/analytics" element={<Analytics queryLogging={data.config.query_log?.enabled ?? false} />} />
               <Route path="/webhooks" element={<Webhooks />} />
               <Route path="*" element={<p>{t("app.not_found")}</p>} />
             </Routes>
