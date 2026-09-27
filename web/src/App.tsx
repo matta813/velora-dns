@@ -139,10 +139,11 @@ const ROUTE_KEYS: Record<string, string> = {
 };
 
 // Pages that manage their own reload controls.
-const SELF_REFRESHING = ["/zones", "/queries", "/blocklists", "/forwarding", "/rewrites", "/clients", "/policies", "/webhooks", "/analytics", "/updates"];
+const SELF_REFRESHING = ["/zones", "/queries", "/blocklists", "/forwarding", "/rewrites", "/clients", "/policies", "/webhooks", "/analytics", "/updates", "/cluster"];
 
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
+  const replica = data?.status.cluster_role === "replica";
   const user = useAuthUser();
   const { t } = useI18n();
   const { theme, setTheme } = useTheme();
@@ -475,6 +476,11 @@ export default function App() {
                 : t("app.error.check_server")}
             </div>
           )}
+          {replica && pathname === "/zones" && (
+            <div className="notice info" role="status">
+              {t("cluster.zones_read_only")}
+            </div>
+          )}
           {readOnly && ["/zones", "/blocklists", "/cache", "/forwarding", "/rewrites", "/clients", "/policies"].includes(pathname) && (
             <div className="notice info" role="status">
               {t("app.viewer_readonly")}
@@ -504,7 +510,7 @@ export default function App() {
                 path="/cache"
                 element={<CachePage data={data} refresh={refresh} readOnly={readOnly} />}
               />
-              <Route path="/zones" element={<Zones key={search} readOnly={readOnly} />} />
+              <Route path="/zones" element={<Zones key={search} readOnly={readOnly || replica} />} />
               <Route
                 path="/queries"
                 element={<QueryLog enabled={data.config.query_log?.enabled ?? false} />}
@@ -521,7 +527,7 @@ export default function App() {
                 element={<BackupAssistant readOnly={readOnly} canCreate={user?.role === "admin"} />}
               />
               <Route path="/dhcp" element={<DHCP readOnly={readOnly} />} />
-              <Route path="/cluster" element={<Cluster />} />
+              <Route path="/cluster" element={<Cluster canManage={user?.role === "admin"} />} />
               <Route path="/diagnostics" element={<Diagnostics />} />
               <Route path="/audit" element={<AuditLog />} />
               <Route path="/analytics" element={<Analytics queryLogging={data.config.query_log?.enabled ?? false} />} />

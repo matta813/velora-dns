@@ -38,6 +38,14 @@ metrics require an authenticated session or scoped API token.
 | POST | /api/v1/update/request | Start the release selected by the configured updater agent |
 | GET | /api/v1/stats | Persisted query counters, rolling 60-second QPS and cache hit ratio |
 | POST | /api/v1/stats/reset | Reset persisted query, cache and rate-limit counters (admin only) |
+| GET | /api/v1/cluster/overview | This node's cluster role, zone revision and, on a primary, replicas with sync status |
+| POST | /api/v1/cluster/create | Admin: make this node a primary (`name`, `advertised_url`, optional `allow_insecure`, `skip_check`) |
+| POST | /api/v1/cluster/join-tokens | Admin, primary: one-time join token valid for 30 minutes |
+| POST | /api/v1/cluster/connect | Admin: join a primary as a replica (`primary_url`, `token`, `name`, `allow_insecure`) |
+| POST | /api/v1/cluster/sync | Admin, replica: sync now |
+| DELETE | /api/v1/cluster/members/{id} | Admin, primary: remove a replica |
+| POST | /api/v1/cluster/leave | Admin, replica: leave the cluster |
+| POST | /api/v1/cluster/dissolve | Admin, primary: revoke all replicas and become standalone |
 | GET | /api/v1/search?q= | Command palette search (2–100 characters) over zones, records, clients, rewrites, forwarding rules and blocklists; at most 5 results per kind and a bounded record scan |
 | GET | /api/v1/analytics?range= | Bucketed query history for `1h`, `24h`, `7d` or `30d` from the query log: totals, time series, query types, response codes, sources, upstream usage and top blocked domains ([details](query-logging.md#analytics)) |
 | GET | /api/v1/settings/rate-limit/status | Enabled state, persisted rejection count and last rejection time; no client addresses |

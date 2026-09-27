@@ -17,6 +17,7 @@ import (
 	"github.com/matta813/velora-dns/internal/backup"
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/clients"
+	"github.com/matta813/velora-dns/internal/cluster"
 	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/database"
 	"github.com/matta813/velora-dns/internal/dns"
@@ -293,6 +294,21 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	if err != nil {
 		return fmt.Errorf("load DNS rewrites: %w", err)
 	}
+	clusterNode, err := cluster.NewService(initCtx, db, local, cluster.Options{Version: version.Version})
+	if err != nil {
+		return fmt.Errorf("load cluster state: %w", err)
+	}
+	clusterNode.SetSyncObserver(func(failed bool, message string) {
+		if failed {
+			if len(message) > 400 {
+				message = message[:400]
+			}
+			emitEvent(database.SystemEventInput{Type: "cluster.sync_failed", Key: "cluster_sync", Severity: "warning", Title: "Cluster sync failed", Message: message, Link: "/cluster", Visibility: "all"})
+			return
+		}
+		emitEvent(database.SystemEventInput{Type: "cluster.sync_recovered", Key: "cluster_sync:recovered", Severity: "info", Title: "Cluster sync recovered", Message: "This replica is receiving zone updates from the primary again.", Link: "/cluster", Visibility: "all"})
+	})
+	wg.Go(func() { clusterNode.RunReplica(runCtx) })
 	knownClients, err := clients.NewService(initCtx, db)
 	if err != nil {
 		return fmt.Errorf("load clients: %w", err)
@@ -472,7 +488,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, UpstreamHealth: upstreamHealth, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, Forwarding: forwardRules, Rewrites: rewriteRules, Clients: knownClients, Activity: db, Policies: clientPolicies, Webhooks: hooks, Events: db, NotifyEvent: emitEvent, ApplyConfig: applyConfig, ResetStats: resetStatistics, RequestRestart: requestRestart}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, UpstreamHealth: upstreamHealth, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, Forwarding: forwardRules, Rewrites: rewriteRules, Clients: knownClients, Activity: db, Policies: clientPolicies, Webhooks: hooks, ClusterNode: clusterNode, Events: db, NotifyEvent: emitEvent, ApplyConfig: applyConfig, ResetStats: resetStatistics, RequestRestart: requestRestart}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)

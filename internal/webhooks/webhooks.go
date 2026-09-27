@@ -51,6 +51,8 @@ var EventTypes = []string{
 	"backup.created",
 	"backup.failed",
 	"config.rollback",
+	"cluster.sync_failed",
+	"cluster.sync_recovered",
 }
 
 var severityRank = map[string]int{"info": 0, "warning": 1, "critical": 2}

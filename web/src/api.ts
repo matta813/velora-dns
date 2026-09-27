@@ -4,6 +4,8 @@ export interface Status {
   dns_listen: string[];
   version: { version: string; commit: string; built: string };
   capabilities: string[];
+  /** Cluster role; replicas cannot edit zones. */
+  cluster_role?: "standalone" | "primary" | "replica";
 }
 export interface Stats {
   queries_total: number;

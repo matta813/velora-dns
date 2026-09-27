@@ -134,6 +134,18 @@ const demoAudit = [
 ];
 
 export function demoResponse(pathname) {
+  if (pathname === "/api/v1/cluster/overview") return {
+    state: { role: "primary", cluster_id: "5f1c2a9e7b3d4c6a8e0f1b2c", node_id: "a1b2c3d4e5f6a7b8c9d0e1f2", node_name: "dns1", advertised_url: "https://dns1.home.arpa", primary_url: "", allow_insecure: false, created_at: hoursFromNow(-72), last_sync_at: null, last_sync_error: "", applied_revision: "" },
+    revision: "8c41e2f09a7d3b56",
+    zones_read_only: false,
+    protocol: 1,
+    version: "0.1.0-beta.11",
+    replicated_zones: 2,
+    members: [
+      { node_id: "b1c2d3e4f5a6b7c8d9e0f1a2", name: "dns2", address: "192.0.2.12", version: "0.1.0-beta.11", joined_at: hoursFromNow(-70), last_seen_at: hoursFromNow(-0.004), applied_revision: "8c41e2f09a7d3b56", last_error: "", status: "in_sync" },
+      { node_id: "c1d2e3f4a5b6c7d8e9f0a1b2", name: "dns3-garage", address: "192.0.2.13", version: "0.1.0-beta.10", joined_at: hoursFromNow(-30), last_seen_at: hoursFromNow(-0.006), applied_revision: "2e7a90d4c1b35f68", last_error: "", status: "behind" },
+    ],
+  };
   if (pathname === "/api/v1/search") return [
     { kind: "zone", title: "home.arpa", subtitle: "ns.home.arpa", link: "/zones?zone=1" },
     { kind: "record", title: "nas.home.arpa A", subtitle: "192.0.2.20", link: "/zones?zone=1" },

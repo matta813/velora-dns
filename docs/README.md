@@ -14,6 +14,7 @@
 - [Per-client filtering policies](policies.md)
 - [Webhook notifications](webhooks.md)
 - [Command palette and keyboard shortcuts](command-palette.md)
+- [Clustering: primary and replicas](cluster.md)
 - [Local DNS rewrites](rewrites.md)
 - [Conditional forwarding and query precedence](forwarding.md)
 - [Query history, retention and filters](query-logging.md)
@@ -57,7 +58,7 @@ and contain no credentials, tokens, or production data.
 | `policies.png` | Per-client filtering policies |
 | `webhooks.png` | Webhook destinations with delivery status |
 | `dhcp.png` | DHCP pools and active leases |
-| `cluster.png` | Cluster nodes and configuration versions |
+| `cluster.png` | Cluster primary with replicas and their sync status |
 | `settings.png` | Preferences, server configuration and rate limiting (full page) |
 | `update-center.png` | Release discovery and update history |
 | `backup.png` | Encrypted backup creation, status and verification |

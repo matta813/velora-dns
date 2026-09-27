@@ -1633,6 +1633,355 @@
         "x-required-role": "viewer-or-higher"
       }
     },
+    "/api/v1/cluster/connect": {
+      "post": {
+        "operationId": "post_cluster_connect",
+        "summary": "Post cluster/connect",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ClusterOverview"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "primary_url": {
+                    "type": "string"
+                  },
+                  "token": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "allow_insecure": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "primary_url",
+                  "token",
+                  "name"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cluster/create": {
+      "post": {
+        "operationId": "post_cluster_create",
+        "summary": "Post cluster/create",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ClusterOverview"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "advertised_url": {
+                    "type": "string",
+                    "description": "Base URL other nodes use to reach this node"
+                  },
+                  "allow_insecure": {
+                    "type": "boolean",
+                    "description": "Permit plain HTTP"
+                  },
+                  "skip_check": {
+                    "type": "boolean",
+                    "description": "Skip the reachability self-check"
+                  }
+                },
+                "required": [
+                  "name",
+                  "advertised_url"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cluster/dissolve": {
+      "post": {
+        "operationId": "post_cluster_dissolve",
+        "summary": "Post cluster/dissolve",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ClusterOverview"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin"
+      }
+    },
+    "/api/v1/cluster/join-tokens": {
+      "post": {
+        "operationId": "post_cluster_join_tokens",
+        "summary": "Post cluster/join-tokens",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ClusterJoinToken"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin"
+      }
+    },
+    "/api/v1/cluster/leave": {
+      "post": {
+        "operationId": "post_cluster_leave",
+        "summary": "Post cluster/leave",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ClusterOverview"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin"
+      }
+    },
+    "/api/v1/cluster/members/{id}": {
+      "delete": {
+        "operationId": "delete_cluster_members_id",
+        "summary": "Cluster node removal is unavailable until a membership protocol exists",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "501": {
+            "description": "Cluster membership changes are unavailable"
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/api/v1/cluster/nodes": {
       "get": {
         "operationId": "get_cluster_nodes",
@@ -1782,6 +2131,299 @@
             }
           }
         ]
+      }
+    },
+    "/api/v1/cluster/overview": {
+      "get": {
+        "operationId": "get_cluster_overview",
+        "summary": "Get cluster/overview",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ClusterOverview"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/cluster/peer/info": {
+      "get": {
+        "operationId": "get_cluster_peer_info",
+        "summary": "Get cluster/peer/info",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ClusterPeerInfo"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/cluster/peer/join": {
+      "post": {
+        "operationId": "post_cluster_peer_join",
+        "summary": "Post cluster/peer/join",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ClusterJoinResponse"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClusterJoinRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cluster/peer/leave": {
+      "post": {
+        "operationId": "post_cluster_peer_leave",
+        "summary": "Post cluster/peer/leave",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ClusterPeerInfo"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin"
+      }
+    },
+    "/api/v1/cluster/peer/snapshot": {
+      "get": {
+        "operationId": "get_cluster_peer_snapshot",
+        "summary": "Get cluster/peer/snapshot",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClusterSnapshot"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher"
+      }
+    },
+    "/api/v1/cluster/sync": {
+      "post": {
+        "operationId": "post_cluster_sync",
+        "summary": "Post cluster/sync",
+        "tags": [
+          "cluster"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ClusterOverview"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin"
       }
     },
     "/api/v1/config": {
@@ -6639,6 +7281,324 @@
           "link"
         ]
       },
+      "ClusterState": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "standalone",
+              "primary",
+              "replica"
+            ]
+          },
+          "cluster_id": {
+            "type": "string"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "node_name": {
+            "type": "string"
+          },
+          "advertised_url": {
+            "type": "string"
+          },
+          "primary_url": {
+            "type": "string"
+          },
+          "allow_insecure": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "last_sync_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "last_sync_error": {
+            "type": "string"
+          },
+          "applied_revision": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "node_id"
+        ]
+      },
+      "ClusterMember": {
+        "type": "object",
+        "properties": {
+          "node_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_seen_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "applied_revision": {
+            "type": "string"
+          },
+          "last_error": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "in_sync",
+              "behind",
+              "stale",
+              "error",
+              "never_synced"
+            ]
+          }
+        },
+        "required": [
+          "node_id",
+          "name",
+          "status"
+        ]
+      },
+      "ClusterOverview": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/ClusterState"
+          },
+          "revision": {
+            "type": "string",
+            "description": "Zone snapshot revision served (primary) or applied (replica)"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClusterMember"
+            }
+          },
+          "zones_read_only": {
+            "type": "boolean"
+          },
+          "protocol": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "version": {
+            "type": "string"
+          },
+          "replicated_zones": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "state",
+          "revision",
+          "members",
+          "zones_read_only",
+          "protocol",
+          "version",
+          "replicated_zones"
+        ]
+      },
+      "ClusterJoinToken": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "One-time token, valid 30 minutes; shown only once"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "token",
+          "expires_at"
+        ]
+      },
+      "ClusterPeerInfo": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "version": {
+            "type": "string"
+          },
+          "cluster_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "protocol",
+          "version"
+        ]
+      },
+      "ClusterJoinRequest": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "protocol",
+          "node_id",
+          "name"
+        ]
+      },
+      "ClusterJoinResponse": {
+        "type": "object",
+        "properties": {
+          "cluster_id": {
+            "type": "string"
+          },
+          "node_secret": {
+            "type": "string",
+            "description": "Node credential; returned once"
+          },
+          "primary_name": {
+            "type": "string"
+          },
+          "primary_version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cluster_id",
+          "node_secret"
+        ]
+      },
+      "ClusterSnapshot": {
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "cluster_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "primary": {
+            "type": "object",
+            "properties": {
+              "node_id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              }
+            }
+          },
+          "zones": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "primary_ns": {
+                  "type": "string"
+                },
+                "contact": {
+                  "type": "string"
+                },
+                "records": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string"
+                      },
+                      "ttl": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "value": {
+                        "type": "string"
+                      },
+                      "priority": {
+                        "type": "integer",
+                        "format": "int64"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "protocol",
+          "cluster_id",
+          "revision",
+          "zones"
+        ]
+      },
       "ConfigCheck": {
         "type": "object",
         "properties": {
@@ -8804,7 +9764,9 @@
             "blocklist.refresh_recovered",
             "backup.created",
             "backup.failed",
-            "config.rollback"
+            "config.rollback",
+            "cluster.sync_failed",
+            "cluster.sync_recovered"
           ]
         }
       },

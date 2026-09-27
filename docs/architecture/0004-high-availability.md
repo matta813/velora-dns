@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted design; not implemented in the production runtime. Experimental packages exist
+Accepted design. A single-writer primary/replica mode for authoritative zones is
+implemented (see [Clustering](../cluster.md)); the quorum-based control plane and
+automatic leader election below are not implemented yet. Experimental packages exist
 for membership, replication and cluster routing. Startup and management APIs expose
 local node records when configured, but they do not implement distributed membership,
 quorum or replication. Health and readiness do not reflect control-plane state.
@@ -26,6 +28,16 @@ locally durable zone snapshot while disconnected. It must not accept management
 writes, originate transfers, or claim healthy control-plane membership without a
 leader quorum. Recursive forwarding remains node-local and its cache is explicitly
 outside replicated state.
+
+### Primary/replica zone replication
+
+The implemented cluster mode follows the single-writer rule without quorum: one
+administrator-designated primary accepts zone writes; replicas pull a signed,
+content-addressed snapshot, apply it zone by zone, reject local zone writes and
+keep serving their last applied snapshot when the primary is unreachable. There
+is no election and no automatic failover, so partitions cannot produce two
+writers; promoting a replica is a manual operator action. Other configuration is
+not replicated.
 
 ### Current scaffolding
 
