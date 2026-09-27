@@ -19,6 +19,9 @@ type Entry struct {
 	Upstream   string        `json:"upstream"`
 	Duration   time.Duration `json:"duration"`
 	CacheHit   bool          `json:"cache_hit"`
+	// ClientName is resolved from client definitions when served; it is
+	// never stored with the entry.
+	ClientName string `json:"client_name,omitempty"`
 }
 type Filter struct {
 	Domain, Client, Type, Source string
@@ -28,6 +31,15 @@ type Filter struct {
 type Ranking struct {
 	Value string `json:"value"`
 	Count uint64 `json:"count"`
+	// Name is the friendly client name for client rankings, when known.
+	Name string `json:"name,omitempty"`
+}
+
+// ClientActivity summarizes retained queries from one client address.
+type ClientActivity struct {
+	ClientIP string    `json:"client_ip"`
+	Queries  uint64    `json:"queries"`
+	LastSeen time.Time `json:"last_seen"`
 }
 type Summary struct {
 	WindowStart time.Time `json:"window_start"`

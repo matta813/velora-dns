@@ -10,6 +10,7 @@
 - [Validation evidence](validation.md)
 - [REST API and metrics](api.md)
 - [Local zones and record API](zones.md)
+- [Clients and devices](clients.md)
 - [Local DNS rewrites](rewrites.md)
 - [Conditional forwarding and query precedence](forwarding.md)
 - [Query history, retention and filters](query-logging.md)
@@ -47,6 +48,7 @@ and contain no credentials, tokens, or production data.
 | `forwarding.png` | Conditional forwarding rules with resolver health |
 | `blocklists.png` | Blocklist sources with enable switches and status |
 | `cache.png` | Cache usage and live cache entries |
+| `clients.png` | Named clients with activity and unnamed addresses |
 | `dhcp.png` | DHCP pools and active leases |
 | `cluster.png` | Cluster nodes and configuration versions |
 | `settings.png` | Preferences, server configuration and rate limiting (full page) |

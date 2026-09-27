@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { EyeOff, Filter, RefreshCw, SearchX, ShieldBan } from "lucide-react";
 import { request, type QueryLogEntry } from "../api";
 import { useI18n } from "../i18n-context";
@@ -18,8 +19,10 @@ const SOURCE_TONES: Record<string, BadgeTone> = {
 export function QueryLog({ enabled }: { enabled: boolean }) {
   const { t } = useI18n();
   const [entries, setEntries] = useState<QueryLogEntry[] | null>(null);
-  const [draft, setDraft] = useState(empty);
-  const [filter, setFilter] = useState({ ...empty, before: "", revision: 0 });
+  const [params] = useSearchParams();
+  const initial = { ...empty, client: params.get("client") ?? "" };
+  const [draft, setDraft] = useState(initial);
+  const [filter, setFilter] = useState({ ...initial, before: "", revision: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -190,7 +193,14 @@ export function QueryLog({ enabled }: { enabled: boolean }) {
                   <tr key={e.id}>
                     <td className="cell-muted">{new Date(e.occurred_at).toLocaleString()}</td>
                     <td>
-                      <code>{e.client_ip}</code>
+                      {e.client_name ? (
+                        <>
+                          <Link to={`/clients?name=${encodeURIComponent(e.client_name)}`}>{e.client_name}</Link>
+                          <small><code>{e.client_ip}</code></small>
+                        </>
+                      ) : (
+                        <code>{e.client_ip}</code>
+                      )}
                     </td>
                     <td className="record-value">
                       <code>{e.domain}</code>

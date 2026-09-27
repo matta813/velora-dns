@@ -11,7 +11,9 @@ import (
 	"time"
 )
 
-func registerQueries(mux *http.ServeMux, store QueryStore, enabled func() bool) {
+// registerQueries serves the query log. clientName, when set, adds friendly
+// client names to entries and client rankings without storing them.
+func registerQueries(mux *http.ServeMux, store QueryStore, enabled func() bool, clientName func(string) string) {
 	mux.HandleFunc("GET /api/v1/queries", func(w http.ResponseWriter, r *http.Request) {
 		if !enabled() {
 			failure(w, 503, "query_logging_disabled", "Query logging is disabled")
@@ -72,6 +74,11 @@ func registerQueries(mux *http.ServeMux, store QueryStore, enabled func() bool) 
 		if len(entries) > 0 {
 			w.Header().Set("X-Next-Before", strconv.FormatInt(entries[len(entries)-1].ID, 10))
 		}
+		if clientName != nil {
+			for i := range entries {
+				entries[i].ClientName = clientName(entries[i].ClientIP)
+			}
+		}
 		respond(w, 200, entries)
 	})
 	mux.HandleFunc("GET /api/v1/query-stats", func(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +111,11 @@ func registerQueries(mux *http.ServeMux, store QueryStore, enabled func() bool) 
 		if err != nil {
 			failure(w, 503, "storage_unavailable", "Query statistics storage is unavailable")
 			return
+		}
+		if clientName != nil {
+			for i := range summary.TopClients {
+				summary.TopClients[i].Name = clientName(summary.TopClients[i].Value)
+			}
 		}
 		respond(w, 200, summary)
 	})

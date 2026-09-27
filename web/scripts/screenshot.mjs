@@ -99,6 +99,13 @@ const PAGES = {
     width: 1440,
     height: 1000,
   },
+  "clients": {
+    path: "/clients",
+    file: "clients.png",
+    label: "Clients and devices",
+    width: 1440,
+    height: 1000,
+  },
   "dhcp": {
     path: "/dhcp",
     file: "dhcp.png",
@@ -196,9 +203,9 @@ const demoZones = [
 ];
 
 const demoQueries = [
-  { id: 4, occurred_at: "2026-09-21T12:04:00Z", client_ip: "192.0.2.45", domain: "docs.example", type: "A", rcode: "NOERROR", duration: 1200000, source: "cache", upstream: "", cache_hit: true },
-  { id: 3, occurred_at: "2026-09-21T12:03:42Z", client_ip: "192.0.2.21", domain: "router.home.arpa", type: "A", rcode: "NOERROR", duration: 340000, source: "local", upstream: "", cache_hit: false },
-  { id: 2, occurred_at: "2026-09-21T12:03:18Z", client_ip: "192.0.2.45", domain: "telemetry.example", type: "AAAA", rcode: "NXDOMAIN", duration: 410000, source: "blocked", upstream: "", cache_hit: false },
+  { id: 4, occurred_at: "2026-09-21T12:04:00Z", client_ip: "192.0.2.45", client_name: "Living Room TV", domain: "docs.example", type: "A", rcode: "NOERROR", duration: 1200000, source: "cache", upstream: "", cache_hit: true },
+  { id: 3, occurred_at: "2026-09-21T12:03:42Z", client_ip: "192.0.2.21", client_name: "Home Assistant", domain: "router.home.arpa", type: "A", rcode: "NOERROR", duration: 340000, source: "local", upstream: "", cache_hit: false },
+  { id: 2, occurred_at: "2026-09-21T12:03:18Z", client_ip: "192.0.2.45", client_name: "Living Room TV", domain: "telemetry.example", type: "AAAA", rcode: "NXDOMAIN", duration: 410000, source: "blocked", upstream: "", cache_hit: false },
   { id: 1, occurred_at: "2026-09-21T12:02:51Z", client_ip: "192.0.2.33", domain: "example.org", type: "MX", rcode: "NOERROR", duration: 18300000, source: "upstream", upstream: "9.9.9.9:53", cache_hit: false },
 ];
 
@@ -215,6 +222,16 @@ const demoBlocklists = [
   { id: 2, name: "Local overrides", url: "", enabled: true, domain_count: 12, last_updated_at: "2026-09-18T09:30:00Z", last_error: "", update_interval: 0, consecutive_failures: 0, next_update_at: null },
   { id: 3, name: "Tracker list", url: "https://example.net/trackers.txt", enabled: true, domain_count: 5120, last_updated_at: "2026-09-20T06:00:00Z", last_error: "Download or list validation failed; previous domains retained.", update_interval: 21600, last_attempt_at: "2026-09-21T11:40:00Z", consecutive_failures: 2, next_update_at: hoursFromNow(0.25) },
 ];
+
+const demoClients = {
+  clients: [
+    { id: 1, name: "Living Room TV", addresses: ["192.0.2.45"], group: "Media", description: "", enabled: true, activity: { queries: 5400, last_seen: hoursFromNow(-0.05) } },
+    { id: 2, name: "Home Assistant", addresses: ["192.0.2.21", "2001:db8::21"], group: "Automation", description: "Raspberry Pi 5", enabled: true, activity: { queries: 3720, last_seen: hoursFromNow(-0.01) } },
+    { id: 3, name: "Guest network", addresses: ["198.51.100.0/24"], group: "Networks", description: "Isolated VLAN", enabled: true, activity: { queries: 612, last_seen: hoursFromNow(-2) } },
+    { id: 4, name: "Old laptop", addresses: ["192.0.2.90"], group: "", description: "", enabled: false, activity: { queries: 0, last_seen: null } },
+  ],
+  unnamed: [{ client_ip: "192.0.2.33", queries: 241, last_seen: hoursFromNow(-0.3) }, { client_ip: "192.0.2.61", queries: 57, last_seen: hoursFromNow(-5) }],
+};
 
 const demoRewrites = [
   { id: 1, name: "nas.home.arpa", type: "A", value: "192.0.2.20", enabled: true, description: "Replaces the zone record during migration", overrides_zone: "home.arpa" },
@@ -260,7 +277,7 @@ function demoResponse(pathname) {
   if (pathname === "/api/v1/stats") return { queries_total: 18472, blocked_queries: 629, queries_per_second: 12.4, cache_hit_rate: 0.847 };
   if (pathname === "/api/v1/cache") return { entries: 1842, capacity: 10000, hits: 15646, misses: 2826 };
   if (pathname === "/api/v1/config") return { query_log: { enabled: true, retention: 604800000000000, max_rows: 100000, queue_size: 1024 }, dns: { listen: ["127.0.0.1:53"], upstreams: ["1.1.1.1:53", "9.9.9.9:53"], allowed_clients: ["127.0.0.0/8"], timeout: 2000000000, retries: 1, max_concurrent: 256 }, cache: { max_entries: 10000, upstream_ttl: 86400 }, http: { listen: "127.0.0.1:8080", web_dir: "web/dist", allowed_hosts: ["localhost"] }, log_level: "info" };
-  if (pathname === "/api/v1/query-stats") return { window_start: "2026-09-20T12:00:00Z", window_end: "2026-09-21T12:00:00Z", total: 18472, blocked: 629, top_domains: [{ value: "docs.example", count: 1284 }, { value: "example.org", count: 914 }], top_clients: [{ value: "192.0.2.45", count: 5400 }, { value: "192.0.2.21", count: 3720 }] };
+  if (pathname === "/api/v1/query-stats") return { window_start: "2026-09-20T12:00:00Z", window_end: "2026-09-21T12:00:00Z", total: 18472, blocked: 629, top_domains: [{ value: "docs.example", count: 1284 }, { value: "example.org", count: 914 }], top_clients: [{ value: "192.0.2.45", count: 5400, name: "Living Room TV" }, { value: "192.0.2.21", count: 3720, name: "Home Assistant" }] };
   if (pathname === "/api/v1/zones") return demoZones;
   if (pathname === "/api/v1/queries") return demoQueries;
   if (pathname === "/api/v1/update/status") return { state: "completed", installed: "0.1.0-beta.10", last_completed: "2026-09-20T20:52:46Z", updating: false };
@@ -270,6 +287,7 @@ function demoResponse(pathname) {
   if (pathname === "/api/v1/blocklists") return demoBlocklists;
   if (pathname === "/api/v1/forwarding") return demoForwarding;
   if (pathname === "/api/v1/rewrites") return demoRewrites;
+  if (pathname === "/api/v1/clients") return demoClients;
   if (pathname === "/api/v1/cache/entries") return { total: demoCacheEntries.length, entries: demoCacheEntries };
   if (pathname === "/api/v1/settings/rate-limit") return { enabled: true, global_qps: 1000, client_qps: 50, rate_limit_burst: 100 };
   if (pathname === "/api/v1/settings/rate-limit/status") return { rejected_total: 14, last_rejected_at: "2026-09-21T11:30:00Z" };
