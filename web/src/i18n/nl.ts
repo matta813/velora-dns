@@ -525,6 +525,19 @@ const nl: Record<string, string> = {
   "dashboard.client": "Client",
   "dashboard.upstream_servers": "Upstream-servers",
   "dashboard.collecting_samples": "Metingen verzamelen…",
+  "cache.search_label": "Zoeken op naam",
+  "cache.search_placeholder": "example.org",
+  "cache.all_types": "Alle typen",
+  "cache.remove_entry": "Uit cache verwijderen",
+  "cache.invalidate_title": "Domein ongeldig maken",
+  "cache.invalidate_text": "Verwijder gecachte antwoorden voor één naam zonder de hele cache te legen.",
+  "cache.domain": "Domein",
+  "cache.include_subdomains": "Subdomeinen meenemen",
+  "cache.invalidate": "Ongeldig maken",
+  "cache.removed_entries": "Verwijderde cache-items",
+  "cache.invalidate_failed": "Ongeldig maken mislukt",
+  "cache.flush_confirm": "Alle gecachte antwoorden wissen? Teller voor treffers en missers blijft behouden.",
+  "cache.no_matches": "Geen cache-items komen overeen met dit filter.",
 };
 
 export default nl;

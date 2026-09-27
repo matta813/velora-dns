@@ -525,6 +525,19 @@ const ko: Record<string, string> = {
   "dashboard.client": "클라이언트",
   "dashboard.upstream_servers": "업스트림 서버",
   "dashboard.collecting_samples": "샘플 수집 중…",
+  "cache.search_label": "이름으로 검색",
+  "cache.search_placeholder": "example.org",
+  "cache.all_types": "모든 유형",
+  "cache.remove_entry": "캐시에서 제거",
+  "cache.invalidate_title": "도메인 무효화",
+  "cache.invalidate_text": "전체 캐시를 지우지 않고 한 이름의 캐시된 응답을 제거합니다.",
+  "cache.domain": "도메인",
+  "cache.include_subdomains": "하위 도메인 포함",
+  "cache.invalidate": "무효화",
+  "cache.removed_entries": "제거된 캐시 항목",
+  "cache.invalidate_failed": "무효화 실패",
+  "cache.flush_confirm": "캐시된 모든 응답을 지우시겠습니까? 적중 및 실패 카운터는 유지됩니다.",
+  "cache.no_matches": "이 필터와 일치하는 항목이 없습니다.",
 };
 
 export default ko;

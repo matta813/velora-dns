@@ -39,6 +39,8 @@ metrics require an authenticated session or scoped API token.
 | GET | /api/v1/upstreams/health | Passive upstream health, recent latency and failure count for configured resolvers |
 | GET | /api/v1/cache | Live entries, capacity, persisted hits and misses |
 | DELETE | /api/v1/cache | Clear cached answers; preserve lifetime counters |
+| GET | /api/v1/cache/entries | Page through cached answers (`limit` 1–200, `offset`); filter with `domain` (case-insensitive substring) and `type` (for example `AAAA`) |
+| POST | /api/v1/cache/invalidate | Remove cached answers for `name`; optional `type` limits it to one record type and `include_subdomains` also removes names below it |
 | GET | /api/v1/config | Current config, excluding database path and secrets |
 | PUT | /api/v1/config | Validate and apply supported live settings, then save atomically; `409 config_requires_restart` lists fields that cannot be applied live |
 | GET | /api/v1/blocklists | Blocklist sources with domain counts and status |

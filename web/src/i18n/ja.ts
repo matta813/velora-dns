@@ -525,6 +525,19 @@ const ja: Record<string, string> = {
   "dashboard.client": "クライアント",
   "dashboard.upstream_servers": "上流サーバー",
   "dashboard.collecting_samples": "サンプルを収集中…",
+  "cache.search_label": "名前で検索",
+  "cache.search_placeholder": "example.org",
+  "cache.all_types": "すべてのタイプ",
+  "cache.remove_entry": "キャッシュから削除",
+  "cache.invalidate_title": "ドメインを無効化",
+  "cache.invalidate_text": "キャッシュ全体を消去せずに、1つの名前のキャッシュ済み応答を削除します。",
+  "cache.domain": "ドメイン",
+  "cache.include_subdomains": "サブドメインを含める",
+  "cache.invalidate": "無効化",
+  "cache.removed_entries": "削除されたキャッシュエントリ",
+  "cache.invalidate_failed": "無効化に失敗しました",
+  "cache.flush_confirm": "すべてのキャッシュ済み応答を消去しますか？ヒット数とミス数は保持されます。",
+  "cache.no_matches": "このフィルターに一致するエントリはありません。",
 };
 
 export default ja;

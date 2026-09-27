@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -106,6 +107,50 @@ func TestCacheEntriesEndpoint(t *testing.T) {
 	h.ServeHTTP(w, httptest.NewRequest("GET", "http://127.0.0.1/api/v1/cache/entries?limit=201", nil))
 	if w.Code != 400 {
 		t.Fatalf("invalid limit: %d", w.Code)
+	}
+}
+
+func TestCacheEntriesFilterAndInvalidate(t *testing.T) {
+	c := cache.New(10)
+	for _, name := range []string{"example.test.", "www.example.test.", "other.test."} {
+		q := new(dns.Msg)
+		q.SetQuestion(name, dns.TypeA)
+		answer := new(dns.Msg)
+		answer.SetReply(q)
+		answer.Answer = []dns.RR{&dns.A{Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 60}, A: []byte{192, 0, 2, 1}}}
+		c.Put(q, answer)
+	}
+	h := New(Dependencies{Database: fakeDB{}, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: config.Default(), Started: time.Now()})
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "http://127.0.0.1/api/v1/cache/entries?domain=example&type=a", nil))
+	if w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(`"total":2`)) {
+		t.Fatalf("filtered entries: %d %s", w.Code, w.Body.String())
+	}
+	for _, query := range []string{"type=BOGUS", "domain=" + strings.Repeat("a", 254)} {
+		w = httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest("GET", "http://127.0.0.1/api/v1/cache/entries?"+query, nil))
+		if w.Code != 400 {
+			t.Fatalf("%s: expected 400, got %d", query, w.Code)
+		}
+	}
+	invalidate := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", "http://127.0.0.1/api/v1/cache/invalidate", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	if w = invalidate(`{"name":"bad name!","type":"A"}`); w.Code != 400 {
+		t.Fatalf("invalid name: %d", w.Code)
+	}
+	if w = invalidate(`{"name":"example.test","type":"TXT"}`); w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(`"removed":0`)) {
+		t.Fatalf("type mismatch: %d %s", w.Code, w.Body.String())
+	}
+	if w = invalidate(`{"name":"example.test","include_subdomains":true}`); w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(`"removed":2`)) {
+		t.Fatalf("domain invalidate: %d %s", w.Code, w.Body.String())
+	}
+	if c.Stats().Entries != 1 {
+		t.Fatalf("expected one surviving entry, got %d", c.Stats().Entries)
 	}
 }
 

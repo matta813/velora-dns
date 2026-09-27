@@ -525,6 +525,19 @@ const pt_BR: Record<string, string> = {
   "dashboard.client": "Cliente",
   "dashboard.upstream_servers": "Servidores upstream",
   "dashboard.collecting_samples": "Coletando amostras…",
+  "cache.search_label": "Pesquisar por nome",
+  "cache.search_placeholder": "example.org",
+  "cache.all_types": "Todos os tipos",
+  "cache.remove_entry": "Remover do cache",
+  "cache.invalidate_title": "Invalidar um domínio",
+  "cache.invalidate_text": "Remove as respostas em cache de um nome sem limpar todo o cache.",
+  "cache.domain": "Domínio",
+  "cache.include_subdomains": "Incluir subdomínios",
+  "cache.invalidate": "Invalidar",
+  "cache.removed_entries": "Entradas removidas do cache",
+  "cache.invalidate_failed": "Falha na invalidação",
+  "cache.flush_confirm": "Limpar todas as respostas em cache? Os contadores de acertos e falhas são mantidos.",
+  "cache.no_matches": "Nenhuma entrada corresponde a este filtro.",
 };
 
 export default pt_BR;

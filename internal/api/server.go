@@ -18,8 +18,10 @@ import (
 	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/database"
 	"github.com/matta813/velora-dns/internal/dns"
+	"github.com/matta813/velora-dns/internal/filtering"
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/querylog"
+	wire "github.com/miekg/dns"
 )
 
 type Database interface{ Ping(context.Context) error }
@@ -207,7 +209,46 @@ func New(d Dependencies) http.Handler {
 			}
 			offset = value
 		}
-		respond(w, 200, d.Cache.ListEntries(limit, offset))
+		filter := cache.EntryFilter{Domain: strings.TrimSpace(r.URL.Query().Get("domain"))}
+		if len(filter.Domain) > 253 {
+			failure(w, 400, "invalid_domain", "Domain filter is too long")
+			return
+		}
+		if raw := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("type"))); raw != "" {
+			qtype, ok := wire.StringToType[raw]
+			if !ok {
+				failure(w, 400, "invalid_type", "Unknown record type")
+				return
+			}
+			filter.Type = qtype
+		}
+		respond(w, 200, d.Cache.FindEntries(filter, limit, offset))
+	})
+	mux.HandleFunc("POST /api/v1/cache/invalidate", func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			Name              string `json:"name"`
+			Type              string `json:"type"`
+			IncludeSubdomains bool   `json:"include_subdomains"`
+		}
+		if !readJSON(w, r, &input) {
+			return
+		}
+		name, err := filtering.NormalizeDomain(input.Name)
+		if err != nil || strings.HasPrefix(strings.TrimSpace(input.Name), "*") {
+			failure(w, 400, "invalid_domain", "Enter a valid domain name")
+			return
+		}
+		var qtype uint16
+		if raw := strings.ToUpper(strings.TrimSpace(input.Type)); raw != "" {
+			value, ok := wire.StringToType[raw]
+			if !ok {
+				failure(w, 400, "invalid_type", "Unknown record type")
+				return
+			}
+			qtype = value
+		}
+		removed := d.Cache.Invalidate(name, qtype, input.IncludeSubdomains)
+		respond(w, 200, map[string]any{"removed": removed, "stats": d.Cache.Stats()})
 	})
 	mux.HandleFunc("DELETE /api/v1/cache", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Content-Type") != "application/json" {

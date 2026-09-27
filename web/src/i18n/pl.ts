@@ -525,6 +525,19 @@ const pl: Record<string, string> = {
   "dashboard.client": "Klient",
   "dashboard.upstream_servers": "Serwery nadrzędne",
   "dashboard.collecting_samples": "Zbieranie próbek…",
+  "cache.search_label": "Szukaj według nazwy",
+  "cache.search_placeholder": "example.org",
+  "cache.all_types": "Wszystkie typy",
+  "cache.remove_entry": "Usuń z pamięci podręcznej",
+  "cache.invalidate_title": "Unieważnij domenę",
+  "cache.invalidate_text": "Usuń odpowiedzi dla jednej nazwy bez czyszczenia całej pamięci podręcznej.",
+  "cache.domain": "Domena",
+  "cache.include_subdomains": "Uwzględnij subdomeny",
+  "cache.invalidate": "Unieważnij",
+  "cache.removed_entries": "Usunięte wpisy",
+  "cache.invalidate_failed": "Unieważnienie nie powiodło się",
+  "cache.flush_confirm": "Wyczyścić wszystkie odpowiedzi? Liczniki trafień i chybień zostaną zachowane.",
+  "cache.no_matches": "Brak wpisów pasujących do filtra.",
 };
 
 export default pl;

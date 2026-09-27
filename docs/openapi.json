@@ -981,6 +981,80 @@
         "x-required-role": "viewer-or-higher"
       }
     },
+    "/api/v1/cache/invalidate": {
+      "post": {
+        "operationId": "post_cache_invalidate",
+        "summary": "Post cache/invalidate",
+        "tags": [
+          "cache"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CacheInvalidateResult"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "operator-or-admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "Record type such as A or AAAA; empty removes every type"
+                  },
+                  "include_subdomains": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/cluster/config-versions": {
       "get": {
         "operationId": "get_cluster_config_versions",
@@ -5970,6 +6044,22 @@
             "type": "string"
           }
         }
+      },
+      "CacheInvalidateResult": {
+        "type": "object",
+        "properties": {
+          "removed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/CacheStats"
+          }
+        },
+        "required": [
+          "removed",
+          "stats"
+        ]
       }
     }
   }
