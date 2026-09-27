@@ -182,6 +182,7 @@ func New(d Dependencies) http.Handler {
 		clientName = d.Clients.Name
 		capabilities = append(capabilities, "clients")
 	}
+	registerSearch(mux, searchSources{zones: d.Zones, clients: d.Clients, rewrites: d.Rewrites, forwarding: d.Forwarding, blocklists: d.Filtering})
 	if d.Webhooks != nil {
 		registerWebhooks(mux, d.Webhooks)
 		capabilities = append(capabilities, "webhooks")

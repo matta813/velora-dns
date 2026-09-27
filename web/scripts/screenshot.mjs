@@ -128,6 +128,15 @@ const PAGES = {
     height: 1500,
     fullPage: true,
   },
+  "palette": {
+    path: "/",
+    file: "command-palette.png",
+    label: "Command palette",
+    width: 1440,
+    height: 900,
+    clickButton: "Search",
+    type: "home",
+  },
   "dhcp": {
     path: "/dhcp",
     file: "dhcp.png",
@@ -296,8 +305,12 @@ async function capturePage(browser, pageName) {
       await page.waitForTimeout(400);
     }
     if (config.clickButton) {
-      await page.getByRole("button", { name: config.clickButton }).click();
+      await page.getByRole("button", { name: config.clickButton, exact: true }).click();
       await page.waitForTimeout(500);
+    }
+    if (config.type) {
+      await page.keyboard.type(config.type);
+      await page.waitForTimeout(700);
     }
 
     const outputPath = resolve(ASSETS_DIR, config.file);

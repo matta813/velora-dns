@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import { Zones } from "../pages/Zones";
 import { withI18n } from "../test-i18n";
@@ -31,7 +32,7 @@ function mock(data: unknown, status = 200) {
 }
 it("shows load failures without pretending the zone list is empty", async () => {
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Offline")));
-  render(withI18n(<Zones />));
+  render(<MemoryRouter>{withI18n(<Zones />)}</MemoryRouter>);
   expect(await screen.findByRole("alert")).toHaveTextContent("Offline");
   expect(
     screen.queryByText("Give your network familiar names"),
@@ -39,7 +40,7 @@ it("shows load failures without pretending the zone list is empty", async () => 
 });
 it("keeps viewer zone mutations disabled", async () => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mock([])));
-  render(withI18n(<Zones readOnly />));
+  render(<MemoryRouter>{withI18n(<Zones readOnly />)}</MemoryRouter>);
   expect(await screen.findByText("Create your first zone")).toBeDisabled();
   expect(screen.getByRole("button", { name: "Add zone" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Reload zones" })).toBeEnabled();
@@ -47,7 +48,7 @@ it("keeps viewer zone mutations disabled", async () => {
 it("only shows details for a zone matching the active search", async () => {
   const second = { ...zone, id: 2, name: "office.arpa.", records: [] };
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mock([zone, second])));
-  render(withI18n(<Zones />));
+  render(<MemoryRouter>{withI18n(<Zones />)}</MemoryRouter>);
   expect(await screen.findByRole("heading", { name: "home.arpa." })).toBeInTheDocument();
   const search = screen.getByPlaceholderText("Find a zone…");
   fireEvent.change(search, { target: { value: "OFFICE" } });
@@ -64,7 +65,7 @@ it("creates a zone and confirms deletion with its current revision", async () =>
     .mockResolvedValueOnce(mock({ ...zone, records: [] }, 201))
     .mockResolvedValueOnce(mock({ deleted: 1 }));
   vi.stubGlobal("fetch", fetch);
-  render(withI18n(<Zones />));
+  render(<MemoryRouter>{withI18n(<Zones />)}</MemoryRouter>);
   fireEvent.click(await screen.findByText("Create your first zone"));
   fireEvent.change(screen.getByLabelText("Zone name"), {
     target: { value: "home.arpa" },
@@ -87,7 +88,7 @@ it("preserves an edited draft on revision conflict and reloads after cancel", as
     .mockResolvedValueOnce(mock(null, 412))
     .mockResolvedValueOnce(mock([{ ...zone, revision: 2 }]));
   vi.stubGlobal("fetch", fetch);
-  render(withI18n(<Zones />));
+  render(<MemoryRouter>{withI18n(<Zones />)}</MemoryRouter>);
   fireEvent.click(await screen.findByLabelText("Edit router A record"));
   fireEvent.change(screen.getByLabelText("IPv4 address"), {
     target: { value: "192.168.1.2" },
@@ -112,7 +113,7 @@ it("adds and removes records using the revision returned by the server", async (
     .mockResolvedValueOnce(mock({ ...zone, revision: 2 }, 201))
     .mockResolvedValueOnce(mock({ ...zone, records: [], revision: 3 }));
   vi.stubGlobal("fetch", fetch);
-  render(withI18n(<Zones />));
+  render(<MemoryRouter>{withI18n(<Zones />)}</MemoryRouter>);
   await screen.findByText(/Revision 1/);
   fireEvent.click(screen.getByRole("button", { name: "Add record" }));
   fireEvent.change(screen.getByLabelText(/Record name/), {
@@ -128,4 +129,10 @@ it("adds and removes records using the revision returned by the server", async (
     expect(screen.queryByText("192.168.1.1")).not.toBeInTheDocument(),
   );
   expect(fetch.mock.calls[2][1].headers["If-Match"]).toBe('"2"');
+});
+it("preselects the zone named in the link", async () => {
+  const second = { ...zone, id: 2, name: "office.arpa.", records: [] };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mock([zone, second])));
+  render(<MemoryRouter initialEntries={["/zones?zone=2"]}>{withI18n(<Zones />)}</MemoryRouter>);
+  expect(await screen.findByRole("heading", { level: 2, name: "office.arpa." })).toBeInTheDocument();
 });

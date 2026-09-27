@@ -17,6 +17,7 @@ import {
   Replace,
   Route as RouteIcon,
   ScrollText,
+  Search,
   Server,
   Settings2,
   ShieldBan,
@@ -28,9 +29,10 @@ import {
 } from "lucide-react";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useSnapshot } from "./useSnapshot";
 import { watchScrollRegions } from "./scroll-regions";
+import { CommandPalette, type PaletteItem } from "./components/CommandPalette";
 import { Dashboard } from "./pages/Dashboard";
 import { CachePage } from "./pages/CachePage";
 import { Settings } from "./pages/Settings";
@@ -145,7 +147,9 @@ export default function App() {
   const { t } = useI18n();
   const { theme, setTheme } = useTheme();
   const readOnly = user?.role === "viewer";
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const navigate = useNavigate();
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [unreadEvents, setUnreadEvents] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
@@ -259,6 +263,43 @@ export default function App() {
     }
   };
   const signOut = () => void logout().then(() => window.location.reload());
+  // Ctrl+K / Cmd+K toggles the command palette from anywhere.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  const dark = resolveTheme(theme) === "dark";
+  const palettePages: PaletteItem[] = NAV.flatMap((entry): { item: NavItem; group: string }[] =>
+    "to" in entry
+      ? [{ item: entry, group: "" }]
+      : entry.items.filter((item) => !item.adminOnly || user?.role === "admin").map((item) => ({ item, group: t(entry.label) })),
+  ).map(({ item, group }) => ({
+    id: `page-${item.to}`,
+    label: t(`app.nav.${item.key}`),
+    hint: group || undefined,
+    keywords: `${t(`app.title.${item.key}`)} ${group}`,
+    icon: item.icon,
+    run: () => navigate(item.to),
+  }));
+  // Only navigation and view actions; anything that changes data opens the
+  // page where it is confirmed, and viewers get no write shortcuts.
+  const paletteActions: PaletteItem[] = [
+    { id: "theme", label: dark ? t("app.theme_to_light") : t("app.theme_to_dark"), icon: dark ? <Sun size={16} /> : <Moon size={16} />, run: () => setTheme(dark ? "light" : "dark") },
+    ...(!readOnly && user
+      ? [{ id: "add-client", label: t("palette.add_client"), icon: <MonitorSmartphone size={16} />, run: () => navigate("/clients?new=1") }]
+      : []),
+    ...(user?.role === "admin"
+      ? [{ id: "backup", label: t("palette.create_backup"), icon: <HardDrive size={16} />, run: () => navigate("/backup") }]
+      : []),
+    { id: "updates", label: t("updates.check"), icon: <Download size={16} />, run: () => navigate("/updates") },
+    ...(user ? [{ id: "sign-out", label: t("app.sign_out"), icon: <LogOut size={16} />, run: signOut }] : []),
+  ];
   const routeKey = ROUTE_KEYS[pathname] ?? "overview";
   const title = t(`app.title.${routeKey}`);
   const subtitle =
@@ -266,7 +307,6 @@ export default function App() {
   useEffect(() => {
     document.title = `Velora DNS · ${title}`;
   }, [title]);
-  const dark = resolveTheme(theme) === "dark";
   const connection = error
     ? { className: "offline", label: t("app.connection_lost") }
     : data?.status.ready
@@ -295,6 +335,16 @@ export default function App() {
               <i className="dot" />
               <span className="connection-label">{connection.label}</span>
             </span>
+            <button
+              className="icon-button palette-button"
+              onClick={() => setPaletteOpen(true)}
+              aria-label={t("palette.open_button")}
+              aria-keyshortcuts="Control+K Meta+K"
+              aria-haspopup="dialog"
+              title={`${t("palette.open_button")} (Ctrl+K)`}
+            >
+              <Search size={18} />
+            </button>
             <NavLink
               to="/events"
               className="icon-button event-entry"
@@ -401,6 +451,7 @@ export default function App() {
           </ul>
         </div>
       </nav>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} pages={palettePages} actions={paletteActions} />
       <main id="main" className="container" ref={mainRef}>
           <div className="page-heading">
             <div>
@@ -453,15 +504,15 @@ export default function App() {
                 path="/cache"
                 element={<CachePage data={data} refresh={refresh} readOnly={readOnly} />}
               />
-              <Route path="/zones" element={<Zones readOnly={readOnly} />} />
+              <Route path="/zones" element={<Zones key={search} readOnly={readOnly} />} />
               <Route
                 path="/queries"
                 element={<QueryLog enabled={data.config.query_log?.enabled ?? false} />}
               />
               <Route path="/blocklists" element={<Blocklists readOnly={readOnly} />} />
               <Route path="/policies" element={<Policies readOnly={readOnly} />} />
-              <Route path="/clients" element={<Clients readOnly={readOnly} queryLogging={data.config.query_log?.enabled ?? false} />} />
-              <Route path="/rewrites" element={<Rewrites readOnly={readOnly} />} />
+              <Route path="/clients" element={<Clients key={search} readOnly={readOnly} queryLogging={data.config.query_log?.enabled ?? false} />} />
+              <Route path="/rewrites" element={<Rewrites key={search} readOnly={readOnly} />} />
               <Route path="/forwarding" element={<Forwarding readOnly={readOnly} />} />
               <Route path="/settings" element={<Settings data={data} />} />
               <Route path="/updates" element={<UpdateCenter readOnly={readOnly} onUpdated={refresh} />} />

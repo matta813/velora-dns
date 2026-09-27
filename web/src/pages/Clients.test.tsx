@@ -65,3 +65,16 @@ it("shows the empty state and stays read-only for viewers", async () => {
   expect(screen.getByRole("button", { name: "Add client" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Name this device" })).toBeDisabled();
 });
+
+it("opens the add form from the command palette link", async () => {
+  stubFetch();
+  renderPage({}, "/clients?new=1");
+  expect(await screen.findByRole("form", { name: "New client" })).toBeInTheDocument();
+});
+
+it("does not open the add form for viewers", async () => {
+  stubFetch();
+  renderPage({ readOnly: true }, "/clients?new=1");
+  expect(await screen.findByText("Living Room TV")).toBeInTheDocument();
+  expect(screen.queryByRole("form", { name: "New client" })).not.toBeInTheDocument();
+});
