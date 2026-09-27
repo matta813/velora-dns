@@ -89,12 +89,16 @@ SCHEMAS = {
     "ForwardRuleStatus": obj({"id": INT, "domain": STRING, "upstreams": STRINGS, "enabled": BOOL, "description": STRING, "health": arr(ref("UpstreamStatus"))}, ("id", "domain", "upstreams", "enabled", "health")),
     "ForwardRuleInput": obj({"domain": {"type": "string", "description": "Domain suffix; the rule also covers every name below it"}, "upstreams": {"type": "array", "items": STRING, "minItems": 1, "maxItems": 4, "description": "IP or IP:port (default port 53)"}, "enabled": BOOL, "description": STRING}, ("domain", "upstreams")),
     "ForwardTestResult": obj({"name": STRING, "type": STRING, "rcode": STRING, "answers": STRINGS, "upstream": STRING, "duration_ms": NUMBER, "error": STRING}, ("name", "type", "answers", "duration_ms")),
+    "Rewrite": obj({"id": INT, "name": STRING, "type": {"type": "string", "enum": ["A", "AAAA", "CNAME"]}, "value": STRING, "enabled": BOOL, "description": STRING}, ("id", "name", "type", "value", "enabled")),
+    "RewriteStatus": obj({"id": INT, "name": STRING, "type": {"type": "string", "enum": ["A", "AAAA", "CNAME"]}, "value": STRING, "enabled": BOOL, "description": STRING, "blocked_by": {"type": "string", "description": "blocklist when filtering answers the name first"}, "overrides_zone": {"type": "string", "description": "Local zone whose answers this rewrite replaces"}}, ("id", "name", "type", "value", "enabled")),
+    "RewriteInput": obj({"name": {"type": "string", "description": "Host name, or *.parent for every name below parent"}, "type": {"type": "string", "enum": ["A", "AAAA", "CNAME"]}, "value": {"type": "string", "description": "IPv4, IPv6 or target host name"}, "enabled": BOOL, "description": STRING}, ("name", "type", "value")),
     "CacheInvalidateResult": obj({"removed": INT, "stats": ref("CacheStats")}, ("removed", "stats")),
 }
 
 RESPONSE_MODELS = {
     "/api/v1/status": "Status", "/api/v1/version": "Version", "/api/v1/stats": "Statistics", "/api/v1/stats/reset": "Statistics",
     "/api/v1/cache": "CacheStats", "/api/v1/cache/entries": "CacheEntryPage", "/api/v1/cache/invalidate": "CacheInvalidateResult",
+    "/api/v1/rewrites": ["RewriteStatus"], "/api/v1/rewrites/{id}": "Rewrite",
     "/api/v1/forwarding": ["ForwardRuleStatus"], "/api/v1/forwarding/{id}": "ForwardRule", "/api/v1/forwarding/{id}/test": "ForwardTestResult", "/api/v1/config": "Config",
     "/api/v1/preferences": "Preferences", "/api/v1/settings/rate-limit": "RateLimitSettings", "/api/v1/settings/rate-limit/status": "RateLimitStatus",
     "/api/v1/upstreams/health": ["UpstreamStatus"], "/api/v1/zones": ["Zone"], "/api/v1/zones/{id}": "Zone",
@@ -126,6 +130,8 @@ REQUEST_MODELS = {
     ("POST", "/api/v1/blocklists"): ref("BlocklistInput"),
     ("PUT", "/api/v1/blocklists/{id}"): obj({"enabled": BOOL, "update_interval": INTERVAL}),
     ("PUT", "/api/v1/blocklists/{id}/content"): obj({"content": STRING}, ("content",)),
+    ("POST", "/api/v1/rewrites"): ref("RewriteInput"),
+    ("PUT", "/api/v1/rewrites/{id}"): ref("RewriteInput"),
     ("POST", "/api/v1/forwarding"): ref("ForwardRuleInput"),
     ("PUT", "/api/v1/forwarding/{id}"): ref("ForwardRuleInput"),
     ("POST", "/api/v1/forwarding/{id}/test"): obj({"name": {"type": "string", "description": "Defaults to the rule domain"}, "type": {"type": "string", "description": "Defaults to A"}}),
@@ -152,6 +158,8 @@ def response_model(method, path):
             model = model[0]
         if method == "POST" and path == "/api/v1/forwarding":
             model = "ForwardRule"
+        if method == "POST" and path == "/api/v1/rewrites":
+            model = "Rewrite"
     elif "/zones/" in path:
         model = "Zone" if "records" not in path else "ZoneRecord"
     elif path == "/api/v1/zones/import":
@@ -179,7 +187,7 @@ def operation(method, path):
         "summary": method.title() + " " + path.removeprefix("/api/v1/"),
         "tags": [path.split("/")[3] if len(path.split("/")) > 3 else "management"],
         "responses": {
-            "202" if method == "POST" and path == "/api/v1/update/request" else "201" if method == "POST" and path in {"/api/v1/users", "/api/v1/tokens", "/api/v1/tsig-keys", "/api/v1/zones", "/api/v1/zones/secondary", "/api/v1/zones/import", "/api/v1/zones/{id}/records", "/api/v1/blocklists", "/api/v1/forwarding", "/api/v1/dhcp/pools", "/api/v1/dhcp/pools/{id}/reservations"} else "200": {"description": "Successful response", "content": response_model(method, path)},
+            "202" if method == "POST" and path == "/api/v1/update/request" else "201" if method == "POST" and path in {"/api/v1/users", "/api/v1/tokens", "/api/v1/tsig-keys", "/api/v1/zones", "/api/v1/zones/secondary", "/api/v1/zones/import", "/api/v1/zones/{id}/records", "/api/v1/blocklists", "/api/v1/forwarding", "/api/v1/rewrites", "/api/v1/dhcp/pools", "/api/v1/dhcp/pools/{id}/reservations"} else "200": {"description": "Successful response", "content": response_model(method, path)},
             "default": {"description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.", "content": {"application/json": {"schema": ref("ErrorResponse")}}},
         },
     }

@@ -44,13 +44,13 @@ func (s *Store) SaveForwardRule(ctx context.Context, rule forwarding.Rule) (forw
 		insertSQL := fmt.Sprintf("INSERT INTO forward_rules(domain,upstreams,enabled,description) VALUES(%s,%s,%s,%s)%s", p(1), p(2), p(3), p(4), s.insertReturning())
 		if s.driver == "postgres" {
 			if err := s.db.QueryRowContext(ctx, insertSQL, rule.Domain, upstreams, rule.Enabled, rule.Description).Scan(&rule.ID); err != nil {
-				return rule, s.forwardConstraint(err)
+				return rule, uniqueAs(err, forwarding.ErrExists)
 			}
 			return rule, nil
 		}
 		result, err := s.db.ExecContext(ctx, insertSQL, rule.Domain, upstreams, rule.Enabled, rule.Description)
 		if err != nil {
-			return rule, s.forwardConstraint(err)
+			return rule, uniqueAs(err, forwarding.ErrExists)
 		}
 		rule.ID, err = result.LastInsertId()
 		return rule, err
@@ -58,7 +58,7 @@ func (s *Store) SaveForwardRule(ctx context.Context, rule forwarding.Rule) (forw
 	updateSQL := fmt.Sprintf("UPDATE forward_rules SET domain=%s,upstreams=%s,enabled=%s,description=%s WHERE id=%s", p(1), p(2), p(3), p(4), p(5))
 	result, err := s.db.ExecContext(ctx, updateSQL, rule.Domain, upstreams, rule.Enabled, rule.Description, rule.ID)
 	if err != nil {
-		return rule, s.forwardConstraint(err)
+		return rule, uniqueAs(err, forwarding.ErrExists)
 	}
 	if n, err := result.RowsAffected(); err != nil || n != 1 {
 		return rule, errors.Join(forwarding.ErrNotFound, err)
@@ -77,11 +77,12 @@ func (s *Store) DeleteForwardRule(ctx context.Context, id int64) error {
 	return nil
 }
 
-// forwardConstraint maps unique-domain violations to ErrExists for both drivers.
-func (s *Store) forwardConstraint(err error) error {
+// uniqueAs maps unique-constraint violations from SQLite and PostgreSQL to
+// a domain error so callers can report a conflict instead of a failure.
+func uniqueAs(err, target error) error {
 	message := strings.ToLower(err.Error())
 	if strings.Contains(message, "unique") || strings.Contains(message, "duplicate key") {
-		return forwarding.ErrExists
+		return target
 	}
 	return err
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/matta813/velora-dns/internal/node"
 	"github.com/matta813/velora-dns/internal/querylog"
 	"github.com/matta813/velora-dns/internal/replication"
+	"github.com/matta813/velora-dns/internal/rewrites"
 	"github.com/matta813/velora-dns/internal/update"
 	"github.com/matta813/velora-dns/internal/zones"
 )
@@ -266,7 +267,15 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	if err != nil {
 		return fmt.Errorf("load forwarding rules: %w", err)
 	}
-	resolver := dns.NewResolver(local, matcher, memory, &forwarding.Router{Rules: forwardRules, Default: forwarder}, c.Filtering.BlockMode)
+	rewriteRules, err := rewrites.NewService(initCtx, db, rewrites.Hints{
+		Blocked:  matcher.Blocked,
+		ZoneFor:  local.ZoneFor,
+		OnChange: func(name string) { memory.Invalidate(name, 0, true) },
+	})
+	if err != nil {
+		return fmt.Errorf("load DNS rewrites: %w", err)
+	}
+	resolver := dns.NewResolver(&rewrites.Local{Rewrites: rewriteRules, Next: local}, matcher, memory, &forwarding.Router{Rules: forwardRules, Default: forwarder}, c.Filtering.BlockMode)
 	cookieSecret := make([]byte, 32)
 	if _, err = rand.Read(cookieSecret); err != nil {
 		return fmt.Errorf("initialize DNS cookie secret: %w", err)
@@ -428,7 +437,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, UpstreamHealth: upstreamHealth, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, Forwarding: forwardRules, Events: db, NotifyEvent: emitEvent, ApplyConfig: applyConfig, ResetStats: resetStatistics}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, UpstreamHealth: upstreamHealth, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, Forwarding: forwardRules, Rewrites: rewriteRules, Events: db, NotifyEvent: emitEvent, ApplyConfig: applyConfig, ResetStats: resetStatistics}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)

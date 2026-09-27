@@ -40,10 +40,11 @@ Queries are answered by the first step that applies:
 
 1. Client access and rate limits
 2. Blocklists (and allowlists)
-3. Local authoritative zones
-4. The answer cache
-5. The most specific enabled conditional forwarding rule
-6. The global upstream resolvers
+3. [Local DNS rewrites](rewrites.md)
+4. Local authoritative zones
+5. The answer cache
+6. The most specific enabled conditional forwarding rule
+7. The global upstream resolvers
 
 Creating, changing or deleting a rule removes cached answers for its domain so
 the new route applies immediately.

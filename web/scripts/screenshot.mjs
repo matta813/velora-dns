@@ -71,6 +71,13 @@ const PAGES = {
     width: 1440,
     height: 1000,
   },
+  "rewrites": {
+    path: "/rewrites",
+    file: "rewrites.png",
+    label: "DNS rewrites",
+    width: 1440,
+    height: 1000,
+  },
   "forwarding": {
     path: "/forwarding",
     file: "forwarding.png",
@@ -209,6 +216,14 @@ const demoBlocklists = [
   { id: 3, name: "Tracker list", url: "https://example.net/trackers.txt", enabled: true, domain_count: 5120, last_updated_at: "2026-09-20T06:00:00Z", last_error: "Download or list validation failed; previous domains retained.", update_interval: 21600, last_attempt_at: "2026-09-21T11:40:00Z", consecutive_failures: 2, next_update_at: hoursFromNow(0.25) },
 ];
 
+const demoRewrites = [
+  { id: 1, name: "nas.home.arpa", type: "A", value: "192.0.2.20", enabled: true, description: "Replaces the zone record during migration", overrides_zone: "home.arpa" },
+  { id: 2, name: "nas.home.arpa", type: "AAAA", value: "2001:db8::20", enabled: true, description: "", overrides_zone: "home.arpa" },
+  { id: 3, name: "*.dev.lab.test", type: "A", value: "192.0.2.30", enabled: true, description: "Preview environments" },
+  { id: 4, name: "grafana.lab.test", type: "CNAME", value: "monitoring.lab.test", enabled: true, description: "" },
+  { id: 5, name: "telemetry.example", type: "A", value: "192.0.2.99", enabled: false, description: "", blocked_by: "blocklist" },
+];
+
 const demoForwarding = [
   { id: 1, domain: "corp.example", upstreams: ["198.51.100.10:53", "198.51.100.11:53"], enabled: true, description: "Office directory servers", health: [{ address: "198.51.100.10:53", state: "healthy", consecutive_failures: 0, latency_milliseconds: 3.8 }, { address: "198.51.100.11:53", state: "degraded", consecutive_failures: 1, latency_milliseconds: 0 }] },
   { id: 2, domain: "lab.corp.example", upstreams: ["192.0.2.53:5353"], enabled: true, description: "Lab resolver", health: [{ address: "192.0.2.53:5353", state: "healthy", consecutive_failures: 0, latency_milliseconds: 1.2 }] },
@@ -254,6 +269,7 @@ function demoResponse(pathname) {
   if (pathname === "/api/v1/events") return { unread_count: 1, events: demoEvents };
   if (pathname === "/api/v1/blocklists") return demoBlocklists;
   if (pathname === "/api/v1/forwarding") return demoForwarding;
+  if (pathname === "/api/v1/rewrites") return demoRewrites;
   if (pathname === "/api/v1/cache/entries") return { total: demoCacheEntries.length, entries: demoCacheEntries };
   if (pathname === "/api/v1/settings/rate-limit") return { enabled: true, global_qps: 1000, client_qps: 50, rate_limit_burst: 100 };
   if (pathname === "/api/v1/settings/rate-limit/status") return { rejected_total: 14, last_rejected_at: "2026-09-21T11:30:00Z" };

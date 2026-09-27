@@ -64,6 +64,7 @@ type Dependencies struct {
 	DHCP           DHCPStore
 	Cluster        ClusterStore
 	Forwarding     ForwardingStore
+	Rewrites       RewriteStore
 	ApplyConfig    func(config.Config) error
 }
 type Error struct {
@@ -115,6 +116,10 @@ func New(d Dependencies) http.Handler {
 	if d.TSIG != nil {
 		registerTSIG(mux, d.TSIG)
 		capabilities = append(capabilities, "tsig")
+	}
+	if d.Rewrites != nil {
+		registerRewrites(mux, d.Rewrites)
+		capabilities = append(capabilities, "rewrites")
 	}
 	if d.Forwarding != nil {
 		registerForwarding(mux, d.Forwarding)
