@@ -43,6 +43,11 @@ metrics require an authenticated session or scoped API token.
 | POST | /api/v1/cache/invalidate | Remove cached answers for `name`; optional `type` limits it to one record type and `include_subdomains` also removes names below it |
 | GET | /api/v1/config | Current config, excluding database path and secrets |
 | PUT | /api/v1/config | Validate and apply supported live settings, then save atomically; `409 config_requires_restart` lists fields that cannot be applied live |
+| GET | /api/v1/forwarding | Conditional forwarding rules with live upstream health |
+| POST | /api/v1/forwarding | Create a rule: `domain`, `upstreams` (1–4 `IP` or `IP:port`), optional `enabled`, `description` |
+| PUT | /api/v1/forwarding/{id} | Replace a rule |
+| DELETE | /api/v1/forwarding/{id} | Remove a rule |
+| POST | /api/v1/forwarding/{id}/test | Send a diagnostic query (`name` within the rule, `type`, default A) through the rule's upstreams only |
 | GET | /api/v1/blocklists | Blocklist sources with domain counts and status |
 | POST | /api/v1/blocklists | Add an HTTP(S) or local blocklist source; optional `update_interval` schedules automatic refreshes |
 | PUT | /api/v1/blocklists/{id} | Enable or disable a source (`enabled`) and/or change its refresh schedule (`update_interval`) |

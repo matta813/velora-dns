@@ -209,6 +209,9 @@
 .zone-form .form-grid.source-grid {
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
 }
+.zone-form .form-grid.forward-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr);
+}
 .zone-form .form-grid.cache-filters {
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
 }
@@ -316,6 +319,7 @@
   .zone-form .form-grid.filters,
   .zone-form .form-grid.source-grid,
   .zone-form .form-grid.cache-filters,
+  .zone-form .form-grid.forward-grid,
   .zone-form details .form-grid {
     grid-template-columns: minmax(0, 1fr);
   }

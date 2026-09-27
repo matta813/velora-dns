@@ -4,6 +4,7 @@ All notable changes are documented here. This project uses Semantic Versioning.
 
 ## Unreleased
 
+- Conditional forwarding: send queries for chosen domains to dedicated resolvers, with most-specific matching, per-rule health, loop protection, a test action and cache invalidation on change (#246).
 - Scheduled blocklist updates: URL sources refresh automatically every hour to weekly, failures keep the previous list and retry with backoff, and the dashboard shows last attempt, next update and failure state (#250).
 - Cache inspection: search cached answers by name and record type, remove a single entry or every answer for a domain (optionally with subdomains), and confirm before flushing the whole cache (#248).
 - Reworked web interface in the style of established self-hosted DNS dashboards: top header with horizontal navigation and dropdown groups, flat bordered cards, dense tables, colored stat cards, top clients/domains with request shares, a general statistics table, and matching light and dark themes.
