@@ -2,7 +2,7 @@
 // Accessibility and responsive audit for the management UI.
 //
 // Serves nothing itself: point it at a running UI (for example
-// `npx vite preview --port 4173`) and it loads every page with demo API
+// `npx vite preview --host 127.0.0.1 --port 4173`) and it loads every page with demo API
 // responses at phone, tablet and desktop widths, then reports:
 //   - axe-core violations (WCAG 2.2 A/AA rules)
 //   - horizontal page overflow

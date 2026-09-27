@@ -109,8 +109,10 @@ jobs:
           VELORA_BIN: ${{ github.workspace }}/bin/velora-dns
       - name: Accessibility audit of every page
         run: |
-          npx vite preview --port 4173 --strictPort &
+          # Bind to IPv4 explicitly: "localhost" can resolve to ::1 only on the runner.
+          npx vite preview --host 127.0.0.1 --port 4173 --strictPort &
           for attempt in $(seq 1 60); do curl -sf http://127.0.0.1:4173 >/dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:4173 >/dev/null || { echo "vite preview did not start"; exit 1; }
           npm run audit:a11y -- --base-url http://127.0.0.1:4173
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()

@@ -101,7 +101,7 @@ widths in light and dark themes, and fails on:
 ```bash
 cd web
 npm run build
-npx vite preview --port 4173 &
+npx vite preview --host 127.0.0.1 --port 4173 &
 npm run audit:a11y -- --base-url http://127.0.0.1:4173
 ```
 
