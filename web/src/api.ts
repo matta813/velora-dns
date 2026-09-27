@@ -101,6 +101,10 @@ export interface BlocklistSource {
   last_error: string;
   domains?: string[];
   domain_count?: number;
+  update_interval?: number;
+  last_attempt_at?: string;
+  consecutive_failures?: number;
+  next_update_at?: string | null;
 }
 export class APIError extends Error {
   constructor(

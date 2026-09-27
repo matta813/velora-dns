@@ -11,7 +11,8 @@ import (
 
 type BlocklistStore interface {
 	List(context.Context) ([]filtering.Source, error)
-	Create(context.Context, string, string, bool) (filtering.Source, error)
+	Create(context.Context, string, string, bool, int) (filtering.Source, error)
+	SetSchedule(context.Context, int64, int) (filtering.Source, error)
 	Refresh(context.Context, int64) (filtering.Source, error)
 	ReplaceLocal(context.Context, int64, string) (filtering.Source, error)
 	SetEnabled(context.Context, int64, bool) (filtering.Source, error)
@@ -69,9 +70,10 @@ func registerBlocklists(mux *http.ServeMux, service BlocklistStore) {
 	})
 	mux.HandleFunc("POST /api/v1/blocklists", func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
-			Name    string `json:"name"`
-			URL     string `json:"url"`
-			Enabled *bool  `json:"enabled"`
+			Name           string `json:"name"`
+			URL            string `json:"url"`
+			Enabled        *bool  `json:"enabled"`
+			UpdateInterval int    `json:"update_interval"`
 		}
 		if !readJSON(w, r, &input) {
 			return
@@ -80,7 +82,7 @@ func registerBlocklists(mux *http.ServeMux, service BlocklistStore) {
 		if input.Enabled != nil {
 			enabled = *input.Enabled
 		}
-		source, err := service.Create(r.Context(), input.Name, input.URL, enabled)
+		source, err := service.Create(r.Context(), input.Name, input.URL, enabled, input.UpdateInterval)
 		if err != nil {
 			blocklistError(w, err)
 			return
@@ -94,19 +96,29 @@ func registerBlocklists(mux *http.ServeMux, service BlocklistStore) {
 			return
 		}
 		var input struct {
-			Enabled *bool `json:"enabled"`
+			Enabled        *bool `json:"enabled"`
+			UpdateInterval *int  `json:"update_interval"`
 		}
 		if !readJSON(w, r, &input) {
 			return
 		}
-		if input.Enabled == nil {
-			failure(w, 400, "invalid_request", "enabled is required")
+		if input.Enabled == nil && input.UpdateInterval == nil {
+			failure(w, 400, "invalid_request", "enabled or update_interval is required")
 			return
 		}
-		source, err := service.SetEnabled(r.Context(), id, *input.Enabled)
-		if err != nil {
-			blocklistError(w, err)
-			return
+		var source filtering.Source
+		var err error
+		if input.UpdateInterval != nil {
+			if source, err = service.SetSchedule(r.Context(), id, *input.UpdateInterval); err != nil {
+				blocklistError(w, err)
+				return
+			}
+		}
+		if input.Enabled != nil {
+			if source, err = service.SetEnabled(r.Context(), id, *input.Enabled); err != nil {
+				blocklistError(w, err)
+				return
+			}
 		}
 		respond(w, 200, source)
 	})

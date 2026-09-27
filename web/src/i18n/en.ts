@@ -590,6 +590,19 @@ const en: Record<string, string> = {
   "cache.invalidate_failed": "Invalidation failed",
   "cache.flush_confirm": "Clear every cached answer? Lifetime hit and miss counters are kept.",
   "cache.no_matches": "No cached entries match this filter.",
+  "blocklists.schedule": "Update schedule",
+  "blocklists.schedule_for": "Update schedule for",
+  "blocklists.manual": "Manual",
+  "blocklists.every_1h": "Every hour",
+  "blocklists.every_6h": "Every 6 hours",
+  "blocklists.every_12h": "Every 12 hours",
+  "blocklists.every_24h": "Daily",
+  "blocklists.every_7d": "Weekly",
+  "blocklists.col_next_update": "Next update",
+  "blocklists.due_now": "Due now",
+  "blocklists.never_updated": "Never updated",
+  "blocklists.retry_count": "failed attempts",
+  "blocklists.schedule_failed": "Unable to change the schedule",
 };
 
 export default en;

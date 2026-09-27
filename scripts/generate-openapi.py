@@ -31,6 +31,7 @@ NUMBER = {"type": "number"}
 BOOL = {"type": "boolean"}
 TIME = {"type": "string", "format": "date-time"}
 STRINGS = arr(STRING)
+INTERVAL = {"type": "integer", "description": "Scheduled refresh period in seconds: 0 (manual) or 3600-604800; URL sources only"}
 
 SCHEMAS = {
     "Error": obj({"code": STRING, "message": STRING}, ("code", "message")),
@@ -49,8 +50,8 @@ SCHEMAS = {
     "ZoneInput": obj({"name": STRING, "primary_ns": STRING, "contact": STRING, "records": arr(ref("ZoneRecord"))}, ("name",)),
     "SecondaryZoneInput": obj({"name": STRING, "primary_address": STRING, "transfer_tsig_key": STRING, "transfer_interval": INT}, ("name", "primary_address")),
     "SecondaryZone": obj({"id": INT, "name": STRING, "zone_type": STRING, "primary_address": STRING, "transfer_tsig_key": STRING, "transfer_interval": INT, "last_transfer_serial": INT, "last_transfer_at": TIME, "next_refresh_at": TIME}, ("id", "name", "zone_type", "primary_address")),
-    "Blocklist": obj({"id": INT, "name": STRING, "url": STRING, "enabled": BOOL, "domain_count": INT, "last_updated_at": TIME, "last_error": STRING}, ("id", "name", "url", "enabled")),
-    "BlocklistInput": obj({"name": STRING, "url": STRING, "enabled": BOOL}, ("name", "url")),
+    "Blocklist": obj({"id": INT, "name": STRING, "url": STRING, "enabled": BOOL, "domain_count": INT, "last_updated_at": TIME, "last_error": STRING, "update_interval": INTERVAL, "last_attempt_at": TIME, "consecutive_failures": INT, "next_update_at": {"type": ["string", "null"], "format": "date-time", "description": "Derived; null when the source is manual, local or disabled"}}, ("id", "name", "url", "enabled")),
+    "BlocklistInput": obj({"name": STRING, "url": STRING, "enabled": BOOL, "update_interval": INTERVAL}, ("name", "url")),
     "Query": obj({"id": INT, "occurred_at": TIME, "client_ip": STRING, "domain": STRING, "type": STRING, "rcode": STRING, "duration": NUMBER, "source": STRING, "upstream": STRING, "cache_hit": BOOL}, ("id", "domain", "type", "rcode", "source")),
     "QueryRanking": obj({"value": STRING, "count": INT}, ("value", "count")),
     "QuerySummary": obj({"window_start": TIME, "window_end": TIME, "total": INT, "blocked": INT, "top_domains": arr(ref("QueryRanking")), "top_clients": arr(ref("QueryRanking"))}),
@@ -118,7 +119,7 @@ REQUEST_MODELS = {
     ("POST", "/api/v1/zones/{id}/records"): ref("ZoneRecord"),
     ("PUT", "/api/v1/zones/{id}/records/{recordID}"): ref("ZoneRecord"),
     ("POST", "/api/v1/blocklists"): ref("BlocklistInput"),
-    ("PUT", "/api/v1/blocklists/{id}"): obj({"enabled": BOOL}, ("enabled",)),
+    ("PUT", "/api/v1/blocklists/{id}"): obj({"enabled": BOOL, "update_interval": INTERVAL}),
     ("PUT", "/api/v1/blocklists/{id}/content"): obj({"content": STRING}, ("content",)),
     ("POST", "/api/v1/cache/invalidate"): obj({"name": STRING, "type": {"type": "string", "description": "Record type such as A or AAAA; empty removes every type"}, "include_subdomains": BOOL}, ("name",)),
     ("POST", "/api/v1/backup/verify"): obj({"path": STRING}, ("path",)),

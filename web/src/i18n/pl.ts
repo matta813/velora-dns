@@ -538,6 +538,19 @@ const pl: Record<string, string> = {
   "cache.invalidate_failed": "Unieważnienie nie powiodło się",
   "cache.flush_confirm": "Wyczyścić wszystkie odpowiedzi? Liczniki trafień i chybień zostaną zachowane.",
   "cache.no_matches": "Brak wpisów pasujących do filtra.",
+  "blocklists.schedule": "Harmonogram aktualizacji",
+  "blocklists.schedule_for": "Harmonogram aktualizacji dla",
+  "blocklists.manual": "Ręcznie",
+  "blocklists.every_1h": "Co godzinę",
+  "blocklists.every_6h": "Co 6 godzin",
+  "blocklists.every_12h": "Co 12 godzin",
+  "blocklists.every_24h": "Codziennie",
+  "blocklists.every_7d": "Co tydzień",
+  "blocklists.col_next_update": "Następna aktualizacja",
+  "blocklists.due_now": "Teraz",
+  "blocklists.never_updated": "Nigdy nie aktualizowano",
+  "blocklists.retry_count": "nieudane próby",
+  "blocklists.schedule_failed": "Nie można zmienić harmonogramu",
 };
 
 export default pl;

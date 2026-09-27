@@ -538,6 +538,19 @@ const ja: Record<string, string> = {
   "cache.invalidate_failed": "無効化に失敗しました",
   "cache.flush_confirm": "すべてのキャッシュ済み応答を消去しますか？ヒット数とミス数は保持されます。",
   "cache.no_matches": "このフィルターに一致するエントリはありません。",
+  "blocklists.schedule": "更新スケジュール",
+  "blocklists.schedule_for": "更新スケジュール:",
+  "blocklists.manual": "手動",
+  "blocklists.every_1h": "1時間ごと",
+  "blocklists.every_6h": "6時間ごと",
+  "blocklists.every_12h": "12時間ごと",
+  "blocklists.every_24h": "毎日",
+  "blocklists.every_7d": "毎週",
+  "blocklists.col_next_update": "次回更新",
+  "blocklists.due_now": "まもなく",
+  "blocklists.never_updated": "未更新",
+  "blocklists.retry_count": "失敗した試行",
+  "blocklists.schedule_failed": "スケジュールを変更できません",
 };
 
 export default ja;
