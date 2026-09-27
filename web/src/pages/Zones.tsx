@@ -6,6 +6,7 @@ import { RecordForm } from "../zones/RecordForm";
 import { RecordTable } from "../zones/RecordTable";
 import type { Zone, ZoneRecord } from "../zones/types";
 import { useI18n } from "../i18n-context";
+import { Loading } from "../components/EmptyState";
 import "../zones/zones.css";
 export function Zones({ readOnly = false }: { readOnly?: boolean }) {
   const { t } = useI18n();
@@ -122,8 +123,8 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
         </section>
       )}
       {state.zones === null && !state.error && (
-        <section className="panel padded" role="status">
-          {t("zones.loading")}
+        <section className="panel">
+          <Loading>{t("zones.loading")}</Loading>
         </section>
       )}
       {state.zones?.length === 0 && !creating && (
@@ -210,7 +211,7 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
                       setActionError("");
                     }}
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={17} />
                   </button>
                 </div>
               </div>

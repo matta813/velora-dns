@@ -1,5 +1,5 @@
-import { CheckCircle, Circle, ShieldCheck, Users, Globe, Database, Download } from "lucide-react";
-import { useEffect, useState, useCallback } from "react";
+import { CheckCircle2, Circle } from "lucide-react";
+import { useEffect, useState } from "react";
 import { loadSnapshot, type Snapshot } from "../api";
 import { useI18n } from "../i18n-context";
 
@@ -13,20 +13,24 @@ interface ChecklistItem {
   id: string;
   title: string;
   description: string;
-  icon: React.ReactNode;
   completed: boolean;
+}
+
+const DISMISS_KEY = "velora_onboarding_dismissed";
+
+function readDismissed() {
+  try {
+    return typeof localStorage !== "undefined" && localStorage.getItem(DISMISS_KEY) === "true";
+  } catch {
+    return false;
+  }
 }
 
 export function OnboardingChecklist() {
   const { t } = useI18n();
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [dismissed, setDismissed] = useState(
-    () => typeof localStorage !== "undefined" && localStorage.getItem("velora_onboarding_dismissed") === "true",
-  );
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(() => setLoading((v) => v), []);
+  const [dismissed, setDismissed] = useState(readDismissed);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -41,9 +45,8 @@ export function OnboardingChecklist() {
         setStatus(s);
         setSnapshot(snap);
       } catch {
-        // Silently handle errors for onboarding
+        // Onboarding hints are optional; stay quiet when they cannot load.
       } finally {
-        setLoading(false);
         if (!controller.signal.aborted) timer = setTimeout(poll, 30000);
       }
     }
@@ -52,20 +55,18 @@ export function OnboardingChecklist() {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [refresh]);
+  }, []);
 
   const handleDismiss = () => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem("velora_onboarding_dismissed", "true");
+    try {
+      localStorage.setItem(DISMISS_KEY, "true");
+    } catch {
+      // Dismissal still applies for this session.
     }
     setDismissed(true);
   };
 
-  if (loading || !status || !snapshot) {
-    return null;
-  }
-
-  if (!status.first_run || dismissed) {
+  if (!status || !snapshot || !status.first_run || dismissed) {
     return null;
   }
 
@@ -74,35 +75,30 @@ export function OnboardingChecklist() {
       id: "credentials",
       title: t("onboarding.change_credentials"),
       description: t("onboarding.change_credentials_text"),
-      icon: <Users size={18} />,
       completed: status.user_count > 1,
     },
     {
       id: "dns_config",
       title: t("onboarding.review_dns"),
       description: t("onboarding.review_dns_text"),
-      icon: <Globe size={18} />,
       completed: snapshot.config.dns.upstreams.length > 0,
     },
     {
       id: "client_restriction",
       title: t("onboarding.restrict_clients"),
       description: t("onboarding.restrict_clients_text"),
-      icon: <ShieldCheck size={18} />,
       completed: snapshot.config.dns.allowed_clients.length > 0,
     },
     {
       id: "database",
       title: t("onboarding.verify_db"),
       description: t("onboarding.verify_db_text"),
-      icon: <Database size={18} />,
       completed: true,
     },
     {
       id: "updates",
       title: t("onboarding.update_policy"),
       description: t("onboarding.update_policy_text"),
-      icon: <Download size={18} />,
       completed: false,
     },
   ];
@@ -110,50 +106,46 @@ export function OnboardingChecklist() {
   const completedCount = items.filter((item) => item.completed).length;
 
   return (
-    <div className="panel padded" style={{ marginBottom: "1rem", borderLeft: "3px solid var(--accent, #3b82f6)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+    <section className="panel onboarding" aria-labelledby="onboarding-title">
+      <div className="panel-heading">
         <div>
-          <h2 style={{ margin: 0 }}>{t("onboarding.welcome")}</h2>
-          <p style={{ margin: "0.25rem 0 0", opacity: 0.7 }}>
-            {t("onboarding.complete_steps")} ({completedCount}/{items.length})
-          </p>
+          <h2 id="onboarding-title">{t("onboarding.welcome")}</h2>
+          <p>{t("onboarding.complete_steps")}</p>
         </div>
-        <button className="button secondary" onClick={handleDismiss}>
-{t("onboarding.dismiss")}
-        </button>
+        <div className="button-group">
+          <span className="progress-inline">
+            <span
+              className="progress"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={items.length}
+              aria-valuenow={completedCount}
+              aria-labelledby="onboarding-title"
+            >
+              <span style={{ width: `${(completedCount / items.length) * 100}%` }} />
+            </span>
+            {completedCount}/{items.length}
+          </span>
+          <button className="button small" onClick={handleDismiss}>
+            {t("onboarding.dismiss")}
+          </button>
+        </div>
       </div>
-      <div style={{ display: "grid", gap: "0.75rem" }}>
+      <ul className="checklist">
         {items.map((item) => (
-          <div
-            key={item.id}
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "0.75rem",
-              padding: "0.75rem",
-              borderRadius: "6px",
-              backgroundColor: item.completed ? "rgba(34, 197, 94, 0.05)" : "rgba(59, 130, 246, 0.05)",
-            }}
-          >
-            <div style={{ marginTop: "2px" }}>
-              {item.completed ? (
-                <CheckCircle size={18} style={{ color: "var(--success, #22c55e)" }} />
-              ) : (
-                <Circle size={18} style={{ opacity: 0.4 }} />
-              )}
+          <li key={item.id} className={item.completed ? "done" : undefined}>
+            {item.completed ? (
+              <CheckCircle2 size={18} className="check-icon" />
+            ) : (
+              <Circle size={18} className="check-icon" />
+            )}
+            <div>
+              <strong>{item.title}</strong>
+              <p>{item.description}</p>
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                {item.icon}
-                <strong>{item.title}</strong>
-              </div>
-              <p style={{ margin: "0.25rem 0 0", fontSize: "0.85rem", opacity: 0.7 }}>
-                {item.description}
-              </p>
-            </div>
-          </div>
+          </li>
         ))}
-      </div>
-    </div>
+      </ul>
+    </section>
   );
 }

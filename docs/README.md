@@ -33,7 +33,20 @@ and contain no credentials, tokens, or production data.
 
 | File | Description |
 |---|---|
-| `overview.png` | Dashboard overview with stats and query activity |
-| `zones.png` | Local zone management (desktop) |
-| `query-log.png` | Retained query filters and results (desktop) |
-| `update-center.png` | Release discovery and update history (desktop) |
+| `overview.png` | Dashboard overview with stats, query activity and upstream health |
+| `overview-dark.png` | Dashboard overview in the dark theme |
+| `overview-mobile.png` | Dashboard overview on a phone-sized screen |
+| `navigation-mobile.png` | Grouped navigation drawer on a phone-sized screen |
+| `sign-in.png` | Sign-in screen |
+| `query-log.png` | Retained query filters and results |
+| `events.png` | Event center with unread and acknowledged events |
+| `zones.png` | Local zone management |
+| `blocklists.png` | Blocklist sources with enable switches and status |
+| `cache.png` | Cache usage and live cache entries |
+| `dhcp.png` | DHCP pools and active leases |
+| `cluster.png` | Cluster nodes and configuration versions |
+| `settings.png` | Preferences, server configuration and rate limiting (full page) |
+| `update-center.png` | Release discovery and update history |
+| `backup.png` | Encrypted backup creation, status and verification |
+| `diagnostics.png` | Component health and support report |
+| `audit-log.png` | Filterable audit trail of management actions |

@@ -4,6 +4,8 @@ All notable changes are documented here. This project uses Semantic Versioning.
 
 ## Unreleased
 
+- Reworked web interface in the style of established self-hosted DNS dashboards: top header with horizontal navigation and dropdown groups, flat bordered cards, dense tables, colored stat cards, top clients/domains with request shares, a general statistics table, and matching light and dark themes.
+
 - Opt-in bounded query history, filtered API and dashboard, loss metrics and graceful drain.
 
 - Authoritative local zones with transactional SQLite persistence, SOA/NS and CNAME resolution.

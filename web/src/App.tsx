@@ -1,23 +1,27 @@
 import {
-  Activity,
-  Globe2,
-  ArrowUpRight,
-  Database,
-  LayoutDashboard,
-  RefreshCw,
-  Settings2,
-  ShieldCheck,
-  ShieldBan,
-  ScrollText,
-  Download,
-  HardDrive,
-  Network,
-  Server,
-  Stethoscope,
-  ClipboardList,
   Bell,
+  ChevronDown,
+  ClipboardList,
+  Database,
+  Download,
+  Globe2,
+  HardDrive,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Moon,
+  Network,
+  RefreshCw,
+  ScrollText,
+  Server,
+  Settings2,
+  ShieldBan,
+  Stethoscope,
+  Sun,
+  X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useSnapshot } from "./useSnapshot";
 import { Dashboard } from "./pages/Dashboard";
@@ -33,16 +37,94 @@ import { Cluster } from "./pages/Cluster";
 import { Diagnostics } from "./pages/Diagnostics";
 import { AuditLog } from "./pages/AuditLog";
 import { EventCenter } from "./pages/EventCenter";
+import { Loading } from "./components/EmptyState";
 import { logout, request, type SystemEventPage } from "./api";
 import { useAuthUser } from "./auth-context";
 import { useI18n } from "./i18n-context";
+import { useTheme } from "./theme-context";
+import { resolveTheme } from "./theme";
+
+interface NavItem {
+  to: string;
+  key: string;
+  icon: ReactNode;
+  adminOnly?: boolean;
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+// Top-level links first, then dropdown groups, the way most self-hosted
+// network appliances lay out their admin navigation.
+const NAV: (NavItem | NavGroup)[] = [
+  { to: "/", key: "overview", icon: <LayoutDashboard size={17} /> },
+  { to: "/queries", key: "queries", icon: <ScrollText size={17} /> },
+  {
+    label: "app.nav.group_dns",
+    items: [
+      { to: "/zones", key: "zones", icon: <Globe2 size={16} /> },
+      { to: "/blocklists", key: "blocklists", icon: <ShieldBan size={16} /> },
+      { to: "/cache", key: "cache", icon: <Database size={16} /> },
+    ],
+  },
+  {
+    label: "app.nav.group_network",
+    items: [
+      { to: "/dhcp", key: "dhcp", icon: <Network size={16} /> },
+      { to: "/cluster", key: "cluster", icon: <Server size={16} /> },
+    ],
+  },
+  {
+    label: "app.nav.group_system",
+    items: [
+      { to: "/settings", key: "settings", icon: <Settings2 size={16} /> },
+      { to: "/updates", key: "updates", icon: <Download size={16} /> },
+      { to: "/backup", key: "backup", icon: <HardDrive size={16} /> },
+      { to: "/diagnostics", key: "diagnostics", icon: <Stethoscope size={16} /> },
+      { to: "/events", key: "events", icon: <Bell size={16} /> },
+      { to: "/audit", key: "audit", icon: <ClipboardList size={16} />, adminOnly: true },
+    ],
+  },
+];
+
+const GROUP_ICONS: Record<string, ReactNode> = {
+  "app.nav.group_dns": <Globe2 size={17} />,
+  "app.nav.group_network": <Network size={17} />,
+  "app.nav.group_system": <Settings2 size={17} />,
+};
+
+const ROUTE_KEYS: Record<string, string> = {
+  "/": "overview",
+  "/events": "events",
+  "/zones": "zones",
+  "/queries": "queries",
+  "/blocklists": "blocklists",
+  "/cache": "cache",
+  "/settings": "settings",
+  "/updates": "updates",
+  "/backup": "backup",
+  "/dhcp": "dhcp",
+  "/cluster": "cluster",
+  "/diagnostics": "diagnostics",
+  "/audit": "audit",
+};
+
+// Pages that manage their own reload controls.
+const SELF_REFRESHING = ["/zones", "/queries", "/blocklists"];
+
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
   const user = useAuthUser();
   const { t } = useI18n();
+  const { theme, setTheme } = useTheme();
   const readOnly = user?.role === "viewer";
   const { pathname } = useLocation();
   const [unreadEvents, setUnreadEvents] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const navRef = useRef<HTMLElement>(null);
   const refreshEvents = useCallback(() => {
     void request<SystemEventPage>("/api/v1/events?limit=1")
       .then((page) => setUnreadEvents(page.unread_count))
@@ -54,168 +136,168 @@ export default function App() {
     const timer = window.setInterval(refreshEvents, 10000);
     return () => window.clearInterval(timer);
   }, [user, refreshEvents]);
+  useEffect(() => {
+    if (!openGroup) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenGroup(null);
+    };
+    const onPointer = (event: MouseEvent) => {
+      if (!navRef.current?.contains(event.target as Node)) setOpenGroup(null);
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onPointer);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onPointer);
+    };
+  }, [openGroup]);
   const signOut = () => void logout().then(() => window.location.reload());
-  const title =
-    pathname === "/events"
-      ? t("app.title.events")
-      : pathname === "/zones"
-      ? t("app.title.zones")
-      : pathname === "/queries"
-        ? t("app.title.queries")
-        : pathname === "/blocklists"
-          ? t("app.title.blocklists")
-          : pathname === "/cache"
-            ? t("app.title.cache")
-            : pathname === "/settings"
-              ? t("app.title.settings")
-              : pathname === "/updates"
-                ? t("app.title.updates")
-                : pathname === "/backup"
-                  ? t("app.title.backup")
-                  : pathname === "/dhcp"
-                    ? t("app.title.dhcp")
-                    : pathname === "/cluster"
-                      ? t("app.title.cluster")
-                      : pathname === "/diagnostics"
-                        ? t("app.title.diagnostics")
-                        : pathname === "/audit"
-                          ? t("app.title.audit")
-                      : t("app.title.overview");
+  const routeKey = ROUTE_KEYS[pathname] ?? "overview";
+  const title = t(`app.title.${routeKey}`);
+  const subtitle =
+    routeKey === "overview" ? t("app.subtitle.overview") : t(`app.subtitle.${routeKey}`);
   useEffect(() => {
     document.title = `Velora DNS · ${title}`;
   }, [title]);
+  const dark = resolveTheme(theme) === "dark";
+  const connection = error
+    ? { className: "offline", label: t("app.connection_lost") }
+    : data?.status.ready
+      ? { className: "", label: t("app.resolver_online") }
+      : { className: "pending", label: t("app.connecting") };
+  const closeNav = () => {
+    setOpenGroup(null);
+    setMenuOpen(false);
+  };
+
   return (
     <div className="app">
       <a className="skip-link" href="#main">
         {t("app.skip_to_content")}
       </a>
-      <aside className="sidebar">
-        <a className="brand" href="/">
-          <img src="/favicon.svg" width="38" height="38" alt="" />
-          <span>
-            velora<span className="brand-dns">DNS</span>
-          </span>
-        </a>
-        <div className="workspace">
-          <span className="workspace-icon">
-            <Activity size={18} />
-          </span>
-          <div>
-            <strong>{t("app.local_resolver")}</strong>
-            <small>{t("app.self_hosted_foundation")}</small>
-          </div>
-        </div>
-        <span className="nav-label">{t("app.workspace_label")}</span>
-        <nav aria-label={t("app.nav.main")}>
-          <NavLink to="/" end>
-            <LayoutDashboard size={18} />
-            {t("app.nav.overview")}
-          </NavLink>
-          <NavLink to="/zones">
-            <Globe2 size={18} />
-            {t("app.nav.zones")}
-          </NavLink>
-          <NavLink to="/queries">
-            <ScrollText size={18} />
-            {t("app.nav.queries")}
-          </NavLink>
-          <NavLink to="/blocklists">
-            <ShieldBan size={18} />
-            {t("app.nav.blocklists")}
-          </NavLink>
-          <NavLink to="/cache">
-            <Database size={18} />
-            {t("app.nav.cache")}
-          </NavLink>
-          <NavLink to="/settings">
-            <Settings2 size={18} />
-            {t("app.nav.settings")}
-          </NavLink>
-          <NavLink to="/updates">
-            <Download size={18} />
-            {t("app.nav.updates")}
-          </NavLink>
-          <NavLink to="/backup">
-            <HardDrive size={18} />
-            {t("app.nav.backup")}
-          </NavLink>
-          <NavLink to="/dhcp">
-            <Network size={18} />
-            {t("app.nav.dhcp")}
-          </NavLink>
-          <NavLink to="/cluster">
-            <Server size={18} />
-            {t("app.nav.cluster")}
-          </NavLink>
-          <NavLink to="/diagnostics">
-            <Stethoscope size={18} />
-            {t("app.nav.diagnostics")}
-          </NavLink>
-          <NavLink to="/events">
-            <Bell size={18} />
-            {t("app.nav.events")}
-            {unreadEvents > 0 && <span className="event-count">{unreadEvents}</span>}
-          </NavLink>
-          {user?.role === "admin" && <NavLink to="/audit">
-            <ClipboardList size={18} />
-            {t("app.nav.audit")}
-          </NavLink>}
-        </nav>
-        <button className="button secondary mobile-signout" onClick={signOut}>
-          {t("app.sign_out")}
-        </button>
-        <div className="sidebar-bottom">
-          <div className="privacy">
-            <ShieldCheck size={18} />
-            <div>
-              <strong>{t("app.private_by_default")}</strong>
-              <p>
-                {data?.config.query_log?.enabled
-                  ? t("app.privacy.query_retention")
-                  : t("app.privacy.no_query_history")}
-              </p>
-            </div>
-          </div>
-          <a href="https://github.com/matta813/velora-dns">
-            {t("app.github_repo")} <ArrowUpRight size={15} />
+      <header className="header">
+        <div className="container header-inner">
+          <a className="app-brand" href="/">
+            <img src="/favicon.svg" width="28" height="28" alt="" />
+            <span>
+              Velora <span>DNS</span>
+            </span>
           </a>
-          <button className="button secondary" onClick={signOut}>{t("app.sign_out")}</button>
+          <div className="header-right">
+            <span className={`connection ${connection.className}`} title={connection.label}>
+              <i className="dot" />
+              <span className="connection-label">{connection.label}</span>
+            </span>
+            <NavLink
+              to="/events"
+              className="icon-button event-entry"
+              aria-label={`${t("app.nav.events")}: ${unreadEvents} ${t("events.unread")}`}
+              onClick={closeNav}
+            >
+              <Bell size={18} />
+              {unreadEvents > 0 && <span className="event-count">{unreadEvents}</span>}
+            </NavLink>
+            <button
+              className="icon-button"
+              onClick={() => setTheme(dark ? "light" : "dark")}
+              aria-label={dark ? t("app.theme_to_light") : t("app.theme_to_dark")}
+              title={dark ? t("app.theme_to_light") : t("app.theme_to_dark")}
+            >
+              {dark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <div className="header-user">
+              {user && (
+                <div className="header-user-name" title={`${t("app.signed_in_as")} ${user.username}`}>
+                  <strong>{user.username}</strong>
+                  <span>{user.role}</span>
+                </div>
+              )}
+              <button className="button small signout" onClick={signOut} title={t("app.sign_out")}>
+                <LogOut size={15} />
+                <span className="label">{t("app.sign_out")}</span>
+              </button>
+            </div>
+            <button
+              className="icon-button menu-button"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-label={menuOpen ? t("app.menu_close") : t("app.menu_open")}
+              aria-controls="main-nav"
+              aria-expanded={menuOpen}
+            >
+              {menuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
         </div>
-      </aside>
-      <div className="main-wrap">
-        <header className="topbar">
-          <span>
-            {t("app.workspace")} <span className="slash">/</span> <strong>{title}</strong>
-          </span>
-          <NavLink to="/events" className="event-entry" aria-label={`${t("app.nav.events")}: ${unreadEvents} ${t("events.unread")}`}>
-            <Bell size={18} />
-            {unreadEvents > 0 && <span className="event-count">{unreadEvents}</span>}
-          </NavLink>
-          <span className={`connection ${error ? "offline" : ""}`}>
-            <i className="dot" />
-            {error
-              ? t("app.connection_lost")
-              : data?.status.ready
-                ? t("app.resolver_online")
-                : t("app.connecting")}
-          </span>
-        </header>
-        <main id="main">
+      </header>
+      <nav
+        id="main-nav"
+        ref={navRef}
+        className={`navbar${menuOpen ? " open" : ""}`}
+        aria-label={t("app.nav.main")}
+      >
+        <div className="container">
+          <ul className="nav-tabs">
+            {NAV.map((entry) => {
+              if ("to" in entry) {
+                return (
+                  <li key={entry.to}>
+                    <NavLink to={entry.to} end={entry.to === "/"} className="nav-tab" onClick={closeNav}>
+                      {entry.icon}
+                      {t(`app.nav.${entry.key}`)}
+                    </NavLink>
+                  </li>
+                );
+              }
+              const items = entry.items.filter((item) => !item.adminOnly || user?.role === "admin");
+              const active = items.some((item) => item.to === pathname);
+              const open = openGroup === entry.label || menuOpen;
+              const menuId = `menu-${entry.label.split(".").pop()}`;
+              return (
+                <li key={entry.label}>
+                  <button
+                    className={`nav-tab group-toggle${active ? " active" : ""}`}
+                    aria-expanded={open}
+                    aria-controls={menuId}
+                    onClick={() => setOpenGroup(openGroup === entry.label ? null : entry.label)}
+                  >
+                    {GROUP_ICONS[entry.label]}
+                    {t(entry.label)}
+                    <ChevronDown size={14} className="chevron" />
+                  </button>
+                  {open && (
+                    <ul className="dropdown-menu" id={menuId}>
+                      {items.map((item) => (
+                        <li key={item.to}>
+                          <NavLink to={item.to} onClick={closeNav}>
+                            {item.icon}
+                            {t(`app.nav.${item.key}`)}
+                            {item.key === "events" && unreadEvents > 0 && (
+                              <span className="event-count">{unreadEvents}</span>
+                            )}
+                          </NavLink>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </nav>
+      <main id="main" className="container">
           <div className="page-heading">
             <div>
-              <span className="eyebrow">{t("app.eyebrow")}</span>
               <h1>{title}</h1>
-              <p>
-                {pathname === "/"
-                  ? t("app.subtitle.overview")
-                  : t("app.subtitle.default")}
-              </p>
+              <p>{subtitle}</p>
             </div>
-            {!["/zones", "/queries", "/blocklists"].includes(pathname) && (
-              <button className="button" onClick={refresh}>
-                <RefreshCw size={15} />
-                {t("app.refresh")}
-              </button>
+            {!SELF_REFRESHING.includes(pathname) && (
+              <div className="page-actions">
+                <button className="button" onClick={refresh} aria-label={t("app.refresh")}>
+                  <RefreshCw size={15} />
+                  <span className="label">{t("app.refresh")}</span>
+                </button>
+              </div>
             )}
           </div>
           {error && (
@@ -227,14 +309,14 @@ export default function App() {
             </div>
           )}
           {readOnly && ["/zones", "/blocklists", "/cache"].includes(pathname) && (
-            <div className="notice" role="status">
+            <div className="notice info" role="status">
               {t("app.viewer_readonly")}
             </div>
           )}
           {!data && !error && (
-            <div className="panel padded" role="status">
-              {t("app.connecting_panel")}
-            </div>
+            <section className="panel">
+              <Loading>{t("app.connecting_panel")}</Loading>
+            </section>
           )}
           {data && (
             <Routes>
@@ -258,14 +340,15 @@ export default function App() {
               <Route path="/zones" element={<Zones readOnly={readOnly} />} />
               <Route
                 path="/queries"
-                element={
-                  <QueryLog enabled={data.config.query_log?.enabled ?? false} />
-                }
+                element={<QueryLog enabled={data.config.query_log?.enabled ?? false} />}
               />
               <Route path="/blocklists" element={<Blocklists readOnly={readOnly} />} />
               <Route path="/settings" element={<Settings data={data} />} />
               <Route path="/updates" element={<UpdateCenter readOnly={readOnly} />} />
-              <Route path="/backup" element={<BackupAssistant readOnly={readOnly} canCreate={user?.role === "admin"} />} />
+              <Route
+                path="/backup"
+                element={<BackupAssistant readOnly={readOnly} canCreate={user?.role === "admin"} />}
+              />
               <Route path="/dhcp" element={<DHCP readOnly={readOnly} />} />
               <Route path="/cluster" element={<Cluster />} />
               <Route path="/diagnostics" element={<Diagnostics />} />
@@ -274,9 +357,7 @@ export default function App() {
             </Routes>
           )}
           <footer>
-            <span>
-              {t("app.footer.independent")}
-            </span>
+            <span>{t("app.footer.independent")}</span>
             {data?.status.version?.version && (
               <span className="running-version" data-testid="running-version">
                 Velora DNS {data.status.version.version}
@@ -288,8 +369,7 @@ export default function App() {
                 : t("app.footer.waiting")}
             </span>
           </footer>
-        </main>
-      </div>
+      </main>
     </div>
   );
 }

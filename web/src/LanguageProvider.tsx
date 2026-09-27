@@ -42,6 +42,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => {
     applyTheme(theme);
+    // "auto" should follow the operating system live, not just at load time.
+    if (theme !== "auto" || typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia("(prefers-color-scheme: dark)");
+    const follow = () => applyTheme("auto");
+    query.addEventListener("change", follow);
+    return () => query.removeEventListener("change", follow);
   }, [theme]);
   const setLanguage = useCallback((next: Language) => {
     setLanguageState(next);

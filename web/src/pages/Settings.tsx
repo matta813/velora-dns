@@ -13,6 +13,7 @@ import { SUPPORTED_LANGUAGES, languageName, type Language } from "../i18n";
 import { useI18n } from "../i18n-context";
 import { SUPPORTED_THEMES, type Theme } from "../theme";
 import { useTheme } from "../theme-context";
+import { Loading } from "../components/EmptyState";
 
 interface ConfigFormData {
   dns_listen: string;
@@ -155,96 +156,81 @@ export function Settings({ data }: { data: Snapshot }) {
 
   const logLevelOptions = ["debug", "info", "warn", "error"];
 
+  const field = (
+    key: "dns_listen" | "dns_upstreams" | "dns_allowed_clients" | "http_listen" | "http_allowed_hosts",
+    label: string,
+    placeholder: string,
+    hint: string,
+  ) => (
+    <label className="field">
+      <span>{label}</span>
+      <input
+        type="text"
+        value={formData[key]}
+        onChange={(e) => handleChange(key, e.target.value)}
+        placeholder={placeholder}
+        spellCheck={false}
+      />
+      <small>{hint}</small>
+    </label>
+  );
+
   return (
-    <>
-      <section className="panel padded">
-        <h2>{t("settings.server_configuration")}</h2>
-        <p style={{ marginBottom: "1.5rem", opacity: 0.7 }}>
-          {t("settings.edit_hint")}
-        </p>
-
-        <div className="settings-preferences">
-          <label>
-            {t("settings.language")}
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value as Language)}
-            >
-              {SUPPORTED_LANGUAGES.map((code) => (
-                <option key={code} value={code}>
-                  {languageName(code)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t("settings.theme")}
-            <select
-              value={theme}
-              onChange={(e) => setTheme(e.target.value as Theme)}
-            >
-              {SUPPORTED_THEMES.map((code) => (
-                <option key={code} value={code}>
-                  {t(`settings.theme_${code}`)}
-                </option>
-              ))}
-            </select>
-          </label>
+    <div className="settings-layout">
+      <section className="panel">
+        <div className="settings-card">
+          <div className="settings-card-intro">
+            <h3>{t("settings.preferences")}</h3>
+            <p>{t("settings.theme_hint")}</p>
+          </div>
+          <div className="settings-preferences">
+            <label>
+              {t("settings.language")}
+              <select value={language} onChange={(e) => setLanguage(e.target.value as Language)}>
+                {SUPPORTED_LANGUAGES.map((code) => (
+                  <option key={code} value={code}>
+                    {languageName(code)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("settings.theme")}
+              <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
+                {SUPPORTED_THEMES.map((code) => (
+                  <option key={code} value={code}>
+                    {t(`settings.theme_${code}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
-        <p className="panel-footnote">{t("settings.theme_hint")}</p>
+      </section>
 
-        {message && (
-          <div className={`notice ${message.type === "error" ? "error" : ""}`} role="alert" style={{ marginBottom: "1rem" }}>
-            {message.type === "error" ? <AlertCircle size={18} /> : <CheckCircle size={18} />}
-            {message.text}
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>{t("settings.server_configuration")}</h2>
+            <p>{t("settings.edit_hint")}</p>
           </div>
-        )}
-
-        <div style={{ display: "grid", gap: "1.5rem" }}>
-          <div className="panel" style={{ padding: "1rem" }}>
-            <h3 style={{ marginBottom: "1rem" }}>{t("settings.dns_section")}</h3>
-            <div style={{ display: "grid", gap: "1rem" }}>
-              <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>{t("settings.dns_listen_label")}</span>
-                <input
-                  type="text"
-                  value={formData.dns_listen}
-                  onChange={(e) => handleChange("dns_listen", e.target.value)}
-                  placeholder="127.0.0.1:53, [::1]:53"
-                  style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                />
-                <small style={{ opacity: 0.6 }}>{t("settings.dns_listen_warning")}</small>
-              </label>
-
-              <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>{t("settings.upstreams_label")}</span>
-                <input
-                  type="text"
-                  value={formData.dns_upstreams}
-                  onChange={(e) => handleChange("dns_upstreams", e.target.value)}
-                  placeholder="1.1.1.1:53, 9.9.9.9:53"
-                  style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                />
-                <small style={{ opacity: 0.6 }}>{t("settings.upstreams_hint")}</small>
-              </label>
-
-              <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>{t("settings.allowed_clients_label")}</span>
-                <input
-                  type="text"
-                  value={formData.dns_allowed_clients}
-                  onChange={(e) => handleChange("dns_allowed_clients", e.target.value)}
-                  placeholder="127.0.0.0/8, ::1/128"
-                  style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                />
-                <small style={{ opacity: 0.6 }}>{t("settings.allowed_clients_hint")}</small>
-              </label>
-            </div>
+        </div>
+        <div className="settings-card">
+          <div className="settings-card-intro">
+            <h3>{t("settings.dns_section")}</h3>
           </div>
-
-          <div className="panel" style={{ padding: "1rem" }}>
-            <h3 style={{ marginBottom: "1rem" }}>{t("settings.cache_section")}</h3>
-            <label style={{ display: "grid", gap: "0.5rem" }}>
+          <div className="settings-fields">
+            {field("dns_listen", t("settings.dns_listen_label"), "127.0.0.1:53, [::1]:53", t("settings.dns_listen_warning"))}
+            {field("dns_upstreams", t("settings.upstreams_label"), "1.1.1.1:53, 9.9.9.9:53", t("settings.upstreams_hint"))}
+            {field("dns_allowed_clients", t("settings.allowed_clients_label"), "127.0.0.0/8, ::1/128", t("settings.allowed_clients_hint"))}
+          </div>
+        </div>
+        <div className="settings-card">
+          <div className="settings-card-intro">
+            <h3>{t("settings.cache_section")}</h3>
+          </div>
+          <div className="settings-fields">
+            <label className="field">
               <span>{t("settings.cache_ttl_label")}</span>
               <input
                 type="number"
@@ -253,160 +239,140 @@ export function Settings({ data }: { data: Snapshot }) {
                 step={1}
                 value={formData.cache_upstream_ttl}
                 onChange={(e) => handleChange("cache_upstream_ttl", e.target.value)}
-                style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
               />
-              <small style={{ opacity: 0.6 }}>{t("settings.cache_ttl_hint")}</small>
+              <small>{t("settings.cache_ttl_hint")}</small>
             </label>
           </div>
-
-          <div className="panel" style={{ padding: "1rem" }}>
-            <h3 style={{ marginBottom: "1rem" }}>{t("settings.web_section")}</h3>
-            <div style={{ display: "grid", gap: "1rem" }}>
-              <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>{t("settings.web_listen_label")}</span>
-                <input
-                  type="text"
-                  value={formData.http_listen}
-                  onChange={(e) => handleChange("http_listen", e.target.value)}
-                  placeholder="127.0.0.1:8080"
-                  style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                />
-                <small style={{ opacity: 0.6 }}>{t("settings.web_listen_warning")}</small>
-              </label>
-
-              <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>{t("settings.allowed_hosts_label")}</span>
-                <input
-                  type="text"
-                  value={formData.http_allowed_hosts}
-                  onChange={(e) => handleChange("http_allowed_hosts", e.target.value)}
-                  placeholder="localhost, 127.0.0.1, ::1"
-                  style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                />
-                <small style={{ opacity: 0.6 }}>{t("settings.allowed_hosts_hint")}</small>
-              </label>
-            </div>
+        </div>
+        <div className="settings-card">
+          <div className="settings-card-intro">
+            <h3>{t("settings.web_section")}</h3>
           </div>
-
-          <div className="panel" style={{ padding: "1rem" }}>
-            <h3 style={{ marginBottom: "1rem" }}>{t("settings.logging_section")}</h3>
-            <div style={{ display: "grid", gap: "1rem" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <input
-                  type="checkbox"
-                  checked={formData.query_log_enabled}
-                  onChange={(e) => handleChange("query_log_enabled", e.target.checked)}
-                />
-                <span>{t("settings.enable_query_log")}</span>
-              </label>
-
-              <label style={{ display: "grid", gap: "0.5rem" }}>
-                <span>{t("settings.log_level")}</span>
-                <select
-                  value={formData.log_level}
-                  onChange={(e) => handleChange("log_level", e.target.value)}
-                  style={{ padding: "0.5rem", border: "1px solid var(--border, #374151)", borderRadius: "4px", backgroundColor: "var(--bg, #1f2937)", color: "var(--text, #f9fafb)" }}
-                >
-                  {logLevelOptions.map((level) => (
-                    <option key={level} value={level}>{level}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
+          <div className="settings-fields">
+            {field("http_listen", t("settings.web_listen_label"), "127.0.0.1:8080", t("settings.web_listen_warning"))}
+            {field("http_allowed_hosts", t("settings.allowed_hosts_label"), "localhost, 127.0.0.1, ::1", t("settings.allowed_hosts_hint"))}
           </div>
         </div>
-
-        <div style={{ marginTop: "1.5rem", display: "flex", gap: "1rem" }}>
-          <button
-            className="button primary"
-            onClick={handleSave}
-            disabled={saving}
-            style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-          >
-            <Save size={18} />
+        <div className="settings-card">
+          <div className="settings-card-intro">
+            <h3>{t("settings.logging_section")}</h3>
+          </div>
+          <div className="settings-fields">
+            <label className="check-field">
+              <input
+                type="checkbox"
+                checked={formData.query_log_enabled}
+                onChange={(e) => handleChange("query_log_enabled", e.target.checked)}
+              />
+              <span>{t("settings.enable_query_log")}</span>
+            </label>
+            <label className="field">
+              <span>{t("settings.log_level")}</span>
+              <select value={formData.log_level} onChange={(e) => handleChange("log_level", e.target.value)}>
+                {logLevelOptions.map((level) => (
+                  <option key={level} value={level}>{level}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+        <div className="save-bar">
+          {message && (
+            <div className={`notice ${message.type === "error" ? "error" : "success"}`} role="alert">
+              {message.type === "error" ? <AlertCircle size={16} /> : <CheckCircle size={16} />}
+              {message.text}
+            </div>
+          )}
+          <button className="button primary" onClick={handleSave} disabled={saving}>
+            <Save size={15} />
             {saving ? t("settings.saving") : t("settings.save_configuration")}
           </button>
-          {message?.type === "success" && <CheckCircle size={18} style={{ color: "var(--success, #22c55e)" }} />}
         </div>
       </section>
 
-      <section className="panel padded">
-        <h2>{t("settings.rate_limiting")}</h2>
-        <p>{t("settings.rate_limit_hint")}</p>
-        {rateLimitStatus && (
-          <p role="status">
-            {t("settings.rate_limit_rejected_total")}: {rateLimitStatus.rejected_total.toLocaleString(language)}
-            {rateLimitStatus.last_rejected_at && (
-              <> · {t("settings.rate_limit_last_rejected")}: {new Date(rateLimitStatus.last_rejected_at).toLocaleString(language)}</>
-            )}
-          </p>
-        )}
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>{t("settings.rate_limiting")}</h2>
+            <p>{t("settings.rate_limit_hint")}</p>
+          </div>
+          {rateLimitStatus && (
+            <p role="status" className="subtle-badge">
+              {t("settings.rate_limit_rejected_total")}: {rateLimitStatus.rejected_total.toLocaleString(language)}
+              {rateLimitStatus.last_rejected_at && (
+                <> · {t("settings.rate_limit_last_rejected")}: {new Date(rateLimitStatus.last_rejected_at).toLocaleString(language)}</>
+              )}
+            </p>
+          )}
+        </div>
         {loadingRateLimit ? (
-          <p role="status">{t("settings.rate_limit_loading")}</p>
+          <Loading>{t("settings.rate_limit_loading")}</Loading>
         ) : rateLimit ? (
           <fieldset className="rate-limit-fieldset">
-            <div className="rate-limit-grid">
-              <label className="check-row">
-                <input
-                  type="checkbox"
-                  checked={rateLimit.enabled}
-                  onChange={(e) =>
-                    setRateLimit({ ...rateLimit, enabled: e.target.checked })
-                  }
-                />
-                {t("settings.rate_limit_enabled")}
-              </label>
-              <label>
-                {t("settings.rate_limit_global_qps")}
-                <input
-                  type="number"
-                  min={1}
-                  max={100000}
-                  value={rateLimit.global_qps || ""}
-                  onChange={(e) =>
-                    setRateLimit({ ...rateLimit, global_qps: e.target.value === "" ? 0 : Number(e.target.value) })
-                  }
-                />
-              </label>
-              <label>
-                {t("settings.rate_limit_client_qps")}
-                <input
-                  type="number"
-                  min={1}
-                  max={100000}
-                  value={rateLimit.client_qps || ""}
-                  onChange={(e) =>
-                    setRateLimit({ ...rateLimit, client_qps: e.target.value === "" ? 0 : Number(e.target.value) })
-                  }
-                />
-              </label>
-              <label>
-                {t("settings.rate_limit_burst")}
-                <input
-                  type="number"
-                  min={1}
-                  max={100000}
-                  value={rateLimit.rate_limit_burst || ""}
-                  onChange={(e) =>
-                    setRateLimit({ ...rateLimit, rate_limit_burst: e.target.value === "" ? 0 : Number(e.target.value) })
-                  }
-                />
-              </label>
+            <div className="panel-body">
+              <div className="rate-limit-grid">
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={rateLimit.enabled}
+                    onChange={(e) => setRateLimit({ ...rateLimit, enabled: e.target.checked })}
+                  />
+                  {t("settings.rate_limit_enabled")}
+                </label>
+                <label>
+                  {t("settings.rate_limit_global_qps")}
+                  <input
+                    type="number"
+                    min={1}
+                    max={100000}
+                    value={rateLimit.global_qps || ""}
+                    onChange={(e) =>
+                      setRateLimit({ ...rateLimit, global_qps: e.target.value === "" ? 0 : Number(e.target.value) })
+                    }
+                  />
+                </label>
+                <label>
+                  {t("settings.rate_limit_client_qps")}
+                  <input
+                    type="number"
+                    min={1}
+                    max={100000}
+                    value={rateLimit.client_qps || ""}
+                    onChange={(e) =>
+                      setRateLimit({ ...rateLimit, client_qps: e.target.value === "" ? 0 : Number(e.target.value) })
+                    }
+                  />
+                </label>
+                <label>
+                  {t("settings.rate_limit_burst")}
+                  <input
+                    type="number"
+                    min={1}
+                    max={100000}
+                    value={rateLimit.rate_limit_burst || ""}
+                    onChange={(e) =>
+                      setRateLimit({ ...rateLimit, rate_limit_burst: e.target.value === "" ? 0 : Number(e.target.value) })
+                    }
+                  />
+                </label>
+              </div>
             </div>
-            {rateLimitError && (
-              <p className="notice error" role="alert">{rateLimitError}</p>
-            )}
-            {rateLimitSaved && (
-              <p className="notice success" role="status">{t("settings.rate_limit_saved")}</p>
-            )}
-            <div className="form-actions">
+            <div className="save-bar">
+              {rateLimitError && (
+                <p className="notice error" role="alert">{rateLimitError}</p>
+              )}
+              {rateLimitSaved && (
+                <p className="notice success" role="status">{t("settings.rate_limit_saved")}</p>
+              )}
               <button className="button primary" onClick={() => void saveRateLimit()}>
                 {t("settings.save")}
               </button>
             </div>
           </fieldset>
-        ) : null}
+        ) : (
+          rateLimitError && <p className="notice error" role="alert">{rateLimitError}</p>
+        )}
       </section>
-    </>
+    </div>
   );
 }

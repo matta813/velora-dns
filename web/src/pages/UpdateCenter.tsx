@@ -1,4 +1,4 @@
-import { Download, CheckCircle, XCircle, Clock, AlertTriangle, RefreshCw } from "lucide-react";
+import { Download, CheckCircle, XCircle, Clock, AlertTriangle, RefreshCw, History } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import {
   loadUpdateStatus,
@@ -10,6 +10,9 @@ import {
   type UpdateCheck,
 } from "../api";
 import { useI18n } from "../i18n-context";
+import { Badge } from "../components/Badge";
+import { EmptyState, Loading } from "../components/EmptyState";
+import { toneFor } from "../components/tone";
 
 interface Props {
   readOnly: boolean;
@@ -79,182 +82,184 @@ export function UpdateCenter({ readOnly }: Props) {
   };
 
   if (loading) {
-    return <div className="panel padded">{t("updates.loading")}</div>;
+    return (
+      <section className="panel">
+        <Loading>{t("updates.loading")}</Loading>
+      </section>
+    );
   }
 
+  const phases = ["downloading", "verifying", "installing", "readiness"];
+  const failed = status?.state === "failed" || status?.state === "rolled_back";
+  const heroTone = status?.updating ? "" : status?.state === "completed" ? " success" : failed ? " danger" : "";
+
   return (
-    <div>
-      <div className="panel padded">
-        <h2>{t("updates.current_status")}</h2>
-        {error && (
-          <div className="notice error" role="alert">
-            {error}
+    <div className="stack">
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>{t("updates.current_status")}</h2>
           </div>
-        )}
-        {status && (
-          <div style={{ display: "grid", gap: "1rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              {status.updating ? (
-                <Clock size={18} className="spin" />
-              ) : status.state === "completed" ? (
-                <CheckCircle size={18} style={{ color: "var(--success, #22c55e)" }} />
-              ) : status.state === "failed" || status.state === "rolled_back" ? (
-                <XCircle size={18} style={{ color: "var(--error, #ef4444)" }} />
-              ) : (
-                <Download size={18} />
-              )}
-              <strong>
-                {status.updating
-                  ? `${t("updates.updating")} ${stateLabel(status.state)}`
-                  : `${t("updates.installed")} ${status.installed}`}
-              </strong>
-            </div>
-            {status.updating && status.from_version && status.to_version && (
-              <div>
-                {status.from_version} &rarr; {status.to_version}
-              </div>
-            )}
-            {status.last_completed && (
-              <div style={{ fontSize: "0.85rem", opacity: 0.7 }}>
-                {t("updates.last_completed")} {new Date(status.last_completed).toLocaleString()}
-              </div>
-            )}
-            {status.error && <div className="notice error" role="alert">{status.error}</div>}
-            {status.rollback_used && (
-              <div className="notice" role="status">
-                {status.readiness_ok ? t("updates.rollback_recovered") : t("updates.rollback_used")}
-              </div>
-            )}
-          </div>
-        )}
-        {available && (
-          <div style={{ display: "grid", gap: "0.5rem", marginTop: "1rem" }}>
-            <strong>
-              {available.update_available
-                ? `${t("updates.available")}: ${available.latest_version}`
-                : t("updates.up_to_date")}
-            </strong>
-            <span>{t("updates.channel")}: {available.channel} · {available.architecture}</span>
-            {available.release_date && <span>{t("updates.release_date")}: {new Date(available.release_date).toLocaleDateString()}</span>}
-            {available.download_size && <span>{t("updates.download_size")}: {(available.download_size / 1024 / 1024).toFixed(1)} MiB</span>}
-            {available.release_notes && <p style={{ whiteSpace: "pre-wrap" }}>{available.release_notes}</p>}
-          </div>
-        )}
-        {status?.updating && (
-          <ol aria-label={t("updates.progress")}>
-            {["downloading", "verifying", "installing", "readiness"].map((phase) => {
-              const phases = ["downloading", "verifying", "installing", "readiness"];
-              const current = phases.indexOf(status.state);
-              const index = phases.indexOf(phase);
-              return <li key={phase}>{index < current ? "✓" : index === current ? "●" : "○"} {stateLabel(phase)}</li>;
-            })}
-          </ol>
-        )}
-        <div style={{ marginTop: "1rem" }}>
-          {readOnly ? (
-            <div className="notice" role="status">
-              {t("updates.viewer_readonly")}
-            </div>
-          ) : (
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button className="button secondary" onClick={refresh} disabled={requesting || status?.updating}>
+          {!readOnly && (
+            <div className="button-group">
+              <button className="button" onClick={refresh} disabled={requesting || status?.updating}>
                 <RefreshCw size={15} /> {t("updates.check")}
               </button>
-              <button className="button" onClick={handleRequestUpdate} disabled={requesting || status?.updating || !available?.update_available}>
+              <button
+                className="button primary"
+                onClick={handleRequestUpdate}
+                disabled={requesting || status?.updating || !available?.update_available}
+              >
                 <Download size={15} />
                 {requesting ? t("updates.requesting") : status?.updating ? t("updates.in_progress") : t("updates.request")}
               </button>
             </div>
           )}
+        </div>
+        <div className="panel-body stack-sm">
+          {error && (
+            <div className="notice error" role="alert">
+              {error}
+            </div>
+          )}
+          {status && (
+            <div className="version-hero">
+              <span className={`version-icon${heroTone}`} aria-hidden="true">
+                {status.updating ? (
+                  <Clock size={22} className="spin" />
+                ) : status.state === "completed" ? (
+                  <CheckCircle size={22} />
+                ) : failed ? (
+                  <XCircle size={22} />
+                ) : (
+                  <Download size={22} />
+                )}
+              </span>
+              <div>
+                <strong>
+                  {status.updating
+                    ? `${t("updates.updating")} ${stateLabel(status.state)}`
+                    : `${t("updates.installed")} ${status.installed}`}
+                </strong>
+                {status.updating && status.from_version && status.to_version ? (
+                  <span>
+                    {status.from_version} &rarr; {status.to_version}
+                  </span>
+                ) : (
+                  status.last_completed && (
+                    <span>
+                      {t("updates.last_completed")} {new Date(status.last_completed).toLocaleString()}
+                    </span>
+                  )
+                )}
+              </div>
+            </div>
+          )}
+          {status?.updating && (
+            <ol className="update-steps" aria-label={t("updates.progress")}>
+              {phases.map((phase) => {
+                const current = phases.indexOf(status.state);
+                const index = phases.indexOf(phase);
+                const state = index < current ? "done" : index === current ? "current" : "";
+                return (
+                  <li key={phase} className={state}>
+                    {index < current ? "✓" : index === current ? "●" : "○"} {stateLabel(phase)}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+          {status?.error && <div className="notice error" role="alert">{status.error}</div>}
+          {status?.rollback_used && (
+            <div className="notice warning" role="status">
+              {status.readiness_ok ? t("updates.rollback_recovered") : t("updates.rollback_used")}
+            </div>
+          )}
+          {available && (
+            <div className={`release-card${available.update_available ? " available" : ""}`}>
+              <strong>
+                {available.update_available
+                  ? `${t("updates.available")}: ${available.latest_version}`
+                  : t("updates.up_to_date")}
+              </strong>
+              <div className="release-meta">
+                <span>{t("updates.channel")}: {available.channel} · {available.architecture}</span>
+                {available.release_date && <span>{t("updates.release_date")}: {new Date(available.release_date).toLocaleDateString()}</span>}
+                {available.download_size && <span>{t("updates.download_size")}: {(available.download_size / 1024 / 1024).toFixed(1)} MiB</span>}
+              </div>
+              {available.release_notes && <p className="release-notes">{available.release_notes}</p>}
+            </div>
+          )}
+          {readOnly && (
+            <div className="notice info" role="status">
+              {t("updates.viewer_readonly")}
+            </div>
+          )}
           {requestMessage && (
-            <div
-              className="notice"
-              style={{ marginTop: "0.5rem" }}
-              role="status"
-            >
+            <div className="notice" role="status">
               <AlertTriangle size={15} /> {requestMessage}
             </div>
           )}
         </div>
-      </div>
+      </section>
 
-      <div className="panel padded" style={{ marginTop: "1rem" }}>
-        <h2>{t("updates.history")}</h2>
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>{t("updates.history")}</h2>
+          </div>
+        </div>
         {history.length === 0 ? (
-          <p style={{ opacity: 0.6 }}>{t("updates.no_history")}</p>
+          <EmptyState compact icon={<History size={22} />} title={t("updates.no_history")} />
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: "0.5rem" }}>{t("updates.col_from")}</th>
-                <th style={{ textAlign: "left", padding: "0.5rem" }}>{t("updates.col_to")}</th>
-                <th style={{ textAlign: "left", padding: "0.5rem" }}>{t("updates.col_channel")}</th>
-                <th style={{ textAlign: "left", padding: "0.5rem" }}>{t("updates.col_state")}</th>
-                <th style={{ textAlign: "left", padding: "0.5rem" }}>{t("updates.col_mode")}</th>
-                <th style={{ textAlign: "left", padding: "0.5rem" }}>{t("updates.col_started")}</th>
-                <th style={{ textAlign: "left", padding: "0.5rem" }}>{t("updates.col_duration")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((entry) => (
-                <tr key={entry.id}>
-                  <td style={{ padding: "0.5rem" }}>{entry.from_version}</td>
-                  <td style={{ padding: "0.5rem" }}>{entry.to_version}</td>
-                  <td style={{ padding: "0.5rem" }}>
-                    <span
-                      className={`badge ${
-                        entry.channel === "stable"
-                          ? "badge-success"
-                          : entry.channel === "beta"
-                            ? "badge-info"
-                            : entry.channel === "alpha"
-                              ? "badge-warning"
-                              : ""
-                      }`}
-                    >
-                      {entry.channel || "stable"}
-                    </span>
-                  </td>
-                  <td style={{ padding: "0.5rem" }}>
-                    <span
-                      className={`badge ${
-                        entry.state === "completed"
-                          ? "badge-success"
-                          : entry.state === "failed"
-                            ? "badge-error"
-                            : entry.state === "rolled_back"
-                              ? "badge-warning"
-                              : ""
-                      }`}
-                    >
-                      {stateLabel(entry.state)}
-                    </span>
-                    {entry.rollback_used && ` · ${t("updates.rolled_back")}`}
-                    {entry.error && (
-                      <div style={{ fontSize: "0.8rem", color: "var(--error, #ef4444)", marginTop: "0.25rem" }}>
-                        {entry.error}
-                      </div>
-                    )}
-                  </td>
-                  <td style={{ padding: "0.5rem" }}>{entry.deployment_mode}</td>
-                  <td style={{ padding: "0.5rem" }}>
-                    {new Date(entry.started_at).toLocaleString()}
-                  </td>
-                  <td style={{ padding: "0.5rem" }}>
-                    {entry.completed_at
-                      ? `${(
-                          (new Date(entry.completed_at).getTime() -
-                            new Date(entry.started_at).getTime()) /
-                          1000
-                        ).toFixed(1)}s`
-                      : "—"}
-                  </td>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t("updates.col_from")}</th>
+                  <th>{t("updates.col_to")}</th>
+                  <th>{t("updates.col_channel")}</th>
+                  <th>{t("updates.col_state")}</th>
+                  <th>{t("updates.col_mode")}</th>
+                  <th>{t("updates.col_started")}</th>
+                  <th className="num">{t("updates.col_duration")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {history.map((entry) => (
+                  <tr key={entry.id}>
+                    <td className="mono cell-muted">{entry.from_version}</td>
+                    <td className="mono">{entry.to_version}</td>
+                    <td>
+                      <Badge
+                        plain
+                        tone={entry.channel === "beta" ? "info" : entry.channel === "alpha" ? "warning" : "brand"}
+                      >
+                        {entry.channel || "stable"}
+                      </Badge>
+                    </td>
+                    <td className="wrap">
+                      <Badge tone={toneFor(entry.state)}>{stateLabel(entry.state)}</Badge>
+                      {entry.rollback_used && <span className="cell-muted"> · {t("updates.rolled_back")}</span>}
+                      {entry.error && <span className="error-text">{entry.error}</span>}
+                    </td>
+                    <td className="cell-muted">{entry.deployment_mode}</td>
+                    <td className="cell-muted">{new Date(entry.started_at).toLocaleString()}</td>
+                    <td className="num mono">
+                      {entry.completed_at
+                        ? `${(
+                            (new Date(entry.completed_at).getTime() - new Date(entry.started_at).getTime()) /
+                            1000
+                          ).toFixed(1)}s`
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

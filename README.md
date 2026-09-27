@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
+  <img src="docs/assets/logo.svg" alt="Velora DNS" width="300" height="64">
+</picture>
+
 # Velora DNS
 
 **Your DNS. Under your control.** Velora DNS is a self-hosted, forwarding DNS server

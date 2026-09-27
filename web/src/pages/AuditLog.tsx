@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import { ClipboardList, Filter } from "lucide-react";
 import { request } from "../api";
 import { useI18n } from "../i18n-context";
+import { Badge } from "../components/Badge";
+import { EmptyState } from "../components/EmptyState";
+import { toneFor } from "../components/tone";
 
 interface AuditEvent {
   id: number;
@@ -49,38 +53,60 @@ export function AuditLog() {
   }, [load]);
 
   return (
-    <section className="panel padded">
-      <h2>{t("audit.title")}</h2>
-      <p>{t("audit.hint")}</p>
-      <form onSubmit={(event) => { event.preventDefault(); setFilters({ actor: actor.trim(), action: action.trim(), result }); }} className="settings-preferences">
-        <label>{t("audit.actor")}<input value={actor} onChange={(event) => setActor(event.target.value)} /></label>
-        <label>{t("audit.action")}<input value={action} onChange={(event) => setAction(event.target.value)} /></label>
-        <label>{t("audit.result")}
-          <select value={result} onChange={(event) => setResult(event.target.value)}>
-            <option value="">{t("audit.all")}</option>
-            <option value="success">{t("audit.success")}</option>
-            <option value="failure">{t("audit.failure")}</option>
-          </select>
-        </label>
-        <button className="button" type="submit">{t("audit.filter")}</button>
+    <section className="panel">
+      <div className="panel-heading">
+        <div>
+          <h2>{t("audit.title")}</h2>
+          <p>{t("audit.hint")}</p>
+        </div>
+      </div>
+      <form
+        onSubmit={(event) => { event.preventDefault(); setFilters({ actor: actor.trim(), action: action.trim(), result }); }}
+        className="zone-form audit-filters"
+      >
+        <div className="form-grid filters">
+          <label>{t("audit.actor")}<input value={actor} onChange={(event) => setActor(event.target.value)} /></label>
+          <label>{t("audit.action")}<input value={action} onChange={(event) => setAction(event.target.value)} /></label>
+          <label>{t("audit.result")}
+            <select value={result} onChange={(event) => setResult(event.target.value)}>
+              <option value="">{t("audit.all")}</option>
+              <option value="success">{t("audit.success")}</option>
+              <option value="failure">{t("audit.failure")}</option>
+            </select>
+          </label>
+          <div className="filter-submit">
+            <button className="button primary" type="submit"><Filter size={15} />{t("audit.filter")}</button>
+          </div>
+        </div>
       </form>
       {error && <div className="notice error" role="alert">{error}</div>}
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>{t("audit.time")}</th><th>{t("audit.actor")}</th><th>{t("audit.action")}</th><th>{t("audit.target")}</th><th>{t("audit.result")}</th></tr></thead>
-          <tbody>{events.map((item) => (
-            <tr key={item.id}>
-              <td>{new Date(item.occurred_at).toLocaleString()}</td>
-              <td>{item.actor} ({item.role || "—"})</td>
-              <td>{item.action}</td>
-              <td><code>{item.target}</code></td>
-              <td>{item.result === "success" || item.result === "failure" ? t(`audit.${item.result}`) : item.result} {item.status_code || ""}</td>
-            </tr>
-          ))}</tbody>
-        </table>
-      </div>
-      {events.length === 0 && !loading && <p>{t("audit.empty")}</p>}
-      {more && <button className="button" disabled={loading} onClick={() => void load(events[events.length - 1].id)}>{t("audit.more")}</button>}
+      {events.length > 0 && (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>{t("audit.time")}</th><th>{t("audit.actor")}</th><th>{t("audit.action")}</th><th>{t("audit.target")}</th><th>{t("audit.result")}</th></tr></thead>
+            <tbody>{events.map((item) => (
+              <tr key={item.id}>
+                <td className="cell-muted">{new Date(item.occurred_at).toLocaleString()}</td>
+                <td>{item.actor} ({item.role || "—"})</td>
+                <td><code>{item.action}</code></td>
+                <td className="wrap"><code>{item.target}</code></td>
+                <td>
+                  <Badge tone={toneFor(item.result)}>
+                    {`${item.result === "success" || item.result === "failure" ? t(`audit.${item.result}`) : item.result} ${item.status_code || ""}`.trim()}
+                  </Badge>
+                </td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+      {events.length === 0 && !loading && <EmptyState compact icon={<ClipboardList size={22} />} title={t("audit.empty")} />}
+      {more && (
+        <div className="panel-footer">
+          <span />
+          <button className="button" disabled={loading} onClick={() => void load(events[events.length - 1].id)}>{t("audit.more")}</button>
+        </div>
+      )}
     </section>
   );
 }
