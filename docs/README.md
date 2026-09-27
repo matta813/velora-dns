@@ -10,6 +10,7 @@
 - [Validation evidence](validation.md)
 - [REST API and metrics](api.md)
 - [Local zones and record API](zones.md)
+- [Local DNS rewrites](rewrites.md)
 - [Conditional forwarding and query precedence](forwarding.md)
 - [Query history, retention and filters](query-logging.md)
 - [Architecture decisions](architecture/0001-foundation.md)
@@ -42,6 +43,7 @@ and contain no credentials, tokens, or production data.
 | `query-log.png` | Retained query filters and results |
 | `events.png` | Event center with unread and acknowledged events |
 | `zones.png` | Local zone management |
+| `rewrites.png` | Local DNS rewrites with precedence hints |
 | `forwarding.png` | Conditional forwarding rules with resolver health |
 | `blocklists.png` | Blocklist sources with enable switches and status |
 | `cache.png` | Cache usage and live cache entries |

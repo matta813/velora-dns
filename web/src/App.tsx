@@ -12,6 +12,7 @@ import {
   Moon,
   Network,
   RefreshCw,
+  Replace,
   Route as RouteIcon,
   ScrollText,
   Server,
@@ -32,6 +33,7 @@ import { Zones } from "./pages/Zones";
 import { QueryLog } from "./pages/QueryLog";
 import { Blocklists } from "./pages/Blocklists";
 import { Forwarding } from "./pages/Forwarding";
+import { Rewrites } from "./pages/Rewrites";
 import { UpdateCenter } from "./pages/UpdateCenter";
 import { BackupAssistant } from "./pages/BackupAssistant";
 import { DHCP } from "./pages/DHCP";
@@ -68,6 +70,7 @@ const NAV: (NavItem | NavGroup)[] = [
     items: [
       { to: "/zones", key: "zones", icon: <Globe2 size={16} /> },
       { to: "/blocklists", key: "blocklists", icon: <ShieldBan size={16} /> },
+      { to: "/rewrites", key: "rewrites", icon: <Replace size={16} /> },
       { to: "/forwarding", key: "forwarding", icon: <RouteIcon size={16} /> },
       { to: "/cache", key: "cache", icon: <Database size={16} /> },
     ],
@@ -105,6 +108,7 @@ const ROUTE_KEYS: Record<string, string> = {
   "/queries": "queries",
   "/blocklists": "blocklists",
   "/forwarding": "forwarding",
+  "/rewrites": "rewrites",
   "/cache": "cache",
   "/settings": "settings",
   "/updates": "updates",
@@ -116,7 +120,7 @@ const ROUTE_KEYS: Record<string, string> = {
 };
 
 // Pages that manage their own reload controls.
-const SELF_REFRESHING = ["/zones", "/queries", "/blocklists", "/forwarding"];
+const SELF_REFRESHING = ["/zones", "/queries", "/blocklists", "/forwarding", "/rewrites"];
 
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
@@ -312,7 +316,7 @@ export default function App() {
                 : t("app.error.check_server")}
             </div>
           )}
-          {readOnly && ["/zones", "/blocklists", "/cache", "/forwarding"].includes(pathname) && (
+          {readOnly && ["/zones", "/blocklists", "/cache", "/forwarding", "/rewrites"].includes(pathname) && (
             <div className="notice info" role="status">
               {t("app.viewer_readonly")}
             </div>
@@ -347,6 +351,7 @@ export default function App() {
                 element={<QueryLog enabled={data.config.query_log?.enabled ?? false} />}
               />
               <Route path="/blocklists" element={<Blocklists readOnly={readOnly} />} />
+              <Route path="/rewrites" element={<Rewrites readOnly={readOnly} />} />
               <Route path="/forwarding" element={<Forwarding readOnly={readOnly} />} />
               <Route path="/settings" element={<Settings data={data} />} />
               <Route path="/updates" element={<UpdateCenter readOnly={readOnly} />} />
