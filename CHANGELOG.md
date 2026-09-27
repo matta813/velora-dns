@@ -4,6 +4,7 @@ All notable changes are documented here. This project uses Semantic Versioning.
 
 ## Unreleased
 
+- Webhook notifications: send upstream, blocklist, backup and configuration events to HTTP endpoints with a versioned JSON payload, per-webhook event and severity filters, optional bearer token, background delivery with retries, a test action and SSRF protection (#252).
 - Per-client filtering policies: a named client can follow global filtering, bypass it, or use its own blocklists plus extra allowed and blocked domains; the most specific client network decides, and a lookup shows which policy applies to an address (#249).
 - Clients and devices: name IP addresses and networks (most specific wins), show names in the query log and top clients, and see 24-hour activity plus unnamed busy addresses (#254).
 - Local DNS rewrites: answer names or `*.parent` wildcards with fixed A, AAAA or CNAME data ahead of local zones, with documented precedence and hints when a blocklist or zone is involved (#247).

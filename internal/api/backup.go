@@ -52,7 +52,7 @@ func registerBackup(mux *http.ServeMux, store BackupStore, notify func(database.
 		path, err := store.CreateEncryptedBackup(r.Context(), input.Passphrase)
 		if err != nil {
 			if notify != nil {
-				notify(database.SystemEventInput{Key: "backup_failed", Severity: "warning", Title: "Backup failed", Message: "An encrypted backup could not be created.", Link: "/backup", Visibility: "admin"})
+				notify(database.SystemEventInput{Type: "backup.failed", Key: "backup_failed", Severity: "warning", Title: "Backup failed", Message: "An encrypted backup could not be created.", Link: "/backup", Visibility: "admin"})
 			}
 			failure(w, 503, "backup_failed", "Could not create encrypted backup")
 			return
@@ -69,7 +69,7 @@ func registerBackup(mux *http.ServeMux, store BackupStore, notify func(database.
 		w.Header().Set("Cache-Control", "no-store")
 		_, copyErr := io.Copy(w, file)
 		if notify != nil && copyErr == nil {
-			notify(database.SystemEventInput{Key: "backup_created", Severity: "info", Title: "Backup created", Message: "An encrypted configuration and database backup was downloaded.", Link: "/backup", Visibility: "admin"})
+			notify(database.SystemEventInput{Type: "backup.created", Key: "backup_created", Severity: "info", Title: "Backup created", Message: "An encrypted configuration and database backup was downloaded.", Link: "/backup", Visibility: "admin"})
 		}
 	})
 	mux.HandleFunc("GET /api/v1/backup/status", func(w http.ResponseWriter, r *http.Request) {

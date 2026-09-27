@@ -113,6 +113,13 @@ const PAGES = {
     width: 1440,
     height: 1000,
   },
+  "webhooks": {
+    path: "/webhooks",
+    file: "webhooks.png",
+    label: "Webhook notifications",
+    width: 1440,
+    height: 1000,
+  },
   "dhcp": {
     path: "/dhcp",
     file: "dhcp.png",
@@ -247,6 +254,12 @@ const demoPolicies = [
   { id: 4, client_id: 4, mode: "default", blocklists: [], allow: [], block: [], enabled: false },
 ];
 
+const demoWebhooks = [
+  { id: 1, name: "Home Assistant", url: "http://192.0.2.21:8123/api/webhook/velora-dns", events: ["upstream.unavailable", "upstream.recovered"], min_severity: "info", allow_private: true, enabled: true, has_token: false, last_delivery_at: hoursFromNow(-1.5), last_status: "HTTP 200", last_error: "", consecutive_failures: 0 },
+  { id: 2, name: "On-call pager", url: "https://alerts.example.com/hooks/velora", events: [], min_severity: "warning", allow_private: false, enabled: true, has_token: true, last_delivery_at: hoursFromNow(-6), last_status: "HTTP 202", last_error: "", consecutive_failures: 0 },
+  { id: 3, name: "Team chat", url: "https://chat.example.net/hooks/ops", events: ["blocklist.refresh_failed", "backup.failed"], min_severity: "info", allow_private: false, enabled: false, has_token: true, last_delivery_at: hoursFromNow(-30), last_status: "failed", last_error: "endpoint returned HTTP 503", consecutive_failures: 4 },
+];
+
 const demoRewrites = [
   { id: 1, name: "nas.home.arpa", type: "A", value: "192.0.2.20", enabled: true, description: "Replaces the zone record during migration", overrides_zone: "home.arpa" },
   { id: 2, name: "nas.home.arpa", type: "AAAA", value: "2001:db8::20", enabled: true, description: "", overrides_zone: "home.arpa" },
@@ -303,6 +316,8 @@ function demoResponse(pathname) {
   if (pathname === "/api/v1/rewrites") return demoRewrites;
   if (pathname === "/api/v1/clients") return demoClients;
   if (pathname === "/api/v1/policies") return demoPolicies;
+  if (pathname === "/api/v1/webhooks") return demoWebhooks;
+  if (pathname === "/api/v1/webhooks/event-types") return ["upstream.unavailable", "upstream.recovered", "blocklist.refresh_failed", "blocklist.refresh_recovered", "backup.created", "backup.failed", "config.rollback"];
   if (pathname === "/api/v1/cache/entries") return { total: demoCacheEntries.length, entries: demoCacheEntries };
   if (pathname === "/api/v1/settings/rate-limit") return { enabled: true, global_qps: 1000, client_qps: 50, rate_limit_burst: 100 };
   if (pathname === "/api/v1/settings/rate-limit/status") return { rejected_total: 14, last_rejected_at: "2026-09-21T11:30:00Z" };

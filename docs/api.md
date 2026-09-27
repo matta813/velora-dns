@@ -47,6 +47,12 @@ metrics require an authenticated session or scoped API token.
 | POST | /api/v1/clients | Create a client: `name`, `addresses` (1–16 IPs or CIDR networks), optional `group`, `description`, `enabled` |
 | PUT | /api/v1/clients/{id} | Replace a client |
 | DELETE | /api/v1/clients/{id} | Remove a client and its filtering policy |
+| GET | /api/v1/webhooks | Webhooks with delivery status (admin only; tokens are never returned) |
+| POST | /api/v1/webhooks | Create a webhook: `name`, `url`, optional `events`, `min_severity`, `allow_private`, `enabled`, write-only `token` (admin only) |
+| PUT | /api/v1/webhooks/{id} | Replace a webhook; omit `token` to keep it, `""` removes it (admin only) |
+| DELETE | /api/v1/webhooks/{id} | Remove a webhook (admin only) |
+| POST | /api/v1/webhooks/{id}/test | Send a `webhook.test` event now and return the result (admin only) |
+| GET | /api/v1/webhooks/event-types | Event types a webhook can subscribe to (admin only) |
 | GET | /api/v1/policies | Per-client filtering policies |
 | POST | /api/v1/policies | Create a policy: `client_id`, `mode` (`default`, `disabled` or `custom`), and for custom mode `blocklists` (source IDs), `allow` and `block` domains; optional `enabled` |
 | PUT | /api/v1/policies/{id} | Replace a policy |

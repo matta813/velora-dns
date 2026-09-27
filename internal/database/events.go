@@ -10,6 +10,9 @@ import (
 )
 
 type SystemEventInput struct {
+	// Type is the stable event type sent to webhooks (for example
+	// "upstream.unavailable"); it is not stored with the event.
+	Type       string
 	Key        string
 	Severity   string
 	Title      string

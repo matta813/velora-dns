@@ -29,6 +29,7 @@ import (
 	"github.com/matta813/velora-dns/internal/replication"
 	"github.com/matta813/velora-dns/internal/rewrites"
 	"github.com/matta813/velora-dns/internal/update"
+	"github.com/matta813/velora-dns/internal/webhooks"
 	"github.com/matta813/velora-dns/internal/zones"
 )
 
@@ -204,6 +205,14 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 		}
 	}
 	upstreamHealth := dns.NewUpstreamHealth(c.DNS.Upstreams)
+	hostname, _ := os.Hostname()
+	hooks, err := webhooks.NewService(initCtx, db, webhooks.Options{Instance: webhooks.Instance{Name: hostname, Version: version.Version}, Logger: logger})
+	if err != nil {
+		return fmt.Errorf("load webhooks: %w", err)
+	}
+	var hookWG sync.WaitGroup
+	hookWG.Go(func() { hooks.Run(runCtx) })
+	defer hookWG.Wait()
 	eventQueue := make(chan database.SystemEventInput, 64)
 	emitEvent := func(event database.SystemEventInput) {
 		select {
@@ -220,6 +229,9 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 			defer done()
 			if err := db.PublishSystemEvent(writeCtx, event); err != nil {
 				logger.Warn("system event could not be saved", "event_key", event.Key, "error", err)
+			}
+			if event.Type != "" {
+				hooks.Publish(webhooks.Event{Type: event.Type, Severity: event.Severity, Title: event.Title, Message: event.Message, Link: event.Link})
 			}
 		}
 		for {
@@ -245,19 +257,19 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	defer func() { cancel(); eventWG.Wait() }()
 	upstreamHealth.SetOnTransition(func(address, _, state string) {
 		if state == "unavailable" {
-			emitEvent(database.SystemEventInput{Key: "upstream:" + address, Severity: "warning", Title: "Upstream unavailable", Message: address + " is not responding; failover is active.", Link: "/", Visibility: "all"})
+			emitEvent(database.SystemEventInput{Type: "upstream.unavailable", Key: "upstream:" + address, Severity: "warning", Title: "Upstream unavailable", Message: address + " is not responding; failover is active.", Link: "/", Visibility: "all"})
 		}
 		if state == "healthy" {
-			emitEvent(database.SystemEventInput{Key: "upstream-recovered:" + address, Severity: "info", Title: "Upstream recovered", Message: address + " is responding again.", Link: "/", Visibility: "all"})
+			emitEvent(database.SystemEventInput{Type: "upstream.recovered", Key: "upstream-recovered:" + address, Severity: "info", Title: "Upstream recovered", Message: address + " is responding again.", Link: "/", Visibility: "all"})
 		}
 	})
 	matcher.SetRefreshObserver(func(source filtering.Source, previousFailures int, refreshErr error) {
 		key := fmt.Sprintf("blocklist:%d", source.ID)
 		switch {
 		case refreshErr != nil && previousFailures == 0:
-			emitEvent(database.SystemEventInput{Key: key, Severity: "warning", Title: "Blocklist refresh failed", Message: source.Name + " could not be updated; the previous list stays active.", Link: "/blocklists", Visibility: "all"})
+			emitEvent(database.SystemEventInput{Type: "blocklist.refresh_failed", Key: key, Severity: "warning", Title: "Blocklist refresh failed", Message: source.Name + " could not be updated; the previous list stays active.", Link: "/blocklists", Visibility: "all"})
 		case refreshErr == nil && previousFailures > 0:
-			emitEvent(database.SystemEventInput{Key: key + ":recovered", Severity: "info", Title: "Blocklist refresh recovered", Message: source.Name + " updated successfully again.", Link: "/blocklists", Visibility: "all"})
+			emitEvent(database.SystemEventInput{Type: "blocklist.refresh_recovered", Key: key + ":recovered", Severity: "info", Title: "Blocklist refresh recovered", Message: source.Name + " updated successfully again.", Link: "/blocklists", Visibility: "all"})
 		}
 	})
 	wg.Go(func() { matcher.RunScheduler(runCtx, time.Minute) })
@@ -449,7 +461,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, UpstreamHealth: upstreamHealth, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, Forwarding: forwardRules, Rewrites: rewriteRules, Clients: knownClients, Activity: db, Policies: clientPolicies, Events: db, NotifyEvent: emitEvent, ApplyConfig: applyConfig, ResetStats: resetStatistics}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, UpstreamHealth: upstreamHealth, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, Forwarding: forwardRules, Rewrites: rewriteRules, Clients: knownClients, Activity: db, Policies: clientPolicies, Webhooks: hooks, Events: db, NotifyEvent: emitEvent, ApplyConfig: applyConfig, ResetStats: resetStatistics}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)
