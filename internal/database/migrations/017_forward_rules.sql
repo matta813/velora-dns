@@ -1,0 +1,7 @@
+CREATE TABLE forward_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  domain TEXT NOT NULL UNIQUE,
+  upstreams TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
+  description TEXT NOT NULL DEFAULT ''
+);

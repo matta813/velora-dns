@@ -63,6 +63,7 @@ type Dependencies struct {
 	NotifyEvent    func(database.SystemEventInput)
 	DHCP           DHCPStore
 	Cluster        ClusterStore
+	Forwarding     ForwardingStore
 	ApplyConfig    func(config.Config) error
 }
 type Error struct {
@@ -114,6 +115,10 @@ func New(d Dependencies) http.Handler {
 	if d.TSIG != nil {
 		registerTSIG(mux, d.TSIG)
 		capabilities = append(capabilities, "tsig")
+	}
+	if d.Forwarding != nil {
+		registerForwarding(mux, d.Forwarding)
+		capabilities = append(capabilities, "conditional_forwarding")
 	}
 	if d.Filtering != nil {
 		registerBlocklists(mux, d.Filtering)
