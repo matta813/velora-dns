@@ -525,6 +525,19 @@ const sv: Record<string, string> = {
   "dashboard.client": "Klient",
   "dashboard.upstream_servers": "Uppströmsservrar",
   "dashboard.collecting_samples": "Samlar in mätvärden…",
+  "cache.search_label": "Sök på namn",
+  "cache.search_placeholder": "example.org",
+  "cache.all_types": "Alla typer",
+  "cache.remove_entry": "Ta bort från cache",
+  "cache.invalidate_title": "Ogiltigförklara en domän",
+  "cache.invalidate_text": "Ta bort cachade svar för ett namn utan att tömma hela cachen.",
+  "cache.domain": "Domän",
+  "cache.include_subdomains": "Inkludera underdomäner",
+  "cache.invalidate": "Ogiltigförklara",
+  "cache.removed_entries": "Borttagna cacheposter",
+  "cache.invalidate_failed": "Ogiltigförklaring misslyckades",
+  "cache.flush_confirm": "Rensa alla cachade svar? Räknare för träffar och missar behålls.",
+  "cache.no_matches": "Inga cacheposter matchar filtret.",
 };
 
 export default sv;

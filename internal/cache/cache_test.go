@@ -218,3 +218,79 @@ func TestAutomaticExpiry(t *testing.T) {
 	}
 	t.Fatal("sweeper did not expire entry")
 }
+
+func typed(name string, qtype uint16) (*dns.Msg, *dns.Msg) {
+	q := new(dns.Msg)
+	q.SetQuestion(name, qtype)
+	m := new(dns.Msg)
+	m.SetReply(q)
+	switch qtype {
+	case dns.TypeAAAA:
+		m.Answer = []dns.RR{&dns.AAAA{Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: 60}}}
+	default:
+		m.Answer = []dns.RR{&dns.A{Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 60}}}
+	}
+	return q, m
+}
+
+func TestFindEntriesFiltersAndCountsMatches(t *testing.T) {
+	c := New(10)
+	for _, item := range []struct {
+		name  string
+		qtype uint16
+	}{{"a.example.org.", dns.TypeA}, {"a.example.org.", dns.TypeAAAA}, {"b.example.net.", dns.TypeA}} {
+		c.Put(typed(item.name, item.qtype))
+	}
+	page := c.FindEntries(EntryFilter{Domain: "EXAMPLE.ORG"}, 1, 0)
+	if page.Total != 2 || len(page.Entries) != 1 {
+		t.Fatalf("domain filter: %+v", page)
+	}
+	page = c.FindEntries(EntryFilter{Domain: "example", Type: dns.TypeAAAA}, 10, 0)
+	if page.Total != 1 || page.Entries[0].Type != "AAAA" {
+		t.Fatalf("type filter: %+v", page)
+	}
+	if page = c.FindEntries(EntryFilter{}, 10, 2); page.Total != 3 || len(page.Entries) != 1 {
+		t.Fatalf("offset: %+v", page)
+	}
+}
+
+func TestInvalidateEntryDomainAndSubdomains(t *testing.T) {
+	c := New(10)
+	for _, item := range []struct {
+		name  string
+		qtype uint16
+	}{{"example.org.", dns.TypeA}, {"example.org.", dns.TypeAAAA}, {"www.example.org.", dns.TypeA}, {"notexample.org.", dns.TypeA}} {
+		c.Put(typed(item.name, item.qtype))
+	}
+	if n := c.Invalidate("Example.org", dns.TypeAAAA, false); n != 1 {
+		t.Fatalf("single entry removed %d", n)
+	}
+	if n := c.Invalidate("example.org.", 0, true); n != 2 {
+		t.Fatalf("domain with subdomains removed %d", n)
+	}
+	page := c.ListEntries(10, 0)
+	if page.Total != 1 || page.Entries[0].Name != "notexample.org." {
+		t.Fatalf("unexpected survivors: %+v", page)
+	}
+}
+
+func TestInvalidateIsSafeWithConcurrentQueries(t *testing.T) {
+	c := New(100)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for ctx.Err() == nil {
+			q, m := typed("race.example.", dns.TypeA)
+			c.Put(q, m)
+			c.Get(q)
+		}
+	}()
+	for range 200 {
+		c.Invalidate("race.example.", 0, true)
+		c.FindEntries(EntryFilter{Domain: "race"}, 10, 0)
+	}
+	cancel()
+	<-done
+}

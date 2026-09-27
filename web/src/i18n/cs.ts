@@ -525,6 +525,19 @@ const cs: Record<string, string> = {
   "dashboard.client": "Klient",
   "dashboard.upstream_servers": "Nadřazené servery",
   "dashboard.collecting_samples": "Sbírání vzorků…",
+  "cache.search_label": "Hledat podle názvu",
+  "cache.search_placeholder": "example.org",
+  "cache.all_types": "Všechny typy",
+  "cache.remove_entry": "Odebrat z mezipaměti",
+  "cache.invalidate_title": "Zneplatnit doménu",
+  "cache.invalidate_text": "Odebere odpovědi pro jeden název bez vymazání celé mezipaměti.",
+  "cache.domain": "Doména",
+  "cache.include_subdomains": "Včetně subdomén",
+  "cache.invalidate": "Zneplatnit",
+  "cache.removed_entries": "Odebrané položky",
+  "cache.invalidate_failed": "Zneplatnění selhalo",
+  "cache.flush_confirm": "Vymazat všechny odpovědi v mezipaměti? Počítadla zásahů a chyb zůstanou zachována.",
+  "cache.no_matches": "Filtru neodpovídají žádné položky.",
 };
 
 export default cs;

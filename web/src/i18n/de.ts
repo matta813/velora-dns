@@ -577,6 +577,19 @@ const de: Record<string, string> = {
   "dashboard.client": "Client",
   "dashboard.upstream_servers": "Upstream-Server",
   "dashboard.collecting_samples": "Messwerte werden gesammelt…",
+  "cache.search_label": "Nach Name suchen",
+  "cache.search_placeholder": "example.org",
+  "cache.all_types": "Alle Typen",
+  "cache.remove_entry": "Aus dem Cache entfernen",
+  "cache.invalidate_title": "Domain invalidieren",
+  "cache.invalidate_text": "Gecachte Antworten für einen Namen entfernen, ohne den gesamten Cache zu leeren.",
+  "cache.domain": "Domain",
+  "cache.include_subdomains": "Subdomains einschließen",
+  "cache.invalidate": "Invalidieren",
+  "cache.removed_entries": "Entfernte Cache-Einträge",
+  "cache.invalidate_failed": "Invalidierung fehlgeschlagen",
+  "cache.flush_confirm": "Alle gecachten Antworten löschen? Die Zähler für Treffer und Fehlschläge bleiben erhalten.",
+  "cache.no_matches": "Keine Cache-Einträge passen zu diesem Filter.",
 };
 
 export default de;

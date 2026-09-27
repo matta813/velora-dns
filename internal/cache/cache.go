@@ -260,22 +260,49 @@ func (c *Cache) ResetCounters() {
 	c.RestoreCounters(0, 0)
 }
 
+// EntryFilter narrows ListEntries. Domain matches case-insensitively as a
+// substring of the question name; Type must equal the question type.
+type EntryFilter struct {
+	Domain string
+	Type   uint16
+}
+
+func (f EntryFilter) matches(q dns.Question) bool {
+	if f.Type != 0 && q.Qtype != f.Type {
+		return false
+	}
+	if f.Domain != "" && !strings.Contains(strings.ToLower(q.Name), strings.ToLower(strings.TrimSuffix(f.Domain, "."))) {
+		return false
+	}
+	return true
+}
+
 // ListEntries returns a bounded snapshot in most-recently-used order.
 func (c *Cache) ListEntries(limit, offset int) EntryPage {
+	return c.FindEntries(EntryFilter{}, limit, offset)
+}
+
+// FindEntries returns a bounded, filtered snapshot in most-recently-used
+// order. Total counts every matching entry, not only the returned page.
+func (c *Cache) FindEntries(filter EntryFilter, limit, offset int) EntryPage {
 	if limit < 0 {
 		limit = 0
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.expire()
-	page := EntryPage{Entries: make([]EntryInfo, 0, limit), Total: len(c.items)}
+	page := EntryPage{Entries: make([]EntryInfo, 0, limit)}
 	now := c.now()
-	for el, i := c.lru.Front(), 0; el != nil && len(page.Entries) < limit; el, i = el.Next(), i+1 {
-		if i < offset {
-			continue
-		}
+	for el := c.lru.Front(); el != nil; el = el.Next() {
 		e := el.Value.(*entry)
 		question := e.message.Question[0]
+		if !filter.matches(question) {
+			continue
+		}
+		page.Total++
+		if page.Total <= offset || len(page.Entries) >= limit {
+			continue
+		}
 		remaining := uint32((e.expires.Sub(now) + time.Second - 1) / time.Second)
 		answers := make([]string, 0, len(e.message.Answer))
 		for _, rr := range e.message.Answer {
@@ -289,4 +316,27 @@ func (c *Cache) ListEntries(limit, offset int) EntryPage {
 	}
 	return page
 }
+
+// Invalidate removes cached answers for name. A zero qtype removes every
+// record type; includeSubdomains also removes names below it. It returns the
+// number of removed entries.
+func (c *Cache) Invalidate(name string, qtype uint16, includeSubdomains bool) int {
+	target := strings.ToLower(dns.Fqdn(strings.TrimSpace(name)))
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	removed := 0
+	for _, el := range c.items {
+		question := el.Value.(*entry).message.Question[0]
+		owner := strings.ToLower(question.Name)
+		if qtype != 0 && question.Qtype != qtype {
+			continue
+		}
+		if owner == target || (includeSubdomains && strings.HasSuffix(owner, "."+target)) {
+			c.remove(el)
+			removed++
+		}
+	}
+	return removed
+}
+
 func (c *Cache) Flush() { c.mu.Lock(); defer c.mu.Unlock(); clear(c.items); c.lru.Init() }

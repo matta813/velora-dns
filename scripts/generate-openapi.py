@@ -84,11 +84,12 @@ SCHEMAS = {
     "UpdateHistoryEntry": obj({"id": STRING, "started_at": TIME, "completed_at": TIME, "from_version": STRING, "to_version": STRING, "channel": STRING, "state": STRING, "error": STRING, "readiness_ok": BOOL, "rollback_used": BOOL, "deployment_mode": STRING}),
     "OnboardingStatus": obj({"first_run": BOOL, "user_count": INT, "config_ready": BOOL}),
     "FlexibleObject": obj({"status": STRING, "message": STRING}),
+    "CacheInvalidateResult": obj({"removed": INT, "stats": ref("CacheStats")}, ("removed", "stats")),
 }
 
 RESPONSE_MODELS = {
     "/api/v1/status": "Status", "/api/v1/version": "Version", "/api/v1/stats": "Statistics", "/api/v1/stats/reset": "Statistics",
-    "/api/v1/cache": "CacheStats", "/api/v1/cache/entries": "CacheEntryPage", "/api/v1/config": "Config",
+    "/api/v1/cache": "CacheStats", "/api/v1/cache/entries": "CacheEntryPage", "/api/v1/cache/invalidate": "CacheInvalidateResult", "/api/v1/config": "Config",
     "/api/v1/preferences": "Preferences", "/api/v1/settings/rate-limit": "RateLimitSettings", "/api/v1/settings/rate-limit/status": "RateLimitStatus",
     "/api/v1/upstreams/health": ["UpstreamStatus"], "/api/v1/zones": ["Zone"], "/api/v1/zones/{id}": "Zone",
     "/api/v1/zones/secondary": "SecondaryZone", "/api/v1/zones/{id}/transfer-status": "SecondaryZone",
@@ -119,6 +120,7 @@ REQUEST_MODELS = {
     ("POST", "/api/v1/blocklists"): ref("BlocklistInput"),
     ("PUT", "/api/v1/blocklists/{id}"): obj({"enabled": BOOL}, ("enabled",)),
     ("PUT", "/api/v1/blocklists/{id}/content"): obj({"content": STRING}, ("content",)),
+    ("POST", "/api/v1/cache/invalidate"): obj({"name": STRING, "type": {"type": "string", "description": "Record type such as A or AAAA; empty removes every type"}, "include_subdomains": BOOL}, ("name",)),
     ("POST", "/api/v1/backup/verify"): obj({"path": STRING}, ("path",)),
     ("POST", "/api/v1/backup/create"): obj({"passphrase": {"type": "string", "format": "password", "writeOnly": True, "minLength": 12}}, ("passphrase",)),
     ("POST", "/api/v1/update/request"): obj({"action": {"type": "string", "enum": ["update"]}}, ("action",)),

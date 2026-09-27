@@ -577,6 +577,19 @@ const en: Record<string, string> = {
   "dashboard.client": "Client",
   "dashboard.upstream_servers": "Upstream servers",
   "dashboard.collecting_samples": "Collecting samples…",
+  "cache.search_label": "Search by name",
+  "cache.search_placeholder": "example.org",
+  "cache.all_types": "All types",
+  "cache.remove_entry": "Remove from cache",
+  "cache.invalidate_title": "Invalidate a domain",
+  "cache.invalidate_text": "Remove cached answers for one name without clearing the whole cache.",
+  "cache.domain": "Domain",
+  "cache.include_subdomains": "Include subdomains",
+  "cache.invalidate": "Invalidate",
+  "cache.removed_entries": "Removed cached entries",
+  "cache.invalidate_failed": "Invalidation failed",
+  "cache.flush_confirm": "Clear every cached answer? Lifetime hit and miss counters are kept.",
+  "cache.no_matches": "No cached entries match this filter.",
 };
 
 export default en;
