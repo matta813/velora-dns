@@ -10,7 +10,8 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest",
     "screenshot": "node scripts/screenshot.mjs",
-    "audit:a11y": "node scripts/a11y-audit.mjs"
+    "audit:a11y": "node scripts/a11y-audit.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "lucide-react": "^1.31.0",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^26.2.0",
