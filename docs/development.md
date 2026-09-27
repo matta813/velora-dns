@@ -50,6 +50,42 @@ cache hit counters, cache flush and SIGTERM exit. Verify desktop/mobile UI layou
 stale snapshot behavior with browser network failures. Documentation screenshots show
 the actual running development server, not synthetic dashboard data.
 
+## End-to-end tests
+
+Two suites exercise complete workflows against real listeners, without public
+network services (upstreams point at a closed local port and the updater is a
+local fake):
+
+**Go workflows** (`tests/*_test.go`, `make test-e2e`) start Velora in-process
+with fresh databases and real DNS/HTTP listeners:
+
+| Test | Covers |
+| --- | --- |
+| `TestManagementDNSWorkflow` | startup, readiness, login/CSRF, zone and record CRUD with real DNS answers, invalid config, query history, statistics, viewer restrictions |
+| `TestStatisticsCheckpointRestartAndReset` | counters survive a restart and reset |
+| `TestBackupRestoreWorkflow` | create a backup, change zones, inspect and restore through the API, restart as a supervisor would, verify DNS answers and restore state |
+| `TestUpdaterWorkflow` | check, update request, progress, the concurrent-update guard and completion against a deterministic local updater agent; viewers cannot update |
+| `TestRateLimitWorkflow` | a client over its budget gets SERVFAIL, rejections are counted, disabling restores answers |
+| `TestClusterReplicationWorkflow` | two processes: create a primary, join a replica with a token, zones answered by the replica, replica zone writes rejected, sync status on the primary |
+
+**Browser workflows** (`web/e2e`, Playwright) run against a real server built
+from this checkout with the production web bundle (`web/e2e/start-server.mjs`
+creates a temporary installation on ports 18080/15353):
+
+```bash
+cd web
+npm run build
+npx playwright install chromium   # once
+npm run test:e2e                  # or VELORA_BIN=../bin/velora-dns npm run test:e2e
+```
+
+They sign in, create a zone and record in the UI and resolve it with real DNS
+queries, check the query log, blocking, the command palette, field-level
+configuration errors, viewer restrictions, axe checks on pages with real data
+and mobile navigation. Failures keep a trace, a screenshot and the server log in
+`web/e2e-results/`; CI uploads them as the `browser-e2e-diagnostics` artifact.
+Set `CHROMIUM_PATH` to use an existing Chromium.
+
 ## Accessibility and responsive checks
 
 `web/scripts/a11y-audit.mjs` loads every page with the shared demo responses from
@@ -65,7 +101,7 @@ widths in light and dark themes, and fails on:
 ```bash
 cd web
 npm run build
-npx vite preview --port 4173 &
+npx vite preview --host 127.0.0.1 --port 4173 &
 npm run audit:a11y -- --base-url http://127.0.0.1:4173
 ```
 

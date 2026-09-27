@@ -22,7 +22,7 @@ test:
 	npm --prefix web test -- --run
 
 test-e2e:
-	go test -race -v ./tests -run '^TestManagementDNSWorkflow$$' -count=1
+	go test -race -v ./tests -run 'Workflow$$' -count=1
 
 lint:
 	test -z "$$(gofmt -l cmd internal tests)"
