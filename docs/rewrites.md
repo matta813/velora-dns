@@ -36,7 +36,7 @@ beats `*.lab.home`.
 Rewrites are checked after blocklists and before local authoritative zones:
 
 1. Client access and rate limits
-2. Blocklists (and allowlists)
+2. Blocklists and allowlists, or the querying client's [filtering policy](policies.md)
 3. Local DNS rewrites
 4. Local authoritative zones
 5. The answer cache

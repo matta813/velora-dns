@@ -126,7 +126,7 @@ func (h *Handler) ServeDNS(w wire.ResponseWriter, q *wire.Msg) {
 		h.overloaded("concurrency")
 		return
 	}
-	ctx, cancel := context.WithTimeout(h.Context, 5*time.Second)
+	ctx, cancel := context.WithTimeout(WithClient(h.Context, ip.Unmap()), 5*time.Second)
 	defer cancel()
 	result, err := h.Resolver.Resolve(ctx, q)
 	source = result.Source

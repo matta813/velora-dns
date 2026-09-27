@@ -19,6 +19,10 @@ type Service struct {
 	fetch     func(context.Context, string) ([]string, error)
 	now       func() time.Time
 	onRefresh func(source Source, previousFailures int, err error)
+	// published mirrors sources for lock-free readers such as per-client
+	// policies; onChange is told (asynchronously) whenever it changes.
+	published atomic.Pointer[[]Source]
+	onChange  atomic.Pointer[func()]
 }
 
 // Retry delays after a failed refresh grow from retryBase and never exceed
@@ -38,7 +42,46 @@ func NewService(ctx context.Context, store SourceStore, rules []Rule) (*Service,
 	}
 	s.sources = sources
 	s.current.Store(matcher)
+	s.publish()
 	return s, nil
+}
+
+// publish exposes the current sources to lock-free readers and notifies the
+// change observer without holding the service lock.
+func (s *Service) publish() {
+	snapshot := append([]Source{}, s.sources...)
+	s.published.Store(&snapshot)
+	if observer := s.onChange.Load(); observer != nil {
+		go (*observer)()
+	}
+}
+
+// SetChangeObserver registers fn to run (in its own goroutine) after any
+// source is added, changed, refreshed or removed.
+func (s *Service) SetChangeObserver(fn func()) { s.onChange.Store(&fn) }
+
+// StaticRules returns the configuration-defined allow and block rules.
+func (s *Service) StaticRules() []Rule { return append([]Rule{}, s.static...) }
+
+// Subset compiles a matcher from the static rules, extra, and the domains of
+// the listed sources. A listed source applies even when it is disabled
+// globally, so a list can be reserved for specific clients. It never takes
+// the service lock and is safe to call from the DNS path.
+func (s *Service) Subset(sourceIDs []int64, extra []Rule) (*Matcher, error) {
+	rules := append(s.StaticRules(), extra...)
+	if published := s.published.Load(); published != nil {
+		for _, source := range *published {
+			for _, id := range sourceIDs {
+				if source.ID == id {
+					for _, domain := range source.Domains {
+						rules = append(rules, Rule{Domain: domain, Wildcard: true, Action: Block})
+					}
+					break
+				}
+			}
+		}
+	}
+	return New(rules)
 }
 func (s *Service) compile(sources []Source) (*Matcher, error) {
 	if len(sources) > MaxSources {
@@ -181,6 +224,7 @@ func (s *Service) save(ctx context.Context, source Source) (Source, error) {
 	}
 	s.sources = candidate
 	s.current.Store(matcher)
+	s.publish()
 	return saved, nil
 }
 func (s *Service) SetEnabled(ctx context.Context, id int64, enabled bool) (Source, error) {
@@ -327,5 +371,6 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 	}
 	s.sources = candidate
 	s.current.Store(matcher)
+	s.publish()
 	return nil
 }

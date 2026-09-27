@@ -36,4 +36,4 @@ addresses without a name so you can name them directly. Activity is aggregated
 on the server and bounded; with query logging disabled it is not shown.
 
 Client definitions are stored in the database, survive restarts, and are the
-building block for per-client policies.
+building block for [per-client filtering policies](policies.md).

@@ -3,6 +3,7 @@ package dns
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"sync/atomic"
 
 	"github.com/matta813/velora-dns/internal/cache"
@@ -20,6 +21,40 @@ type Local interface {
 	Lookup(*wire.Msg) (*wire.Msg, bool)
 }
 type Filter interface{ Blocked(string) bool }
+
+// ClientFilter is a Filter whose decision can depend on the querying client.
+type ClientFilter interface {
+	Filter
+	BlockedFor(client netip.Addr, name string) bool
+}
+
+type clientKey struct{}
+
+// WithClient records the querying client's address for client-aware filters.
+func WithClient(ctx context.Context, client netip.Addr) context.Context {
+	return context.WithValue(ctx, clientKey{}, client)
+}
+
+// ClientFrom returns the address recorded by WithClient.
+func ClientFrom(ctx context.Context) (netip.Addr, bool) {
+	client, ok := ctx.Value(clientKey{}).(netip.Addr)
+	return client, ok && client.IsValid()
+}
+
+// blockedName applies the client's policy when both a client-aware filter
+// and a client address are available, and the global policy otherwise.
+func (r *Resolver) blockedName(ctx context.Context, name string) bool {
+	if r.Filter == nil {
+		return false
+	}
+	if filter, ok := r.Filter.(ClientFilter); ok {
+		if client, known := ClientFrom(ctx); known {
+			return filter.BlockedFor(client, name)
+		}
+	}
+	return r.Filter.Blocked(name)
+}
+
 type Resolver struct {
 	blockMode atomic.Value // stores string
 	Local     Local
@@ -52,14 +87,12 @@ func (r *Resolver) resolve(ctx context.Context, q *wire.Msg, depth int) (Result,
 	if err := ctx.Err(); err != nil {
 		return Result{Source: "local"}, err
 	}
-	if r.Filter != nil && len(q.Question) == 1 {
-		if r.Filter.Blocked(q.Question[0].Name) {
-			return r.blocked(q), nil
-		}
+	if len(q.Question) == 1 && r.blockedName(ctx, q.Question[0].Name) {
+		return r.blocked(q), nil
 	}
 	if r.Local != nil {
 		if m, ok := r.Local.Lookup(q); ok {
-			if r.blockedAnswer(m) {
+			if r.blockedAnswer(ctx, m) {
 				return r.blocked(q), nil
 			}
 			if q.RecursionDesired && q.Question[0].Qtype != wire.TypeCNAME && m.Rcode == wire.RcodeSuccess && len(m.Ns) == 0 && len(m.Answer) > 0 {
@@ -90,7 +123,7 @@ func (r *Resolver) resolve(ctx context.Context, q *wire.Msg, depth int) (Result,
 		return Result{Message: m, Source: "refused"}, nil
 	}
 	if m, ok := r.Cache.Get(q); ok {
-		if r.blockedAnswer(m) {
+		if r.blockedAnswer(ctx, m) {
 			return r.blocked(q), nil
 		}
 		return Result{Message: m, Source: "cache"}, nil
@@ -99,7 +132,7 @@ func (r *Resolver) resolve(ctx context.Context, q *wire.Msg, depth int) (Result,
 	if err != nil {
 		return Result{Source: "upstream"}, err
 	}
-	if r.blockedAnswer(m) {
+	if r.blockedAnswer(ctx, m) {
 		return r.blocked(q), nil
 	}
 	cache.NormalizeNegativeTTL(m)

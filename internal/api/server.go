@@ -67,6 +67,7 @@ type Dependencies struct {
 	Rewrites       RewriteStore
 	Clients        ClientStore
 	Activity       ActivityStore
+	Policies       PolicyStore
 	ApplyConfig    func(config.Config) error
 }
 type Error struct {
@@ -141,6 +142,10 @@ func New(d Dependencies) http.Handler {
 		registerClients(mux, d.Clients, d.Activity, queryLogging)
 		clientName = d.Clients.Name
 		capabilities = append(capabilities, "clients")
+	}
+	if d.Policies != nil {
+		registerPolicies(mux, d.Policies, d.Clients, d.Filtering)
+		capabilities = append(capabilities, "client_policies")
 	}
 	if d.Queries != nil {
 		registerQueries(mux, d.Queries, queryLogging, clientName)

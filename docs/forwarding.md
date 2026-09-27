@@ -39,7 +39,7 @@ private zones usually cannot chain to the DNS root.
 Queries are answered by the first step that applies:
 
 1. Client access and rate limits
-2. Blocklists (and allowlists)
+2. Blocklists and allowlists, or the querying client's [filtering policy](policies.md)
 3. [Local DNS rewrites](rewrites.md)
 4. Local authoritative zones
 5. The answer cache

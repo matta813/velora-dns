@@ -57,7 +57,13 @@ type Service struct {
 	mu      sync.Mutex
 	clients []Client
 	current atomic.Pointer[index]
+	deleted func(id int64)
 }
+
+// SetDeleteObserver registers fn to run after a client is deleted, so data
+// keyed by the client (such as its filtering policy) can be dropped. Call it
+// before the service is shared.
+func (s *Service) SetDeleteObserver(fn func(id int64)) { s.deleted = fn }
 
 func NewService(ctx context.Context, store Store) (*Service, error) {
 	clients, err := store.LoadClients(ctx)
@@ -214,6 +220,9 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 	}
 	s.clients = slices.Delete(slices.Clone(s.clients), i, i+1)
 	s.current.Store(build(s.clients))
+	if s.deleted != nil {
+		s.deleted(id)
+	}
 	return nil
 }
 
