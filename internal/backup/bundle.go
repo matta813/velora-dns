@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/matta813/velora-dns/internal/backupmeta"
 	"golang.org/x/crypto/scrypt"
 	"gopkg.in/yaml.v3"
 )
@@ -24,15 +25,9 @@ const bundleMagic = "VELBK001"
 const bundleHeaderSize = len(bundleMagic) + 16 + aes.BlockSize
 const bundleTagSize = sha256.Size
 
-var ErrInvalidBundle = errors.New("invalid or incompatible backup bundle")
+var ErrInvalidBundle = backupmeta.ErrInvalidBundle
 
-type Metadata struct {
-	FormatVersion int       `json:"format_version"`
-	VeloraVersion string    `json:"velora_version"`
-	CreatedAt     time.Time `json:"created_at"`
-	SchemaVersion int       `json:"schema_version"`
-	Components    []string  `json:"components"`
-}
+type Metadata = backupmeta.Metadata
 
 func bundleKeys(passphrase string, salt []byte) ([]byte, []byte, error) {
 	if len(passphrase) < 12 {

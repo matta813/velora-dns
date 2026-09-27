@@ -179,6 +179,58 @@ export async function downloadEncryptedBackup(passphrase: string): Promise<Blob>
   }
   return response.blob();
 }
+export interface BackupMetadata {
+  format_version: number;
+  velora_version: string;
+  created_at: string;
+  schema_version: number;
+  components: string[];
+}
+export interface BackupInspection {
+  token: string;
+  expires_at: string;
+  metadata: BackupMetadata;
+  summary: {
+    zones: number;
+    records: number;
+    blocklists: number;
+    clients: number;
+    rewrites: number;
+    forward_rules: number;
+    users: number;
+    dns_listen: string[];
+    upstreams: string[];
+    http_listen: string;
+    current_version: string;
+    current_schema: number;
+    warnings: string[];
+  };
+}
+export interface RestoreState {
+  state: "pending" | "applied" | "completed" | "rolled_back" | "failed";
+  metadata: BackupMetadata;
+  safety_copy?: string;
+  error?: string;
+  updated_at: string;
+}
+/** Uploads an encrypted bundle for validation; nothing is restored yet. */
+export async function inspectBackup(file: Blob, passphrase: string): Promise<BackupInspection> {
+  const form = new FormData();
+  form.append("passphrase", passphrase); // must precede the file
+  form.append("bundle", file, "backup.vdns");
+  const response = await fetch("/api/v1/backup/inspect", { method: "POST", headers: { "X-CSRF-Token": csrfToken }, body: form });
+  const body = await response.json().catch(() => ({})) as { data?: BackupInspection; error?: { message?: string } };
+  if (!response.ok || !body.data) {
+    throw new APIError(response.status, body.error?.message ?? `Backup inspection failed (${response.status})`);
+  }
+  return body.data;
+}
+export async function scheduleRestore(token: string): Promise<{ state: string; metadata: BackupMetadata }> {
+  return request("/api/v1/backup/restore", undefined, "POST", { body: { token, confirm: true } });
+}
+export async function loadRestoreState(signal?: AbortSignal): Promise<RestoreState | null> {
+  return request<RestoreState | null>("/api/v1/backup/restore", signal);
+}
 export async function authenticate(username: string, password: string): Promise<AuthUser> {
   const user = await request<AuthUser>("/api/v1/auth/login", undefined, "POST", { body: { username, password } });
   setCSRFToken(user.csrf_token);

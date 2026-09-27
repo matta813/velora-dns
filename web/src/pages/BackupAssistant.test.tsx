@@ -8,6 +8,7 @@ afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 it("downloads an encrypted backup only for an admin", async () => {
   const fetch = vi.fn().mockImplementation((url: string) => {
     if (url === "/api/v1/backup/create") return Promise.resolve({ ok: true, blob: async () => new Blob(["encrypted"]) });
+    if (url === "/api/v1/backup/restore") return Promise.resolve({ ok: true, json: async () => ({ data: null }) });
     return Promise.resolve({ ok: true, json: async () => ({ data: { supported: true, verification_state: "unknown", database_path: "data/velora.db" } }) });
   });
   vi.stubGlobal("fetch", fetch);

@@ -36,6 +36,10 @@ INTERVAL = {"type": "integer", "description": "Scheduled refresh period in secon
 SCHEMAS = {
     "FieldError": obj({"field": {"type": "string", "description": "Configuration path such as dns.allowed_clients[1]"}, "message": STRING}, ("field", "message")),
     "Error": obj({"code": STRING, "message": STRING, "fields": {"type": "array", "items": ref("FieldError"), "description": "Invalid or restart-only configuration fields (invalid_config, config_requires_restart)"}}, ("code", "message")),
+    "BackupMetadata": obj({"format_version": INT, "velora_version": STRING, "created_at": TIME, "schema_version": INT, "components": STRINGS}, ("format_version", "velora_version", "created_at", "schema_version", "components")),
+    "BackupInspection": obj({"token": {"type": "string", "description": "Pass to POST /api/v1/backup/restore within expires_at"}, "expires_at": TIME, "metadata": ref("BackupMetadata"), "summary": obj({"zones": INT, "records": INT, "blocklists": INT, "clients": INT, "rewrites": INT, "forward_rules": INT, "users": INT, "dns_listen": STRINGS, "upstreams": STRINGS, "http_listen": STRING, "current_version": STRING, "current_schema": INT, "warnings": STRINGS})}, ("token", "expires_at", "metadata", "summary")),
+    "RestoreState": {"type": ["object", "null"], "properties": {"state": {"type": "string", "enum": ["pending", "applied", "completed", "rolled_back", "failed"]}, "metadata": ref("BackupMetadata"), "safety_copy": STRING, "error": STRING, "updated_at": TIME}},
+    "RestoreScheduled": obj({"state": {"type": "string", "enum": ["restarting", "pending"]}, "metadata": ref("BackupMetadata")}, ("state", "metadata")),
     "ConfigCheck": obj({"valid": BOOL, "errors": arr(ref("FieldError")), "restart_required": {"type": "array", "items": STRING, "description": "Changed fields that cannot be applied without a restart"}}, ("valid", "errors", "restart_required")),
     "ErrorResponse": obj({"error": ref("Error")}, ("error",)),
     "Version": obj({"version": STRING, "commit": STRING, "built": STRING}, ("version", "commit", "built")),
@@ -115,6 +119,7 @@ RESPONSE_MODELS = {
     "/api/v1/status": "Status", "/api/v1/version": "Version", "/api/v1/stats": "Statistics", "/api/v1/stats/reset": "Statistics",
     "/api/v1/cache": "CacheStats", "/api/v1/cache/entries": "CacheEntryPage", "/api/v1/cache/invalidate": "CacheInvalidateResult",
     "/api/v1/analytics": "Analytics",
+    "/api/v1/backup/inspect": "BackupInspection",
     "/api/v1/config/validate": "ConfigCheck",
     "/api/v1/clients": "ClientList", "/api/v1/clients/{id}": "Client",
     "/api/v1/webhooks": ["Webhook"], "/api/v1/webhooks/{id}": "Webhook", "/api/v1/webhooks/{id}/test": "WebhookTestResult", "/api/v1/webhooks/event-types": "WebhookEventTypes",
@@ -142,6 +147,7 @@ REQUEST_MODELS = {
     ("POST", "/api/v1/auth/login"): obj({"username": STRING, "password": {"type": "string", "format": "password", "writeOnly": True}}, ("username", "password")),
     ("PUT", "/api/v1/config"): ref("Config"),
     ("POST", "/api/v1/config/validate"): ref("Config"),
+    ("POST", "/api/v1/backup/restore"): obj({"token": STRING, "confirm": {"type": "boolean", "description": "Must be true"}}, ("token", "confirm")),
     ("PUT", "/api/v1/preferences"): ref("Preferences"),
     ("PUT", "/api/v1/settings/rate-limit"): ref("RateLimitSettings"),
     ("POST", "/api/v1/zones"): ref("ZoneInput"),
@@ -180,6 +186,8 @@ def response_model(method, path):
         return {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}
     if path.endswith("/export"):
         return {"text/dns": {"schema": STRING}}
+    if path == "/api/v1/backup/restore":
+        return {"application/json": {"schema": obj({"data": ref("RestoreScheduled" if method == "POST" else "RestoreState")}, ("data",))}}
     if path in RESPONSE_MODELS:
         model = RESPONSE_MODELS[path]
         if method == "POST" and isinstance(model, list):
@@ -217,7 +225,7 @@ def operation(method, path):
         "summary": method.title() + " " + path.removeprefix("/api/v1/"),
         "tags": [path.split("/")[3] if len(path.split("/")) > 3 else "management"],
         "responses": {
-            "202" if method == "POST" and path == "/api/v1/update/request" else "201" if method == "POST" and path in {"/api/v1/users", "/api/v1/tokens", "/api/v1/tsig-keys", "/api/v1/zones", "/api/v1/zones/secondary", "/api/v1/zones/import", "/api/v1/zones/{id}/records", "/api/v1/blocklists", "/api/v1/forwarding", "/api/v1/rewrites", "/api/v1/clients", "/api/v1/policies", "/api/v1/webhooks", "/api/v1/dhcp/pools", "/api/v1/dhcp/pools/{id}/reservations"} else "200": {"description": "Successful response", "content": response_model(method, path)},
+            "202" if method == "POST" and path in {"/api/v1/update/request", "/api/v1/backup/restore"} else "201" if method == "POST" and path in {"/api/v1/users", "/api/v1/tokens", "/api/v1/tsig-keys", "/api/v1/zones", "/api/v1/zones/secondary", "/api/v1/zones/import", "/api/v1/zones/{id}/records", "/api/v1/blocklists", "/api/v1/forwarding", "/api/v1/rewrites", "/api/v1/clients", "/api/v1/policies", "/api/v1/webhooks", "/api/v1/dhcp/pools", "/api/v1/dhcp/pools/{id}/reservations"} else "200": {"description": "Successful response", "content": response_model(method, path)},
             "default": {"description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.", "content": {"application/json": {"schema": ref("ErrorResponse")}}},
         },
     }
@@ -253,6 +261,8 @@ def operation(method, path):
         op.setdefault("parameters", []).append({"name": "If-Match", "in": "header", "required": True, "description": "Quoted zone revision (ETag)", "schema": STRING})
     if path == "/api/v1/zones/import":
         op["requestBody"] = {"required": True, "content": {"text/dns": {"schema": STRING}}}
+    if path == "/api/v1/backup/inspect":
+        op["requestBody"] = {"required": True, "content": {"multipart/form-data": {"schema": obj({"passphrase": {"type": "string", "description": "Must be the first part"}, "bundle": {"type": "string", "format": "binary", "description": "Encrypted .vdns bundle, at most 2 GiB"}}, ("passphrase", "bundle")), "encoding": {"bundle": {"contentType": "application/octet-stream"}}}}}
     if method == "PUT" and path == "/api/v1/config":
         op["responses"]["409"] = {"description": "config_requires_restart; response message names fields without a live apply path", "content": {"application/json": {"schema": ref("ErrorResponse")}}}
     if method == "DELETE" and path.startswith("/api/v1/cluster/"):

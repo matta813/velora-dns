@@ -5,6 +5,7 @@ import { useI18n } from "../i18n-context";
 import { Badge } from "../components/Badge";
 import { Loading } from "../components/EmptyState";
 import { toneFor } from "../components/tone";
+import { RestorePanel } from "./RestorePanel";
 
 interface BackupStatus {
   supported: boolean;
@@ -246,14 +247,11 @@ export function BackupAssistant({ readOnly, canCreate }: Props) {
         </div>
       </section>
 
+      {canCreate && status?.supported && <RestorePanel />}
       <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>{t("backup.instructions")}</h2>
-            <p>{t("backup.restore_hint")}</p>
-          </div>
-        </div>
-        <div className="panel-body">
+        <details className="panel-body cli-restore">
+          <summary>{t("backup.instructions")}</summary>
+          <p>{t("backup.restore_hint")}</p>
           <pre className="backup-restore-command">{`sudo systemctl stop velora-dns
 read -rsp 'Backup passphrase: ' VELORA_BACKUP_PASSPHRASE; export VELORA_BACKUP_PASSPHRASE
 sudo -E velora-dns -restore-backup ./velora-backup.vdns -config /etc/velora/config.yaml -restore-database /var/lib/velora/velora.db
@@ -296,7 +294,7 @@ sqlite3 /var/lib/velora/velora.db \\
               </pre>
             </div>
           </details>
-        </div>
+        </details>
       </section>
     </div>
   );

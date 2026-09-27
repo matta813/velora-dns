@@ -2031,3 +2031,53 @@ input[aria-invalid="true"],
 select[aria-invalid="true"] {
   border-color: var(--red);
 }
+
+/* Online restore */
+.restore-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+.restore-review {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.restore-review h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--green);
+}
+.restore-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 18px;
+  margin: 0;
+  font-size: 13.5px;
+}
+.restore-facts dt {
+  color: var(--muted);
+}
+.restore-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.restore-error,
+.restore-safety {
+  display: block;
+  margin-top: 4px;
+}
+.cli-restore summary {
+  font-weight: 600;
+  color: var(--heading);
+  cursor: pointer;
+}
+@media (max-width: 760px) {
+  .restore-form,
+  .restore-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

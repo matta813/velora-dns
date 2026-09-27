@@ -69,6 +69,8 @@ type Dependencies struct {
 	Activity       ActivityStore
 	Policies       PolicyStore
 	Webhooks       WebhookStore
+	// RequestRestart stops the server so its supervisor starts it again.
+	RequestRestart func()
 	ApplyConfig    func(config.Config) error
 }
 type Error struct {
@@ -200,7 +202,7 @@ func New(d Dependencies) http.Handler {
 		registerOnboarding(mux, d.Onboarding, d.Config)
 	}
 	if d.Backup != nil {
-		registerBackup(mux, d.Backup, d.NotifyEvent)
+		registerBackup(mux, d.Backup, d.NotifyEvent, d.RequestRestart)
 	}
 	if d.Settings != nil {
 		registerSettings(mux, d.Settings, d.RateLimit)
@@ -468,11 +470,17 @@ func New(d Dependencies) http.Handler {
 				return
 			}
 		}
-		if r.ContentLength > 1<<20 {
-			failure(w, 413, "payload_too_large", "Request exceeds 1 MiB")
+		// Backup uploads are the only large request bodies; their handler
+		// enforces its own limit and deadlines.
+		bodyLimit := int64(1 << 20)
+		if r.URL.Path == "/api/v1/backup/inspect" {
+			bodyLimit = backupUploadLimit
+		}
+		if r.ContentLength > bodyLimit {
+			failure(w, 413, "payload_too_large", "Request body is too large")
 			return
 		}
-		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		r.Body = http.MaxBytesReader(w, r.Body, bodyLimit)
 		if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
 			failure(w, 403, "forbidden_origin", "Cross-site requests are not allowed")
 			return
@@ -495,7 +503,7 @@ func New(d Dependencies) http.Handler {
 			token, isToken := r.Context().Value(tokenContextKey{}).(database.APIToken)
 			tokenScopes := token.Scopes
 			unsafe := r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
-			if (strings.HasPrefix(r.URL.Path, "/api/v1/users") || strings.HasPrefix(r.URL.Path, "/api/v1/webhooks") || r.URL.Path == "/api/v1/audit" || r.URL.Path == "/api/v1/stats/reset" || r.URL.Path == "/api/v1/backup/create") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
+			if (strings.HasPrefix(r.URL.Path, "/api/v1/users") || strings.HasPrefix(r.URL.Path, "/api/v1/webhooks") || r.URL.Path == "/api/v1/audit" || r.URL.Path == "/api/v1/stats/reset" || r.URL.Path == "/api/v1/backup/create" || r.URL.Path == "/api/v1/backup/inspect" || r.URL.Path == "/api/v1/backup/restore") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
 				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
 				return
 			}

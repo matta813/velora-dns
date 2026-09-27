@@ -60,6 +60,10 @@ func (a transferClientAdapter) IXFR(ctx context.Context, zone, primaryAddr strin
 	return &zones.TransferResult{Records: result.Records, SOA: result.SOA, Errors: result.Errors}, err
 }
 
+// ErrRestartRequested is returned when the server stops so that its
+// supervisor (systemd, Docker) starts it again, for example to apply a restore.
+var ErrRestartRequested = errors.New("restart requested")
+
 func Run(ctx context.Context, c config.Config, configPath string, logger *slog.Logger, version api.Version) (result error) {
 	if err := c.Validate(); err != nil {
 		return err
@@ -456,17 +460,32 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 			result = errors.Join(result, doqServer.Shutdown(shutdown))
 		}()
 	}
+	restartRequests := make(chan struct{}, 1)
+	requestRestart := func() {
+		select {
+		case restartRequests <- struct{}{}:
+		default:
+		}
+	}
 	httpNetwork := "tcp"
 	socket, err := net.Listen(httpNetwork, c.HTTP.Listen)
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, UpstreamHealth: upstreamHealth, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, Forwarding: forwardRules, Rewrites: rewriteRules, Clients: knownClients, Activity: db, Policies: clientPolicies, Webhooks: hooks, Events: db, NotifyEvent: emitEvent, ApplyConfig: applyConfig, ResetStats: resetStatistics}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, UpstreamHealth: upstreamHealth, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, Forwarding: forwardRules, Rewrites: rewriteRules, Clients: knownClients, Activity: db, Policies: clientPolicies, Webhooks: hooks, Events: db, NotifyEvent: emitEvent, ApplyConfig: applyConfig, ResetStats: resetStatistics, RequestRestart: requestRestart}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)
+	if c.DatabaseDriver == "sqlite" && listener.Ready() {
+		if err := backup.ConfirmStartup(c.DatabasePath); err != nil {
+			logger.Warn("restore state could not be confirmed", "error", err)
+		}
+	}
 	select {
 	case <-ctx.Done():
+	case <-restartRequests:
+		logger.Info("restart requested to apply a restore")
+		result = ErrRestartRequested
 	case err = <-listener.Errors():
 		result = fmt.Errorf("DNS listener: %w", err)
 	case err = <-dotErrors:
