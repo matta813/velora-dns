@@ -212,6 +212,9 @@
 .zone-form .form-grid.forward-grid {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr);
 }
+.zone-form .form-grid.client-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 0.8fr) minmax(0, 1fr);
+}
 .zone-form .form-grid.rewrite-grid {
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.6fr) minmax(0, 1.3fr) minmax(0, 1fr);
 }
@@ -297,7 +300,8 @@
 }
 
 @media (max-width: 1100px) {
-  .zone-form .form-grid.rewrite-grid {
+  .zone-form .form-grid.rewrite-grid,
+  .zone-form .form-grid.client-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .zones-layout {
@@ -338,6 +342,7 @@
   .zone-form .form-grid.cache-filters,
   .zone-form .form-grid.forward-grid,
   .zone-form .form-grid.rewrite-grid,
+  .zone-form .form-grid.client-grid,
   .zone-form details .form-grid {
     grid-template-columns: minmax(0, 1fr);
   }

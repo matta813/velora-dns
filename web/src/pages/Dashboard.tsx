@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { RotateCcw } from "lucide-react";
-import { request, type QuerySummary, type Snapshot } from "../api";
+import { request, type QueryRanking, type QuerySummary, type Snapshot } from "../api";
 import { Stat } from "../components/Stat";
 import { OnboardingChecklist } from "../components/OnboardingChecklist";
 import { EmptyState, Loading } from "../components/EmptyState";
@@ -295,7 +295,7 @@ function RankingPanel({
 }: {
   title: string;
   column: string;
-  values?: { value: string; count: number }[];
+  values?: QueryRanking[];
   total?: number;
   enabled: boolean;
   error: string;
@@ -332,7 +332,16 @@ function RankingPanel({
                 const share = item.count / denominator;
                 return (
                   <tr key={item.value}>
-                    <td className="wrap"><code>{item.value}</code></td>
+                    <td className="wrap">
+                      {item.name ? (
+                        <>
+                          {item.name}
+                          <small><code>{item.value}</code></small>
+                        </>
+                      ) : (
+                        <code>{item.value}</code>
+                      )}
+                    </td>
                     <td>
                       <div className="share">
                         <strong>{number(language, item.count)}</strong>

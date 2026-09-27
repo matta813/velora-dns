@@ -4,6 +4,7 @@ All notable changes are documented here. This project uses Semantic Versioning.
 
 ## Unreleased
 
+- Clients and devices: name IP addresses and networks (most specific wins), show names in the query log and top clients, and see 24-hour activity plus unnamed busy addresses (#254).
 - Local DNS rewrites: answer names or `*.parent` wildcards with fixed A, AAAA or CNAME data ahead of local zones, with documented precedence and hints when a blocklist or zone is involved (#247).
 - Conditional forwarding: send queries for chosen domains to dedicated resolvers, with most-specific matching, per-rule health, loop protection, a test action and cache invalidation on change (#246).
 - Scheduled blocklist updates: URL sources refresh automatically every hour to weekly, failures keep the previous list and retry with backoff, and the dashboard shows last attempt, next update and failure state (#250).

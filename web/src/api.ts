@@ -79,10 +79,12 @@ export interface QueryLogEntry {
   rcode: string;
   duration: number;
   source: string;
+  client_name?: string;
 }
 export interface QueryRanking {
   value: string;
   count: number;
+  name?: string;
 }
 export interface QuerySummary {
   window_start: string;

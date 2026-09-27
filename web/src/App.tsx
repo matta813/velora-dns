@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MonitorSmartphone,
   Moon,
   Network,
   RefreshCw,
@@ -34,6 +35,7 @@ import { QueryLog } from "./pages/QueryLog";
 import { Blocklists } from "./pages/Blocklists";
 import { Forwarding } from "./pages/Forwarding";
 import { Rewrites } from "./pages/Rewrites";
+import { Clients } from "./pages/Clients";
 import { UpdateCenter } from "./pages/UpdateCenter";
 import { BackupAssistant } from "./pages/BackupAssistant";
 import { DHCP } from "./pages/DHCP";
@@ -78,6 +80,7 @@ const NAV: (NavItem | NavGroup)[] = [
   {
     label: "app.nav.group_network",
     items: [
+      { to: "/clients", key: "clients", icon: <MonitorSmartphone size={16} /> },
       { to: "/dhcp", key: "dhcp", icon: <Network size={16} /> },
       { to: "/cluster", key: "cluster", icon: <Server size={16} /> },
     ],
@@ -109,6 +112,7 @@ const ROUTE_KEYS: Record<string, string> = {
   "/blocklists": "blocklists",
   "/forwarding": "forwarding",
   "/rewrites": "rewrites",
+  "/clients": "clients",
   "/cache": "cache",
   "/settings": "settings",
   "/updates": "updates",
@@ -120,7 +124,7 @@ const ROUTE_KEYS: Record<string, string> = {
 };
 
 // Pages that manage their own reload controls.
-const SELF_REFRESHING = ["/zones", "/queries", "/blocklists", "/forwarding", "/rewrites"];
+const SELF_REFRESHING = ["/zones", "/queries", "/blocklists", "/forwarding", "/rewrites", "/clients"];
 
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
@@ -316,7 +320,7 @@ export default function App() {
                 : t("app.error.check_server")}
             </div>
           )}
-          {readOnly && ["/zones", "/blocklists", "/cache", "/forwarding", "/rewrites"].includes(pathname) && (
+          {readOnly && ["/zones", "/blocklists", "/cache", "/forwarding", "/rewrites", "/clients"].includes(pathname) && (
             <div className="notice info" role="status">
               {t("app.viewer_readonly")}
             </div>
@@ -351,6 +355,7 @@ export default function App() {
                 element={<QueryLog enabled={data.config.query_log?.enabled ?? false} />}
               />
               <Route path="/blocklists" element={<Blocklists readOnly={readOnly} />} />
+              <Route path="/clients" element={<Clients readOnly={readOnly} queryLogging={data.config.query_log?.enabled ?? false} />} />
               <Route path="/rewrites" element={<Rewrites readOnly={readOnly} />} />
               <Route path="/forwarding" element={<Forwarding readOnly={readOnly} />} />
               <Route path="/settings" element={<Settings data={data} />} />

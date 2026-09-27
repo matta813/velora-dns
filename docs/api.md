@@ -43,6 +43,10 @@ metrics require an authenticated session or scoped API token.
 | POST | /api/v1/cache/invalidate | Remove cached answers for `name`; optional `type` limits it to one record type and `include_subdomains` also removes names below it |
 | GET | /api/v1/config | Current config, excluding database path and secrets |
 | PUT | /api/v1/config | Validate and apply supported live settings, then save atomically; `409 config_requires_restart` lists fields that cannot be applied live |
+| GET | /api/v1/clients | Named clients with 24-hour activity, plus busy unnamed addresses seen recently |
+| POST | /api/v1/clients | Create a client: `name`, `addresses` (1–16 IPs or CIDR networks), optional `group`, `description`, `enabled` |
+| PUT | /api/v1/clients/{id} | Replace a client |
+| DELETE | /api/v1/clients/{id} | Remove a client |
 | GET | /api/v1/rewrites | Local DNS rewrites with precedence hints (`blocked_by`, `overrides_zone`) |
 | POST | /api/v1/rewrites | Create a rewrite: `name` (host or `*.parent`), `type` (A, AAAA, CNAME), `value`, optional `enabled`, `description` |
 | PUT | /api/v1/rewrites/{id} | Replace a rewrite |

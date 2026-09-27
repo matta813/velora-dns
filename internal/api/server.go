@@ -65,6 +65,8 @@ type Dependencies struct {
 	Cluster        ClusterStore
 	Forwarding     ForwardingStore
 	Rewrites       RewriteStore
+	Clients        ClientStore
+	Activity       ActivityStore
 	ApplyConfig    func(config.Config) error
 }
 type Error struct {
@@ -129,12 +131,19 @@ func New(d Dependencies) http.Handler {
 		registerBlocklists(mux, d.Filtering)
 		capabilities = append(capabilities, "blocklists")
 	}
+	queryLogging := func() bool {
+		cfgMu.RLock()
+		defer cfgMu.RUnlock()
+		return currentConfig.QueryLog.Enabled
+	}
+	var clientName func(string) string
+	if d.Clients != nil {
+		registerClients(mux, d.Clients, d.Activity, queryLogging)
+		clientName = d.Clients.Name
+		capabilities = append(capabilities, "clients")
+	}
 	if d.Queries != nil {
-		registerQueries(mux, d.Queries, func() bool {
-			cfgMu.RLock()
-			defer cfgMu.RUnlock()
-			return currentConfig.QueryLog.Enabled
-		})
+		registerQueries(mux, d.Queries, queryLogging, clientName)
 		capabilities = append(capabilities, "query_logging")
 	}
 	if d.Update != nil {
