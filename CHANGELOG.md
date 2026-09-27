@@ -4,6 +4,7 @@ All notable changes are documented here. This project uses Semantic Versioning.
 
 ## Unreleased
 
+- Subtle motion: pages, menus, notices and the command palette fade or slide a few pixels into place, buttons respond to presses, switches, chevrons and progress bars ease between states, and all of it is off when the system prefers reduced motion (#243).
 - End-to-end tests: Go workflows for backup create/change/restore across a restart, the updater against a local fake agent, rate limiting and two-process cluster replication, plus a Playwright browser suite against a real server (sign-in, zones with DNS answers, query log, blocking, command palette, config errors, roles, axe, mobile) and a CI job that also runs the page-by-page accessibility audit (#179).
 - Clustering from the web interface: create a primary, invite replicas with one-time join tokens, and keep local authoritative zones identical through signed, authenticated snapshots; replicas reject local zone edits, the primary shows each replica's sync status, and nodes can be removed, leave or dissolve the cluster (#215).
 - Command palette (Ctrl/⌘+K): jump to pages, run safe role-aware actions and find zones, records, clients, rewrites, forwarding rules and blocklists through a bounded, debounced server search, with full keyboard and screen reader support (#255).

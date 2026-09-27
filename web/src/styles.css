@@ -2023,6 +2023,94 @@ td.wrap,
   }
 }
 
+/* ---------- Motion ----------
+   Short, functional transitions only: things fade or slide a few pixels
+   when they appear, controls respond to hover and press, and values ease
+   to their new state. Everything is switched off for reduced motion. */
+
+:root {
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --motion-fast: 120ms;
+  --motion: 180ms;
+}
+
+a,
+.nav-tab,
+.dropdown-menu a,
+.palette-option,
+tbody tr,
+.dot,
+.status-text::before,
+.connection {
+  transition:
+    color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease;
+}
+.button {
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    transform var(--motion-fast) var(--ease-out);
+}
+.button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.switch::after {
+  transition: transform var(--motion) var(--ease-out);
+}
+.nav-tab .chevron {
+  transition: transform var(--motion) var(--ease-out);
+}
+.stat-bar > span {
+  transition: width 400ms var(--ease-out);
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@keyframes drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+.page-view {
+  animation: rise-in var(--motion) var(--ease-out);
+}
+.dropdown-menu {
+  animation: drop-in var(--motion-fast) var(--ease-out);
+}
+.notice {
+  animation: fade-in var(--motion) ease;
+}
+.palette-backdrop {
+  animation: fade-in var(--motion-fast) ease;
+}
+.palette {
+  animation: zoom-in var(--motion) var(--ease-out);
+}
+@media (max-width: 900px) {
+  .navbar.open {
+    animation: drop-in var(--motion) var(--ease-out);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

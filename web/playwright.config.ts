@@ -19,6 +19,8 @@ export default defineConfig({
     screenshot: "only-on-failure",
     locale: "en-US",
     timezoneId: "UTC",
+    // Page transitions are cosmetic; keep assertions and the axe scan stable.
+    contextOptions: { reducedMotion: "reduce" },
     launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
   },
   projects: [

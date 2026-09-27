@@ -492,48 +492,50 @@ export default function App() {
             </section>
           )}
           {data && (
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <Dashboard
-                    data={data}
-                    history={history}
-                    queryLoggingEnabled={data.config.query_log?.enabled ?? false}
-                    readOnly={user?.role !== "admin"}
-                    refresh={refresh}
-                  />
-                }
-              />
-              <Route path="/events" element={<EventCenter onRead={refreshEvents} />} />
-              <Route
-                path="/cache"
-                element={<CachePage data={data} refresh={refresh} readOnly={readOnly} />}
-              />
-              <Route path="/zones" element={<Zones key={search} readOnly={readOnly || replica} />} />
-              <Route
-                path="/queries"
-                element={<QueryLog enabled={data.config.query_log?.enabled ?? false} />}
-              />
-              <Route path="/blocklists" element={<Blocklists readOnly={readOnly} />} />
-              <Route path="/policies" element={<Policies readOnly={readOnly} />} />
-              <Route path="/clients" element={<Clients key={search} readOnly={readOnly} queryLogging={data.config.query_log?.enabled ?? false} />} />
-              <Route path="/rewrites" element={<Rewrites key={search} readOnly={readOnly} />} />
-              <Route path="/forwarding" element={<Forwarding readOnly={readOnly} />} />
-              <Route path="/settings" element={<Settings data={data} />} />
-              <Route path="/updates" element={<UpdateCenter readOnly={readOnly} onUpdated={refresh} />} />
-              <Route
-                path="/backup"
-                element={<BackupAssistant readOnly={readOnly} canCreate={user?.role === "admin"} />}
-              />
-              <Route path="/dhcp" element={<DHCP readOnly={readOnly} />} />
-              <Route path="/cluster" element={<Cluster canManage={user?.role === "admin"} />} />
-              <Route path="/diagnostics" element={<Diagnostics />} />
-              <Route path="/audit" element={<AuditLog />} />
-              <Route path="/analytics" element={<Analytics queryLogging={data.config.query_log?.enabled ?? false} />} />
-              <Route path="/webhooks" element={<Webhooks />} />
-              <Route path="*" element={<p>{t("app.not_found")}</p>} />
-            </Routes>
+            <div className="page-view" key={pathname}>
+              <Routes>
+                <Route
+                  path="/"
+                  element={
+                    <Dashboard
+                      data={data}
+                      history={history}
+                      queryLoggingEnabled={data.config.query_log?.enabled ?? false}
+                      readOnly={user?.role !== "admin"}
+                      refresh={refresh}
+                    />
+                  }
+                />
+                <Route path="/events" element={<EventCenter onRead={refreshEvents} />} />
+                <Route
+                  path="/cache"
+                  element={<CachePage data={data} refresh={refresh} readOnly={readOnly} />}
+                />
+                <Route path="/zones" element={<Zones key={search} readOnly={readOnly || replica} />} />
+                <Route
+                  path="/queries"
+                  element={<QueryLog enabled={data.config.query_log?.enabled ?? false} />}
+                />
+                <Route path="/blocklists" element={<Blocklists readOnly={readOnly} />} />
+                <Route path="/policies" element={<Policies readOnly={readOnly} />} />
+                <Route path="/clients" element={<Clients key={search} readOnly={readOnly} queryLogging={data.config.query_log?.enabled ?? false} />} />
+                <Route path="/rewrites" element={<Rewrites key={search} readOnly={readOnly} />} />
+                <Route path="/forwarding" element={<Forwarding readOnly={readOnly} />} />
+                <Route path="/settings" element={<Settings data={data} />} />
+                <Route path="/updates" element={<UpdateCenter readOnly={readOnly} onUpdated={refresh} />} />
+                <Route
+                  path="/backup"
+                  element={<BackupAssistant readOnly={readOnly} canCreate={user?.role === "admin"} />}
+                />
+                <Route path="/dhcp" element={<DHCP readOnly={readOnly} />} />
+                <Route path="/cluster" element={<Cluster canManage={user?.role === "admin"} />} />
+                <Route path="/diagnostics" element={<Diagnostics />} />
+                <Route path="/audit" element={<AuditLog />} />
+                <Route path="/analytics" element={<Analytics queryLogging={data.config.query_log?.enabled ?? false} />} />
+                <Route path="/webhooks" element={<Webhooks />} />
+                <Route path="*" element={<p>{t("app.not_found")}</p>} />
+              </Routes>
+            </div>
           )}
           <footer>
             <span>{t("app.footer.independent")}</span>

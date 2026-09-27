@@ -111,5 +111,10 @@ the audit cannot see: the navigation dropdowns follow the menu-button pattern (a
 keys, Home/End, Escape returns focus), the mobile menu traps focus and closes with
 Escape, focus moves to the page heading after navigation, scrollable tables become
 labelled focusable regions only when they overflow, and the document language
-follows the selected UI language. Animations and transitions are disabled when the
-system asks for reduced motion.
+follows the selected UI language.
+
+Motion is short and functional: pages rise in by 4 px, menus and the command
+palette fade in, buttons press down by 1 px and progress bars ease to their new
+value, all within 120–400 ms. Every animation and transition is disabled when the
+system asks for reduced motion, and the screenshot, accessibility and Playwright
+runs emulate that setting so they never capture a page mid-transition.

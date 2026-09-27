@@ -270,6 +270,7 @@ async function capturePage(browser, pageName) {
     deviceScaleFactor: 2,
     locale: "en-US",
     timezoneId: "UTC",
+    reducedMotion: "reduce",
   });
   const page = await context.newPage();
 
