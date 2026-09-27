@@ -154,6 +154,7 @@ const PAGES = {
     path: "/updates",
     file: "update-center.png",
     label: "Update Center",
+    clickButton: "Check for updates",
     width: 1440,
     height: 1000,
   },
@@ -461,6 +462,10 @@ async function capturePage(browser, pageName) {
     if (config.openNav) {
       await page.click(".menu-button");
       await page.waitForTimeout(400);
+    }
+    if (config.clickButton) {
+      await page.getByRole("button", { name: config.clickButton }).click();
+      await page.waitForTimeout(500);
     }
 
     const outputPath = resolve(ASSETS_DIR, config.file);

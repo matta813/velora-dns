@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -74,5 +75,31 @@ func TestUpdaterFailureExplainsSocketProblems(t *testing.T) {
 		if recorder.Code != http.StatusServiceUnavailable || !strings.Contains(recorder.Body.String(), tc.message) {
 			t.Fatalf("error %v: status=%d response=%s", tc.err, recorder.Code, recorder.Body.String())
 		}
+	}
+}
+
+type busyUpdater struct {
+	update.Client
+	requests int
+}
+
+func (b *busyUpdater) Status(context.Context) (update.Status, error) {
+	return update.Status{State: update.StateInstalling, Updating: true}, nil
+}
+func (b *busyUpdater) Request(context.Context) (update.RequestResponse, error) {
+	b.requests++
+	return update.RequestResponse{Status: "accepted"}, nil
+}
+
+func TestUpdateRequestRejectedWhileUpdating(t *testing.T) {
+	store := &busyUpdater{}
+	mux := http.NewServeMux()
+	registerUpdate(mux, store, Version{})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/update/request", strings.NewReader(`{"action":"update"}`))
+	request.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusConflict || !strings.Contains(recorder.Body.String(), "update_in_progress") || store.requests != 0 {
+		t.Fatalf("status=%d body=%s requests=%d", recorder.Code, recorder.Body.String(), store.requests)
 	}
 }
