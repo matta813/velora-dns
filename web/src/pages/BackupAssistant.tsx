@@ -1,4 +1,4 @@
-import { Database, CheckCircle, XCircle, AlertTriangle, Clock, Download, Lock, ShieldCheck, Terminal } from "lucide-react";
+import { Database, CheckCircle, XCircle, AlertTriangle, Clock, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { downloadEncryptedBackup, request } from "../api";
 import { useI18n } from "../i18n-context";
@@ -119,7 +119,7 @@ export function BackupAssistant({ readOnly, canCreate }: Props) {
         <section className="panel backup-create-panel">
           <div className="panel-heading">
             <div>
-              <h2><Lock size={17} />{t("backup.create_title")}</h2>
+              <h2>{t("backup.create_title")}</h2>
               <p>{t("backup.create_hint")}</p>
             </div>
           </div>
@@ -154,7 +154,7 @@ export function BackupAssistant({ readOnly, canCreate }: Props) {
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <h2><Database size={17} />{t("backup.status_title")}</h2>
+              <h2>{t("backup.status_title")}</h2>
             </div>
           </div>
           <div className="panel-body">
@@ -201,7 +201,7 @@ export function BackupAssistant({ readOnly, canCreate }: Props) {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2><ShieldCheck size={17} />{t("backup.verify_title")}</h2>
+            <h2>{t("backup.verify_title")}</h2>
             <p>{t("backup.verify_text")}</p>
           </div>
         </div>
@@ -249,7 +249,7 @@ export function BackupAssistant({ readOnly, canCreate }: Props) {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2><Terminal size={17} />{t("backup.instructions")}</h2>
+            <h2>{t("backup.instructions")}</h2>
             <p>{t("backup.restore_hint")}</p>
           </div>
         </div>

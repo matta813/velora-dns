@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, X } from "lucide-react";
+import { CheckCircle2, Circle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { loadSnapshot, type Snapshot } from "../api";
 import { useI18n } from "../i18n-context";
@@ -106,28 +106,30 @@ export function OnboardingChecklist() {
   const completedCount = items.filter((item) => item.completed).length;
 
   return (
-    <section className="onboarding" aria-labelledby="onboarding-title">
-      <div className="onboarding-head">
+    <section className="panel onboarding" aria-labelledby="onboarding-title">
+      <div className="panel-heading">
         <div>
           <h2 id="onboarding-title">{t("onboarding.welcome")}</h2>
-          <p>
-            {t("onboarding.complete_steps")} ({completedCount}/{items.length})
-          </p>
+          <p>{t("onboarding.complete_steps")}</p>
         </div>
-        <button className="button ghost small" onClick={handleDismiss}>
-          <X size={14} />
-          {t("onboarding.dismiss")}
-        </button>
-      </div>
-      <div
-        className="progress"
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={items.length}
-        aria-valuenow={completedCount}
-        aria-labelledby="onboarding-title"
-      >
-        <span style={{ width: `${(completedCount / items.length) * 100}%` }} />
+        <div className="button-group">
+          <span className="progress-inline">
+            <span
+              className="progress"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={items.length}
+              aria-valuenow={completedCount}
+              aria-labelledby="onboarding-title"
+            >
+              <span style={{ width: `${(completedCount / items.length) * 100}%` }} />
+            </span>
+            {completedCount}/{items.length}
+          </span>
+          <button className="button small" onClick={handleDismiss}>
+            {t("onboarding.dismiss")}
+          </button>
+        </div>
       </div>
       <ul className="checklist">
         {items.map((item) => (

@@ -3,10 +3,7 @@ import {
   Server,
   RefreshCw,
   Clock,
-  Hash,
-  ShieldCheck,
   Info,
-  History,
 } from "lucide-react";
 import {
   type ClusterNode,
@@ -106,21 +103,20 @@ export function Cluster() {
       </div>
 
       <div className="stats">
-        <Stat label={t("cluster.total_nodes")} value={String(nodes.length)} icon={<Server size={17} />} />
+        <Stat label={t("cluster.total_nodes")} value={String(nodes.length)} tone="info" />
         <Stat
           label={t("cluster.healthy")}
           value={`${healthyNodes.length} / ${nodes.length}`}
-          icon={<ShieldCheck size={17} />}
-          tone={healthyNodes.length < nodes.length ? "warning" : "brand"}
+          tone={healthyNodes.length < nodes.length ? "warning" : "success"}
         />
-        <Stat label={t("cluster.config_versions")} value={String(versions.length)} icon={<Hash size={17} />} tone="info" />
+        <Stat label={t("cluster.config_versions")} value={String(versions.length)} />
       </div>
 
       <section className="panel">
         <div className="panel-heading">
           <div>
             <h2>
-              <Server size={17} /> {t("cluster.nodes")}
+              {t("cluster.nodes")}
             </h2>
           </div>
           <button className="icon-button" aria-label={t("cluster.refresh")} title={t("cluster.refresh")} onClick={() => void refresh()}>
@@ -150,7 +146,7 @@ export function Cluster() {
                     </td>
                     <td><code>{node.address}</code></td>
                     <td>
-                      <Badge tone={node.status === "healthy" ? "success" : "danger"}>{node.status}</Badge>
+                      <span className={`status-text ${node.status === "healthy" ? "success" : "danger"}`}>{node.status}</span>
                     </td>
                     <td className="mono">{node.version || "—"}</td>
                     <td className="cell-muted">
@@ -170,7 +166,7 @@ export function Cluster() {
         <div className="panel-heading">
           <div>
             <h2>
-              <History size={17} /> {t("cluster.config_history")}
+              {t("cluster.config_history")}
             </h2>
           </div>
         </div>

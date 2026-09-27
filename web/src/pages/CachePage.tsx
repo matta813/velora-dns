@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Database, Eraser, Search, Zap } from "lucide-react";
+import { Database, Eraser } from "lucide-react";
 import { request, type CacheEntryPage, type Snapshot } from "../api";
 import { Stat } from "../components/Stat";
 import { EmptyState, Loading } from "../components/EmptyState";
@@ -58,20 +58,19 @@ export function CachePage({
           label={t("cache.live_entries")}
           value={data.cache.entries.toLocaleString(language)}
           note={`${t("cache.capacity")}: ${data.cache.capacity.toLocaleString(language)}`}
-          icon={<Database size={17} />}
+          progress={data.cache.entries / Math.max(1, data.cache.capacity)}
+          tone="info"
         />
         <Stat
           label={t("cache.hits")}
           value={data.cache.hits.toLocaleString(language)}
           note={t("cache.since_startup")}
-          icon={<Zap size={17} />}
-          tone="info"
+          tone="success"
         />
         <Stat
           label={t("cache.misses")}
           value={data.cache.misses.toLocaleString(language)}
           note={t("cache.includes_uncacheable")}
-          icon={<Search size={17} />}
           tone="warning"
         />
       </div>
@@ -87,9 +86,6 @@ export function CachePage({
           </button>
         </div>
         <div className="panel-body">
-          <div className="progress" aria-hidden="true">
-            <span style={{ width: `${Math.min(100, (data.cache.entries / Math.max(1, data.cache.capacity)) * 100)}%` }} />
-          </div>
           <p className="field-hint">{t("cache.clear_description")}</p>
           {message && <p className="notice" role="status">{message}</p>}
         </div>

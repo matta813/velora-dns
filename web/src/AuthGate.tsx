@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { AlertCircle, LogIn } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { APIError, AuthUser, authenticate, currentUser } from "./api";
 import { AuthUserContext } from "./auth-context";
 import { useI18n } from "./i18n-context";
@@ -21,15 +21,20 @@ export function AuthGate({ children }: { children: ReactNode }) {
     finally { setSubmitting(false); }
   }
   if (checking) return <main className="auth-shell"><div className="auth-card"><Loading>{t("auth.checking")}</Loading></div></main>;
-  if (!user) return <main className="auth-shell"><form className="auth-card" onSubmit={login}>
-    <div className="auth-brand">
-      <img src="/favicon.svg" width="48" height="48" alt="" />
+  if (!user) return <main className="auth-shell">
+    <span className="auth-brand">
+      <img src="/favicon.svg" width="36" height="36" alt="" />
+      <span>Velora <span>DNS</span></span>
+    </span>
+    <form className="auth-card" onSubmit={login}>
       <h1>{t("auth.sign_in_title")}</h1>
-    </div>
-    {error && <div className="notice error" role="alert"><AlertCircle size={16} />{error}</div>}
-    <label>{t("auth.username")}<input name="username" autoComplete="username" required autoFocus /></label>
-    <label>{t("auth.password")}<input name="password" type="password" autoComplete="current-password" required /></label>
-    <button className="button primary" type="submit" disabled={submitting}><LogIn size={16} />{t("auth.sign_in")}</button>
-  </form></main>;
+      <div className="auth-body">
+        {error && <div className="notice error" role="alert"><AlertCircle size={16} />{error}</div>}
+        <label>{t("auth.username")}<input name="username" autoComplete="username" required autoFocus /></label>
+        <label>{t("auth.password")}<input name="password" type="password" autoComplete="current-password" required /></label>
+        <button className="button primary" type="submit" disabled={submitting}>{t("auth.sign_in")}</button>
+      </div>
+    </form>
+  </main>;
   return <AuthUserContext.Provider value={user}>{children}</AuthUserContext.Provider>;
 }

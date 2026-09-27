@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { Activity, ArrowUpRight, Database, RotateCcw, Server, Timer, Zap } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { request, type QuerySummary, type Snapshot } from "../api";
 import { Stat } from "../components/Stat";
 import { OnboardingChecklist } from "../components/OnboardingChecklist";
-import { Badge } from "../components/Badge";
 import { EmptyState, Loading } from "../components/EmptyState";
 import { toneFor } from "../components/tone";
 import { useI18n } from "../i18n-context";
@@ -82,94 +81,84 @@ export function Dashboard({
       });
     return () => controller.abort();
   }, [queryLoggingEnabled, data.checked, t]);
-  const max = Math.max(1, ...history);
+  const peak = Math.max(...history, 0);
+  const max = niceCeiling(peak);
   // A single sample still draws a flat line so the chart never looks broken.
   const samples = history.length === 1 ? [history[0], history[0]] : history;
   const coords = samples.map((v, i) => [
     (i / Math.max(1, samples.length - 1)) * 600,
-    150 - (v / max) * 125,
+    200 - (v / max) * 200,
   ]);
   const line = coords.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const area = coords.length
-    ? `M0,160 L${coords.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L")} L600,160 Z`
+    ? `M0,200 L${coords.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L")} L600,200 Z`
     : "";
   const hours = Math.floor(data.status.uptime_seconds / 3600);
   const uptime =
     hours >= 48
       ? `${Math.floor(hours / 24)}d ${hours % 24}h`
       : `${hours}h ${Math.floor(data.status.uptime_seconds / 60) % 60}m`;
+  const total = data.stats.queries_total;
+  const blocked = data.stats.blocked_queries ?? 0;
+  const blockedShare = total > 0 ? blocked / total : 0;
   const healthFor = (address: string) => upstreamHealth.find((item) => item.address === address);
   const upstreams = upstreamHealth.length
     ? upstreamHealth.map((item) => item.address)
     : data.config.dns.upstreams;
+  const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
   return (
     <div className="stack">
       <OnboardingChecklist />
-      {!readOnly && refresh && (
-        <div className="dashboard-actions">
-          <button className="button ghost small" disabled={resetting} onClick={() => void resetStatistics()}>
-            <RotateCcw size={14} />
-            {t("dashboard.reset_statistics")}
-          </button>
-        </div>
-      )}
       {resetError && <div className="notice error" role="alert">{resetError}</div>}
       <div className="stats">
         <Stat
           label={t("dashboard.total_queries")}
-          value={number(language, data.stats.queries_total)}
+          value={number(language, total)}
           note={t("dashboard.since_start")}
-          icon={<Activity size={17} />}
+          tone="info"
+        />
+        <Stat
+          label={t("dashboard.blocked")}
+          value={number(language, blocked)}
+          aside={percent(blockedShare)}
+          note={`${percent(blockedShare)} ${t("dashboard.of_all_queries")}`}
+          progress={blockedShare}
+          tone="danger"
+        />
+        <Stat
+          label={t("dashboard.cache_hit_rate")}
+          value={percent(data.stats.cache_hit_rate)}
+          note={`${number(language, data.cache.hits)} ${t("dashboard.answers_from_memory")}`}
+          progress={data.stats.cache_hit_rate}
+          tone="success"
         />
         <Stat
           label={t("dashboard.qps")}
           value={data.stats.queries_per_second.toFixed(2)}
           note={t("dashboard.rolling_avg")}
-          icon={<Zap size={17} />}
-          tone="info"
-        />
-        <Stat
-          label={t("dashboard.cache_hit_rate")}
-          value={`${(data.stats.cache_hit_rate * 100).toFixed(1)}%`}
-          note={`${number(language, data.cache.hits)} ${t("dashboard.answers_from_memory")}`}
-          icon={<Database size={17} />}
-        />
-        <Stat
-          label={t("dashboard.uptime")}
-          value={uptime}
-          note={t("dashboard.process_lifetime")}
-          icon={<Timer size={17} />}
           tone="warning"
         />
       </div>
       <div className="grid-main-side">
-        <section className="panel traffic">
+        <section className="panel">
           <div className="panel-heading">
-            <div>
-              <h2>{t("dashboard.query_activity")}</h2>
-              <p>{t("dashboard.live_samples")}</p>
-            </div>
+            <h2>{t("dashboard.query_activity")}</h2>
             <span className="subtle-badge">{t("dashboard.refresh_5s")}</span>
           </div>
-          <div className="chart-label">
-            <strong>{data.stats.queries_per_second.toFixed(2)}</strong>
-            <span>{t("dashboard.queries_per_sec")}</span>
-          </div>
           <div className="chart-wrap">
+            <div className="chart-axis" aria-hidden="true">
+              <span>{formatAxis(max)}</span>
+              <span>{formatAxis(max / 2)}</span>
+              <span>0</span>
+            </div>
             <svg
               className="chart"
-              viewBox="0 0 600 160"
+              viewBox="0 0 600 200"
               preserveAspectRatio="none"
               role="img"
               aria-label={t("dashboard.chart_aria")}
             >
-              <defs>
-                <linearGradient id="chart-gradient" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="var(--chart-line)" stopOpacity="0.28" />
-                  <stop offset="100%" stopColor="var(--chart-line)" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <path d="M0 25H600 M0 87.5H600 M0 150H600" className="chart-grid" />
+              <path d="M0 0.5H600 M0 100H600 M0 199.5H600" className="chart-grid" />
               {area && <path d={area} className="chart-area" />}
               {line && <polyline points={line} className="chart-line" />}
             </svg>
@@ -182,141 +171,144 @@ export function Dashboard({
         </section>
         <section className="panel">
           <div className="panel-heading">
-            <div>
-              <h2>{t("dashboard.resolver_pipeline")}</h2>
-              <p>{t("dashboard.pipeline_subtitle")}</p>
-            </div>
-          </div>
-          <ol className="pipeline">
-            <li>
-              <span className="step-index">01</span>
-              <div>
-                <strong>{t("dashboard.client_access")}</strong>
-                <p>{t("dashboard.allowed_network_check")}</p>
-              </div>
-              <i className="dot" />
-            </li>
-            {data.status.capabilities.includes("local_zones") && (
-              <li>
-                <span className="step-index">02</span>
-                <div>
-                  <strong>{t("dashboard.local_zones")}</strong>
-                  <p>{t("dashboard.authoritative_before_forwarding")}</p>
-                </div>
-                <i className="dot" />
-              </li>
+            <h2>{t("dashboard.general_statistics")}</h2>
+            {!readOnly && refresh && (
+              <button className="button small" disabled={resetting} onClick={() => void resetStatistics()}>
+                <RotateCcw size={14} />
+                {t("dashboard.reset_statistics")}
+              </button>
             )}
-            <li>
-              <span className="step-index">03</span>
-              <div>
-                <strong>{t("dashboard.memory_cache")}</strong>
-                <p>
+          </div>
+          <table className="kv-table">
+            <tbody>
+              <tr>
+                <td>{t("dashboard.uptime")}</td>
+                <td>{uptime}</td>
+              </tr>
+              <tr>
+                <td>{t("cache.live_entries")}</td>
+                <td>
                   {number(language, data.cache.entries)} / {number(language, data.cache.capacity)}
-                </p>
-              </div>
-              <i className="dot" />
-            </li>
-            <li>
-              <span className="step-index">04</span>
-              <div>
-                <strong>{t("dashboard.upstream_forwarding")}</strong>
-                <p>{data.config.dns.upstreams.length} {t("dashboard.configured_resolvers")}</p>
-              </div>
-              <ArrowUpRight size={16} />
-            </li>
-          </ol>
+                </td>
+              </tr>
+              <tr>
+                <td>{t("cache.hits")}</td>
+                <td>{number(language, data.cache.hits)}</td>
+              </tr>
+              <tr>
+                <td>{t("cache.misses")}</td>
+                <td>{number(language, data.cache.misses)}</td>
+              </tr>
+              <tr>
+                <td>{t("dashboard.upstream_servers")}</td>
+                <td>{data.config.dns.upstreams.length}</td>
+              </tr>
+              <tr>
+                <td>{t("dashboard.query_logging")}</td>
+                <td>{queryLoggingEnabled ? t("dashboard.enabled") : t("dashboard.disabled")}</td>
+              </tr>
+            </tbody>
+          </table>
         </section>
       </div>
       <div className="grid-2">
         <RankingPanel
-          title={t("dashboard.top_domains")}
-          values={querySummary?.top_domains}
+          title={t("dashboard.top_clients")}
+          column={t("dashboard.client")}
+          values={querySummary?.top_clients}
+          total={querySummary?.total}
           enabled={queryLoggingEnabled}
           error={summaryError}
         />
         <RankingPanel
-          title={t("dashboard.top_clients")}
-          values={querySummary?.top_clients}
+          title={t("dashboard.top_domains")}
+          column={t("dashboard.domain")}
+          values={querySummary?.top_domains}
+          total={querySummary?.total}
           enabled={queryLoggingEnabled}
           error={summaryError}
         />
       </div>
-      <div className="grid-main-side">
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <h2>{t("dashboard.upstream_resolvers")}</h2>
-              <p>{t("dashboard.ordered_failover")}</p>
-            </div>
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>{t("dashboard.upstream_resolvers")}</h2>
+            <p>{t("dashboard.ordered_failover")}</p>
           </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>{t("dashboard.endpoint")}</th>
-                  <th>{t("dashboard.priority")}</th>
-                  <th>{t("dashboard.attempt_timeout")}</th>
-                  <th>{t("dashboard.health")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {upstreams.map((upstream, i) => {
-                  const health = healthFor(upstream);
-                  const state = health?.state ?? "unknown";
-                  return (
-                    <tr key={upstream}>
-                      <td>
-                        <span className="endpoint">
-                          <Server size={14} />
-                          <code>{upstream}</code>
-                        </span>
-                      </td>
-                      <td>
-                        {i === 0 ? (
-                          <Badge tone="brand" plain>{t("dashboard.primary")}</Badge>
-                        ) : (
-                          <span className="cell-muted">{`${t("dashboard.fallback")} ${i}`}</span>
-                        )}
-                      </td>
-                      <td className="cell-muted">{data.config.dns.timeout / 1e9}s</td>
-                      <td>
-                        <Badge tone={toneFor(state)}>{t(`dashboard.upstream_${state}`)}</Badge>
-                        {state === "healthy" && health && (
-                          <span className="latency">{Math.round(health.latency_milliseconds)} ms</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <p className="panel-footnote">{t("dashboard.config_shown")}</p>
-        </section>
-        <section className="foundation-card">
-          <span className="eyebrow">{t("dashboard.foundation_eyebrow")}</span>
-          <h2>
-            {t("dashboard.foundation_title_1")}
-            <br />
-            {t("dashboard.foundation_title_2")}
-          </h2>
-          <p>{t("dashboard.foundation_text")}</p>
-          <a href="https://github.com/matta813/velora-dns/issues">
-            {t("dashboard.explore_roadmap")} <ArrowUpRight size={15} />
-          </a>
-        </section>
-      </div>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{t("dashboard.endpoint")}</th>
+                <th>{t("dashboard.priority")}</th>
+                <th>{t("dashboard.attempt_timeout")}</th>
+                <th>{t("dashboard.health")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {upstreams.map((upstream, i) => {
+                const health = healthFor(upstream);
+                const state = health?.state ?? "unknown";
+                return (
+                  <tr key={upstream}>
+                    <td><code>{upstream}</code></td>
+                    <td>{i === 0 ? t("dashboard.primary") : `${t("dashboard.fallback")} ${i}`}</td>
+                    <td>{data.config.dns.timeout / 1e9}s</td>
+                    <td>
+                      <span className={`status-text ${toneFor(state)}`}>{t(`dashboard.upstream_${state}`)}</span>
+                      {state === "healthy" && health && (
+                        <span className="latency">{Math.round(health.latency_milliseconds)} ms</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="panel-footnote">{t("dashboard.config_shown")}</p>
+      </section>
     </div>
   );
 }
 
-function RankingPanel({ title, values, enabled, error }: { title: string; values?: { value: string; count: number }[]; enabled: boolean; error: string }) {
+/** Rounds a chart maximum up to 1, 2 or 5 × 10^n so axis labels stay readable. */
+function niceCeiling(value: number) {
+  if (value <= 0) return 1;
+  const magnitude = 10 ** Math.floor(Math.log10(value));
+  const step = [1, 2, 5, 10].find((m) => m * magnitude >= value) ?? 10;
+  return step * magnitude;
+}
+
+function formatAxis(value: number) {
+  return value >= 10 ? String(Math.round(value)) : value.toFixed(1).replace(/\.0$/, "");
+}
+
+function RankingPanel({
+  title,
+  column,
+  values,
+  total,
+  enabled,
+  error,
+}: {
+  title: string;
+  column: string;
+  values?: { value: string; count: number }[];
+  total?: number;
+  enabled: boolean;
+  error: string;
+}) {
   const { t, language } = useI18n();
-  const top = Math.max(1, ...(values ?? []).map((item) => item.count));
+  const denominator = Math.max(1, total ?? 0, ...(values ?? []).map((item) => item.count));
   return (
     <section className="panel">
       <div className="panel-heading">
-        <div><h2>{title}</h2><p>{t("dashboard.retained_last_24h")}</p></div>
+        <div>
+          <h2>{title}</h2>
+          <p>{t("dashboard.retained_last_24h")}</p>
+        </div>
       </div>
       {!enabled ? (
         <p className="notice">{t("dashboard.unavailable_no_logging")}</p>
@@ -327,15 +319,35 @@ function RankingPanel({ title, values, enabled, error }: { title: string; values
       ) : values.length === 0 ? (
         <EmptyState compact title={t("dashboard.no_retained")} />
       ) : (
-        <ol className="ranking-list">
-          {values.map((item) => (
-            <li key={item.value}>
-              <code title={item.value}>{item.value}</code>
-              <strong>{number(language, item.count)}</strong>
-              <span className="meter" aria-hidden="true"><span style={{ width: `${(item.count / top) * 100}%` }} /></span>
-            </li>
-          ))}
-        </ol>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{column}</th>
+                <th className="num">{t("dashboard.requests")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {values.map((item) => {
+                const share = item.count / denominator;
+                return (
+                  <tr key={item.value}>
+                    <td className="wrap"><code>{item.value}</code></td>
+                    <td>
+                      <div className="share">
+                        <strong>{number(language, item.count)}</strong>
+                        <span className="share-bar" aria-hidden="true">
+                          <span style={{ width: `${share * 100}%` }} />
+                        </span>
+                        <span className="share-pct">{(share * 100).toFixed(1)}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

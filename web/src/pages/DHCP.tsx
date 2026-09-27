@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Network, Plus, Trash2, RefreshCw, ServerCrash } from "lucide-react";
+import { Network, Plus, Trash2, RefreshCw } from "lucide-react";
 import {
   type DHCPPool,
   type DHCPLease,
@@ -173,7 +173,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
         <div className="panel-heading">
           <div>
             <h2>
-              <Network size={17} /> {t("dhcp.pools")}
+              {t("dhcp.pools")}
             </h2>
           </div>
           <div className="button-group">
@@ -401,7 +401,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
         <div className="panel-heading">
           <div>
             <h2>
-              <ServerCrash size={17} /> {t("dhcp.active_leases")}
+              {t("dhcp.active_leases")}
             </h2>
           </div>
           <span className="subtle-badge">{activeLeases.length}</span>
