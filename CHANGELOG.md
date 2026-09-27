@@ -4,6 +4,7 @@ All notable changes are documented here. This project uses Semantic Versioning.
 
 ## Unreleased
 
+- Simpler Updates page: one Check for updates button, an Update button only when a newer version exists, live progress through the restart, clear errors, the new version shown on completion, and a server-side guard against concurrent update requests (#244).
 - Analytics page: queries, blocked, cached and failed answers over 1 hour to 30 days, upstream response-time trend, query types, response codes, answer sources, upstream usage and top blocked domains, aggregated in the database from retained query history (#253).
 - Webhook notifications: send upstream, blocklist, backup and configuration events to HTTP endpoints with a versioned JSON payload, per-webhook event and severity filters, optional bearer token, background delivery with retries, a test action and SSRF protection (#252).
 - Per-client filtering policies: a named client can follow global filtering, bypass it, or use its own blocklists plus extra allowed and blocked domains; the most specific client network decides, and a lookup shows which policy applies to an address (#249).

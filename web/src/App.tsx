@@ -136,7 +136,7 @@ const ROUTE_KEYS: Record<string, string> = {
 };
 
 // Pages that manage their own reload controls.
-const SELF_REFRESHING = ["/zones", "/queries", "/blocklists", "/forwarding", "/rewrites", "/clients", "/policies", "/webhooks", "/analytics"];
+const SELF_REFRESHING = ["/zones", "/queries", "/blocklists", "/forwarding", "/rewrites", "/clients", "/policies", "/webhooks", "/analytics", "/updates"];
 
 export default function App() {
   const { data, error, history, refresh } = useSnapshot();
@@ -372,7 +372,7 @@ export default function App() {
               <Route path="/rewrites" element={<Rewrites readOnly={readOnly} />} />
               <Route path="/forwarding" element={<Forwarding readOnly={readOnly} />} />
               <Route path="/settings" element={<Settings data={data} />} />
-              <Route path="/updates" element={<UpdateCenter readOnly={readOnly} />} />
+              <Route path="/updates" element={<UpdateCenter readOnly={readOnly} onUpdated={refresh} />} />
               <Route
                 path="/backup"
                 element={<BackupAssistant readOnly={readOnly} canCreate={user?.role === "admin"} />}

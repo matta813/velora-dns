@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/matta813/velora-dns/internal/update"
 )
@@ -18,6 +19,7 @@ type UpdateStore interface {
 }
 
 func registerUpdate(mux *http.ServeMux, store UpdateStore, _ Version) {
+	var requesting sync.Mutex
 	mux.HandleFunc("GET /api/v1/update/health", func(w http.ResponseWriter, r *http.Request) {
 		health, err := store.Health(r.Context())
 		if err != nil {
@@ -60,6 +62,17 @@ func registerUpdate(mux *http.ServeMux, store UpdateStore, _ Version) {
 		}
 		if req.Action != "update" {
 			failure(w, http.StatusBadRequest, "invalid_action", "Only 'update' action is supported")
+			return
+		}
+		// One request at a time from this server, and never while the agent
+		// reports an update in progress; the agent enforces the same rule.
+		if !requesting.TryLock() {
+			failure(w, http.StatusConflict, "update_in_progress", "An update request is already being processed")
+			return
+		}
+		defer requesting.Unlock()
+		if status, err := store.Status(r.Context()); err == nil && status.Updating {
+			failure(w, http.StatusConflict, "update_in_progress", "An update is already running")
 			return
 		}
 		result, err := store.Request(r.Context())
