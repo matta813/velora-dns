@@ -819,6 +819,7 @@ const sv: Record<string, string> = {
   "restore.state_applied": "Återställning tillämpad; väntar på beredskap.",
   "restore.state_pending": "Återställning schemalagd.",
   "restore.passphrase": "Lösenfras för säkerhetskopian",
+  "app.scrollable_table": "rullar i sidled",
 };
 
 export default sv;

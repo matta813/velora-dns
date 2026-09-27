@@ -439,3 +439,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.zone-list nav button[aria-current="true"] small {
+  color: var(--text);
+}

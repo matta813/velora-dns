@@ -819,6 +819,7 @@ const cs: Record<string, string> = {
   "restore.state_applied": "Obnova použita; čeká se na připravenost.",
   "restore.state_pending": "Obnova naplánována.",
   "restore.passphrase": "Heslo zálohy",
+  "app.scrollable_table": "posouvá se do stran",
 };
 
 export default cs;

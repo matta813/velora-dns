@@ -819,6 +819,7 @@ const es: Record<string, string> = {
   "restore.state_applied": "Restauración aplicada; esperando disponibilidad.",
   "restore.state_pending": "Restauración programada.",
   "restore.passphrase": "Frase de contraseña de la copia",
+  "app.scrollable_table": "se desplaza horizontalmente",
 };
 
 export default es;

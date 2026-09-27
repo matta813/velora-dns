@@ -819,6 +819,7 @@ const ja: Record<string, string> = {
   "restore.state_applied": "復元を適用しました。準備完了を待っています。",
   "restore.state_pending": "復元を予約しました。",
   "restore.passphrase": "バックアップのパスフレーズ",
+  "app.scrollable_table": "横スクロール可能",
 };
 
 export default ja;

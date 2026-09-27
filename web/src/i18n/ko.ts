@@ -819,6 +819,7 @@ const ko: Record<string, string> = {
   "restore.state_applied": "복원이 적용되었습니다. 준비를 기다리는 중.",
   "restore.state_pending": "복원이 예약되었습니다.",
   "restore.passphrase": "백업 암호 문구",
+  "app.scrollable_table": "가로로 스크롤됨",
 };
 
 export default ko;
