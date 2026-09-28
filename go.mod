@@ -6,8 +6,9 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/miekg/dns v1.1.73
 	github.com/prometheus/client_golang v1.24.1
-	github.com/quic-go/quic-go v0.62.0
+	github.com/quic-go/quic-go v0.63.0
 	golang.org/x/crypto v0.57.0
+	golang.org/x/sys v0.48.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.59.0
 )
@@ -31,7 +32,6 @@ require (
 	github.com/rogpeppe/go-internal v1.16.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	modernc.org/libc v1.75.7 // indirect
