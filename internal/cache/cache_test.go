@@ -294,3 +294,39 @@ func TestInvalidateIsSafeWithConcurrentQueries(t *testing.T) {
 	cancel()
 	<-done
 }
+
+func TestPeekHasNoSideEffects(t *testing.T) {
+	c := New(2)
+	now := time.Unix(1000, 0)
+	c.now = func() time.Time { return now }
+	qa, ma := pair("a.example.", 30)
+	qb, mb := pair("b.example.", 30)
+	c.Put(qa, ma)
+	c.Put(qb, mb)
+	now = now.Add(5 * time.Second)
+	before := c.Stats()
+	got, remaining, ok := c.Peek(qa)
+	if !ok || remaining != 25 || got.Answer[0].Header().Ttl != 25 {
+		t.Fatalf("peek: %v remaining %d ok %v", got, remaining, ok)
+	}
+	missing, _ := pair("missing.example.", 1)
+	if _, _, ok = c.Peek(missing); ok {
+		t.Fatal("peek found a missing entry")
+	}
+	if c.Stats() != before {
+		t.Fatalf("peek changed counters: %+v -> %+v", before, c.Stats())
+	}
+	// A peek must not refresh recency: a is still the eviction candidate.
+	qc, mc := pair("c.example.", 30)
+	c.Put(qc, mc)
+	if _, _, ok = c.Peek(qa); ok {
+		t.Fatal("peek refreshed the LRU position")
+	}
+	now = now.Add(40 * time.Second)
+	if _, _, ok = c.Peek(qb); ok {
+		t.Fatal("expired entry reported")
+	}
+	if len(c.items) != 2 {
+		t.Fatal("peek must not remove expired entries")
+	}
+}

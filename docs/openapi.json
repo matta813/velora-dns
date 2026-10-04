@@ -3242,6 +3242,66 @@
         "x-required-role": "viewer-or-higher"
       }
     },
+    "/api/v1/diagnostics/explain": {
+      "post": {
+        "operationId": "post_diagnostics_explain",
+        "summary": "Post diagnostics/explain",
+        "tags": [
+          "diagnostics"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AnswerExplanation"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error; codes include authentication_required, insufficient_role, invalid_csrf, invalid_json, and endpoint-specific validation/storage codes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-role": "viewer-or-higher",
+        "description": "Side-effect-free dry run of the resolver: no upstream query, query log entry, cache change or metric. POST only because it carries a body; viewers and read-scoped tokens may call it (session requests still need the CSRF header).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/events": {
       "get": {
         "operationId": "get_events",
@@ -8989,6 +9049,202 @@
             "format": "int64"
           }
         }
+      },
+      "RuleRef": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Rule ID when the rule has one (rewrite, forwarding rule, blocklist source, policy)"
+          },
+          "name": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "FilterInfo": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "global",
+              "client_policy"
+            ]
+          },
+          "client": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "custom"
+            ]
+          },
+          "matches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleRef"
+            }
+          },
+          "allowed_by": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleRef"
+            }
+          }
+        },
+        "required": [
+          "scope"
+        ]
+      },
+      "ExplainStep": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": [
+              "filter",
+              "rewrite",
+              "zone",
+              "cache",
+              "forwarding",
+              "upstream",
+              "refused"
+            ]
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "allowed",
+              "blocked",
+              "no_match",
+              "answered",
+              "miss",
+              "hit",
+              "refused",
+              "would_forward",
+              "error"
+            ]
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleRef"
+            }
+          },
+          "filter": {
+            "$ref": "#/components/schemas/FilterInfo"
+          },
+          "remaining_ttl": {
+            "type": "integer",
+            "description": "Seconds left on a cache hit"
+          },
+          "depth": {
+            "type": "integer",
+            "description": "Greater than 0 for steps taken for a CNAME target"
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "result",
+          "depth"
+        ]
+      },
+      "ExplainRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 253,
+            "description": "DNS name; letters, digits, hyphen, underscore and dots"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "A",
+              "AAAA",
+              "CNAME",
+              "TXT",
+              "MX",
+              "NS",
+              "PTR",
+              "SOA"
+            ],
+            "description": "Defaults to A"
+          },
+          "client": {
+            "type": "string",
+            "description": "Optional client IPv4 or IPv6 address, used for per-client policies"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "AnswerExplanation": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "client": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "local",
+              "cache",
+              "blocked",
+              "upstream",
+              "refused"
+            ],
+            "description": "What a real query would report"
+          },
+          "winner": {
+            "$ref": "#/components/schemas/ExplainStep"
+          },
+          "rcode": {
+            "type": "string"
+          },
+          "answers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Answer records for local and cached results; empty when the answer would come from an upstream, which is never contacted"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExplainStep"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "source",
+          "winner",
+          "answers",
+          "steps"
+        ]
       },
       "OperationalReport": {
         "type": "object",

@@ -25,8 +25,6 @@ English, and `web/src/i18n.test.ts` checks key completeness and empty values.
 
 - Improve upstream health visibility and failover diagnostics; test behavior under
   slow, malformed, and unreachable upstreams.
-- Show effective TTLs next to cached answers and explain which rule (rewrite,
-  forwarding rule, client policy or blocklist) produced a given answer.
 
 ### Observability and security
 

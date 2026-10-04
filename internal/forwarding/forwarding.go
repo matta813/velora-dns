@@ -389,3 +389,13 @@ func (r *Router) Resolve(ctx context.Context, q *wire.Msg) (*wire.Msg, string, e
 	}
 	return r.Default.Resolve(ctx, q)
 }
+
+// Route reports the enabled rule that would handle name, without querying it.
+func (r *Router) Route(name string) (dns.RuleRef, bool) {
+	if r.Rules != nil {
+		if route := r.Rules.match(name); route != nil {
+			return dns.RuleRef{ID: route.rule.ID, Name: route.rule.Domain, Detail: strings.Join(route.rule.Upstreams, ", ")}, true
+		}
+	}
+	return dns.RuleRef{}, false
+}
