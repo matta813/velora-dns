@@ -83,6 +83,22 @@ test("keeps viewers read-only", async ({ page, request }) => {
   await expect(page.getByText(/read-only/i).first()).toBeVisible();
 });
 
+test("explains a rewrite answer to a read-only viewer", async ({ page, request }) => {
+  const csrf = await apiSignIn(request);
+  const headers = { "X-CSRF-Token": csrf };
+  expect([201]).toContain((await request.post("/api/v1/users", { headers, data: { username: "explainer", password: "viewer password long", role: "viewer" } })).status());
+  expect((await request.post("/api/v1/rewrites", { headers, data: { name: "explain.e2e.test", type: "A", value: "192.0.2.55" } })).status()).toBe(201);
+  await signIn(page, "explainer", "viewer password long");
+  // /diagnostics has no server-side deep link, so navigate inside the app.
+  await page.getByRole("button", { name: "System" }).click();
+  await page.getByRole("link", { name: "Diagnostics" }).click();
+  await page.getByLabel("Name", { exact: true }).fill("explain.e2e.test");
+  await page.getByRole("button", { name: "Explain" }).click();
+  const result = page.getByRole("region", { name: "Explanation" });
+  await expect(result.getByText(/Deciding stage: DNS rewrite/)).toBeVisible();
+  await expect(result.locator("code")).toContainText("192.0.2.55");
+});
+
 test.describe("accessibility", () => {
   // axe is injected as an inline script, which the server's CSP rightly blocks.
   test.use({ bypassCSP: true });
