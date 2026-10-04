@@ -39,13 +39,13 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
     hostname: "",
   });
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (poolId: number | null = selectedPool) => {
     try {
       const [p, l] = await Promise.all([loadPools(), loadLeases()]);
       setPools(p);
       setLeases(l);
-      if (selectedPool) {
-        setReservations(await loadReservations(selectedPool));
+      if (poolId) {
+        setReservations(await loadReservations(poolId));
       }
       setError("");
     } catch (e) {
@@ -78,10 +78,26 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
     };
   }, [t]);
 
+  useEffect(() => {
+    if (!selectedPool) return;
+    let active = true;
+    loadReservations(selectedPool)
+      .then((r) => {
+        if (active) setReservations(r);
+      })
+      .catch((e) => {
+        if (active) setError(e instanceof Error ? e.message : t("dhcp.load_failed"));
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedPool, t]);
+
   async function handleCreatePool() {
     try {
       await createPool({
         ...newPool,
+        dns_servers: newPool.dns_servers.filter(Boolean),
         enabled: true,
       });
       setShowCreatePool(false);
@@ -104,7 +120,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
     try {
       await deletePool(id);
       if (selectedPool === id) setSelectedPool(null);
-      await refresh();
+      await refresh(selectedPool === id ? null : selectedPool);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("dhcp.delete_pool_failed"));
     }
@@ -146,7 +162,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
     if (diff <= 0) return t("dhcp.expired");
     const hours = Math.floor(diff / 3600000);
     const mins = Math.floor((diff % 3600000) / 60000);
-    if (hours > 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+    if (hours >= 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
     return `${hours}h ${mins}m`;
   }
 
@@ -158,6 +174,8 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
     );
   }
 
+  // Derived, so nothing selected (or a stale pool's rows) shows no reservations.
+  const poolReservations = reservations.filter((r) => r.pool_id === selectedPool);
   const activeLeases = leases.filter((l) => l.status === "active");
   const pool = pools.find((p) => p.id === selectedPool);
 
@@ -356,7 +374,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
               </div>
             </form>
           )}
-          {reservations.length > 0 && (
+          {poolReservations.length > 0 && (
             <div className="table-wrap">
               <table>
                 <thead>
@@ -370,7 +388,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {reservations.map((r) => (
+                  {poolReservations.map((r) => (
                     <tr key={r.id}>
                       <td><code>{r.mac_address}</code></td>
                       <td><code>{r.ip_address}</code></td>
