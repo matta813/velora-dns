@@ -5,6 +5,7 @@ import { useI18n } from "../i18n-context";
 import { Badge } from "../components/Badge";
 import { Loading } from "../components/EmptyState";
 import { toneFor } from "../components/tone";
+import { AnswerExplainer } from "./AnswerExplainer";
 
 interface DiagnosticComponent {
   name: string;
@@ -88,6 +89,7 @@ export function Diagnostics() {
           </table>
         </div>
       </section>
+      <AnswerExplainer />
     </div>
   );
 }
