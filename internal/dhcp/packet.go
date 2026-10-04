@@ -1,10 +1,13 @@
 package dhcp
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"net"
 )
+
+var magicCookie = []byte{99, 130, 83, 99}
 
 // Packet represents a parsed DHCPv4 message (RFC 2131 section 2).
 type Packet struct {
@@ -28,14 +31,22 @@ type Packet struct {
 
 const (
 	headerFixedLen = 236
+	cookieLen      = 4
+	minReplyLen    = 300 // BOOTP minimum (RFC 951)
 	optionEndByte  = 255
 	optionPadByte  = 0
 )
 
 // ParsePacket decodes a raw DHCP UDP payload into a Packet.
 func ParsePacket(data []byte) (*Packet, error) {
-	if len(data) < headerFixedLen {
+	if len(data) < headerFixedLen+cookieLen {
 		return nil, fmt.Errorf("dhcp packet too short: %d bytes", len(data))
+	}
+	if data[2] > 16 {
+		return nil, fmt.Errorf("dhcp hardware address length %d exceeds 16", data[2])
+	}
+	if !bytes.Equal(data[headerFixedLen:headerFixedLen+cookieLen], magicCookie) {
+		return nil, fmt.Errorf("dhcp magic cookie missing")
 	}
 	p := &Packet{
 		OpCode: data[0],
@@ -49,9 +60,9 @@ func ParsePacket(data []byte) (*Packet, error) {
 		YIAddr: net.IP(data[16:20]).To4(),
 		SIAddr: net.IP(data[20:24]).To4(),
 		GIAddr: net.IP(data[24:28]).To4(),
-		CHAddr: make(net.HardwareAddr, data[43]),
+		CHAddr: make(net.HardwareAddr, data[2]),
 	}
-	copy(p.CHAddr, data[28:28+data[43]])
+	copy(p.CHAddr, data[28:28+int(data[2])])
 	// SName: 64 bytes starting at offset 44
 	sNameRaw := data[44:108]
 	if i := findNul(sNameRaw); i >= 0 {
@@ -66,7 +77,11 @@ func ParsePacket(data []byte) (*Packet, error) {
 	} else {
 		p.File = string(fileRaw)
 	}
-	p.Options = parseOptions(data[headerFixedLen:])
+	opts, err := parseOptions(data[headerFixedLen+cookieLen:])
+	if err != nil {
+		return nil, err
+	}
+	p.Options = opts
 	p.RelayAddr = net.IP(data[24:28]).To4()
 	return p, nil
 }
@@ -89,10 +104,14 @@ func (p *Packet) Marshal() []byte {
 	if hLen > 16 {
 		hLen = 16
 	}
-	buf[43] = byte(hLen)
+	buf[2] = byte(hLen)
 	copy(buf[28:28+hLen], p.CHAddr)
-	optBuf := marshalOptions(p.Options)
-	return append(buf, optBuf...)
+	buf = append(buf, magicCookie...)
+	buf = append(buf, marshalOptions(p.Options)...)
+	for len(buf) < minReplyLen {
+		buf = append(buf, optionPadByte)
+	}
+	return buf
 }
 
 // SetOption adds or replaces a DHCP option.
@@ -169,7 +188,7 @@ func (p *Packet) LeaseTime() uint32 {
 	return binary.BigEndian.Uint32(v[:4])
 }
 
-func parseOptions(data []byte) map[byte][]byte {
+func parseOptions(data []byte) (map[byte][]byte, error) {
 	opts := make(map[byte][]byte)
 	for i := 0; i < len(data); {
 		if data[i] == optionEndByte {
@@ -180,20 +199,20 @@ func parseOptions(data []byte) map[byte][]byte {
 			continue
 		}
 		if i+1 >= len(data) {
-			break
+			return nil, fmt.Errorf("dhcp option %d truncated", data[i])
 		}
 		code := data[i]
 		length := int(data[i+1])
 		i += 2
 		if i+length > len(data) {
-			break
+			return nil, fmt.Errorf("dhcp option %d truncated", code)
 		}
 		val := make([]byte, length)
 		copy(val, data[i:i+length])
 		opts[code] = val
 		i += length
 	}
-	return opts
+	return opts, nil
 }
 
 func marshalOptions(opts map[byte][]byte) []byte {
@@ -268,8 +287,8 @@ func buildResponse(in *Packet, msgType byte, yiAddr net.IP, leaseSec uint32, ser
 		leaseBytes[2] = byte(leaseSec >> 8)
 		leaseBytes[3] = byte(leaseSec)
 		p.SetOption(OptLeaseTime, leaseBytes)
-		p.SetOption(OptT1Renew, leaseBytes)  // T1 = 50% of lease
-		p.SetOption(OptT2Rebind, leaseBytes) // T2 = 87.5% of lease
+		p.SetOption(OptT1Renew, OptionUint32(leaseSec/2))    // T1 = 50% of lease
+		p.SetOption(OptT2Rebind, OptionUint32(leaseSec/8*7)) // T2 = 87.5% of lease
 	}
 	if len(dnsServers) > 0 {
 		var dnsBytes []byte

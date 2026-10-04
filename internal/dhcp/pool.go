@@ -63,7 +63,7 @@ func (pa *PoolAllocator) AllocateForDiscover(mac string, requestedIP netip.Addr)
 
 	// If client requested a specific IP and it's available, honor it.
 	if requestedIP.IsValid() {
-		if owner, ok := pa.ips[requestedIP]; !ok || owner == mac {
+		if pa.usable(requestedIP, mac) {
 			if pa.pool.Subnet.Contains(requestedIP) && !isNetworkOrBroadcast(requestedIP, pa.pool.Subnet) {
 				return requestedIP, true
 			}
@@ -92,7 +92,7 @@ func (pa *PoolAllocator) AllocateForRequest(mac string, requestedIP netip.Addr) 
 
 	// For REQUEST after DISCOVER, the requested IP should match what we offered.
 	if requestedIP.IsValid() {
-		if owner, ok := pa.ips[requestedIP]; !ok || owner == mac {
+		if pa.usable(requestedIP, mac) {
 			if pa.pool.Subnet.Contains(requestedIP) && !isNetworkOrBroadcast(requestedIP, pa.pool.Subnet) {
 				return requestedIP, true
 			}
@@ -154,13 +154,32 @@ func (pa *PoolAllocator) ExpireLeases() []Lease {
 	return expired
 }
 
+// usable reports whether mac may take ip: not leased to, or reserved for, another client.
+func (pa *PoolAllocator) usable(ip netip.Addr, mac string) bool {
+	if owner, ok := pa.ips[ip]; ok && owner != mac {
+		return false
+	}
+	for m, r := range pa.reservations {
+		if r == ip && m != mac {
+			return false
+		}
+	}
+	return true
+}
+
 func (pa *PoolAllocator) allocateFromRange(mac string) (netip.Addr, bool) {
+	// A client that already holds an address keeps it.
+	if l, ok := pa.leases[mac]; ok {
+		if ip, err := netip.ParseAddr(l.IPAddress); err == nil {
+			return ip, true
+		}
+	}
 	start, end := poolRange(pa.pool.Subnet)
 	for ip := start; ip != end; ip = nextIP(ip) {
 		if isNetworkOrBroadcast(ip, pa.pool.Subnet) {
 			continue
 		}
-		if _, ok := pa.ips[ip]; ok {
+		if !pa.usable(ip, mac) {
 			continue
 		}
 		// Skip gateway.

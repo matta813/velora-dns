@@ -109,15 +109,22 @@ func (s *Server) serve(ctx context.Context) {
 }
 
 func (s *Server) handle(ctx context.Context, pkt *Packet, remoteAddr *net.UDPAddr) {
+	if pkt.OpCode != 1 {
+		return // not a BOOTREQUEST
+	}
+	if !pkt.GIAddr.Equal(net.IPv4zero) {
+		s.logger.Debug("dhcp relayed packet dropped: relay agents are not supported", "giaddr", pkt.GIAddr)
+		return
+	}
 	switch pkt.MessageType() {
 	case MsgDiscover:
 		s.handleDiscover(ctx, pkt, remoteAddr)
 	case MsgRequest:
 		s.handleRequest(ctx, pkt, remoteAddr)
 	case MsgRelease:
-		s.handleRelease(pkt)
+		s.handleRelease(ctx, pkt)
 	case MsgDecline:
-		s.handleDecline(pkt)
+		s.handleDecline(ctx, pkt)
 	default:
 		s.logger.Debug("unhandled dhcp message type", "type", pkt.MessageType())
 	}
@@ -169,6 +176,9 @@ func (s *Server) handleRequest(ctx context.Context, pkt *Packet, remoteAddr *net
 	if reqIP != nil {
 		requestedIP = netToNetip(reqIP)
 	}
+	if !requestedIP.IsValid() && !pkt.CIAddr.Equal(net.IPv4zero) {
+		requestedIP = netToNetip(pkt.CIAddr) // RENEWING/REBINDING carry the address in ciaddr
+	}
 	serverID, hasServerID := pkt.ServerID()
 
 	if hasServerID && !serverID.Equal(s.serverIP) {
@@ -186,16 +196,6 @@ func (s *Server) handleRequest(ctx context.Context, pkt *Packet, remoteAddr *net
 	}
 
 	leaseSec := uint32(s.pool.LeaseSeconds)
-	ack := MakeAck(pkt, netipToNet(ip), leaseSec, s.serverIP,
-		LeaseToSubnet(s.pool.Subnet),
-		netipToNet(s.pool.Gateway),
-		ipsToNet(s.pool.DNSServers))
-
-	if _, err := s.conn.WriteToUDP(ack.Marshal(), remoteAddr); err != nil {
-		s.logger.Warn("dhcp send ack", "err", err)
-	}
-	s.logger.Debug("dhcp ack", "mac", mac, "ip", ip, "lease", leaseSec)
-
 	lease := &Lease{
 		PoolID:     s.pool.ID,
 		MACAddress: mac,
@@ -205,29 +205,60 @@ func (s *Server) handleRequest(ctx context.Context, pkt *Packet, remoteAddr *net
 		ExpiresAt:  time.Now().Add(time.Duration(leaseSec) * time.Second),
 		Status:     LeaseActive,
 	}
+	// Commit before ACK: a client must never hold an address we failed to record.
 	if err := s.store.SaveLease(ctx, lease); err != nil {
-		s.logger.Error("dhcp persist lease", "err", err)
+		s.logger.Error("dhcp persist lease, withholding ACK", "err", err)
+		return
 	}
+
+	ack := MakeAck(pkt, netipToNet(ip), leaseSec, s.serverIP,
+		LeaseToSubnet(s.pool.Subnet),
+		netipToNet(s.pool.Gateway),
+		ipsToNet(s.pool.DNSServers))
+	if _, err := s.conn.WriteToUDP(ack.Marshal(), remoteAddr); err != nil {
+		s.logger.Warn("dhcp send ack", "err", err)
+	}
+	s.logger.Debug("dhcp ack", "mac", mac, "ip", ip, "lease", leaseSec)
 
 	if s.dnsPublish != nil {
 		s.dnsPublish(ip, pkt.Hostname())
 	}
 }
 
-func (s *Server) handleRelease(pkt *Packet) {
+func (s *Server) handleRelease(ctx context.Context, pkt *Packet) {
 	mac := pkt.CHAddr.String()
-	if s.allocator.Release(mac) {
+	if serverID, ok := pkt.ServerID(); ok && !serverID.Equal(s.serverIP) {
+		return
+	}
+	if s.releaseLease(ctx, mac, pkt.CIAddr) {
 		s.logger.Debug("dhcp release", "mac", mac)
 	}
 }
 
-func (s *Server) handleDecline(pkt *Packet) {
+func (s *Server) handleDecline(ctx context.Context, pkt *Packet) {
 	mac := pkt.CHAddr.String()
 	ip, ok := pkt.RequestedIP()
-	if ok {
-		s.logger.Warn("dhcp decline", "mac", mac, "ip", ip)
+	if !ok {
+		return
+	}
+	s.logger.Warn("dhcp decline", "mac", mac, "ip", ip)
+	// ponytail: declined addresses are released, not quarantined (ADR 0005 wants a hold-down); add a timed deny set in PoolAllocator.
+	s.releaseLease(ctx, mac, ip)
+}
+
+// releaseLease frees mac's lease in memory and in the store when it holds ip.
+func (s *Server) releaseLease(ctx context.Context, mac string, ip net.IP) bool {
+	l, err := s.store.GetLease(ctx, s.pool.ID, mac)
+	if err != nil || l.Status != LeaseActive || l.IPAddress != ip.String() {
+		return false
+	}
+	l.Status = LeaseReleased
+	if err := s.store.SaveLease(ctx, l); err != nil {
+		s.logger.Error("dhcp persist release", "err", err)
+		return false
 	}
 	s.allocator.Release(mac)
+	return true
 }
 
 func ipsToNet(addrs []netip.Addr) []net.IP {
@@ -237,6 +268,9 @@ func ipsToNet(addrs []netip.Addr) []net.IP {
 	}
 	return out
 }
+
+// Addr returns the bound listener address.
+func (s *Server) Addr() net.Addr { return s.conn.LocalAddr() }
 
 func (p *Pool) ListenAddr() string {
 	return "0.0.0.0:67"

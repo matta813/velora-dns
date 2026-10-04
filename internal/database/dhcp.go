@@ -143,7 +143,7 @@ func (s *Store) SaveLease(ctx context.Context, l *dhcp.Lease) error {
 	p := s.placeholder
 	sql := fmt.Sprintf("INSERT INTO dhcp_leases(pool_id, mac_address, ip_address, hostname, client_id, expires_at, status) VALUES(%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(pool_id, ip_address) DO UPDATE SET mac_address=excluded.mac_address, hostname=excluded.hostname, client_id=excluded.client_id, expires_at=excluded.expires_at, status=excluded.status",
 		p(1), p(2), p(3), p(4), p(5), p(6), p(7))
-	_, err := s.db.ExecContext(ctx, sql, l.PoolID, l.MACAddress, l.IPAddress, l.Hostname, l.ClientID, l.ExpiresAt.Format(time.RFC3339), string(l.Status))
+	_, err := s.db.ExecContext(ctx, sql, l.PoolID, l.MACAddress, l.IPAddress, l.Hostname, l.ClientID, l.ExpiresAt.UTC().Format(time.RFC3339), string(l.Status))
 	return err
 }
 
@@ -179,7 +179,7 @@ func (s *Store) ListActiveLeases(ctx context.Context) ([]dhcp.Lease, error) {
 }
 
 func (s *Store) ExpireLeases(ctx context.Context) (int64, error) {
-	result, err := s.db.ExecContext(ctx, "UPDATE dhcp_leases SET status='expired' WHERE status='active' AND expires_at < datetime('now')")
+	result, err := s.db.ExecContext(ctx, "UPDATE dhcp_leases SET status='expired' WHERE status='active' AND expires_at < "+s.placeholder(1), time.Now().UTC().Format(time.RFC3339))
 	if err != nil {
 		return 0, err
 	}
@@ -203,11 +203,12 @@ type scannable interface {
 
 func scanPool(row scannable) (*dhcp.Pool, error) {
 	var pool dhcp.Pool
-	var subnet, gateway, dnsStr string
+	var subnet, gateway, dnsStr, created, updated string
 	var enabled int
-	if err := row.Scan(&pool.ID, &pool.Name, &pool.Interface, &subnet, &gateway, &dnsStr, &pool.LeaseSeconds, &enabled, &pool.CreatedAt, &pool.UpdatedAt); err != nil {
+	if err := row.Scan(&pool.ID, &pool.Name, &pool.Interface, &subnet, &gateway, &dnsStr, &pool.LeaseSeconds, &enabled, &created, &updated); err != nil {
 		return nil, err
 	}
+	pool.CreatedAt, pool.UpdatedAt = parseDBTime(created), parseDBTime(updated)
 	pool.Subnet, _ = netip.ParsePrefix(subnet)
 	pool.Gateway, _ = netip.ParseAddr(gateway)
 	pool.DNSServers = decodeDNServers(dnsStr)
@@ -221,11 +222,11 @@ func scanPoolRows(rows interface{ Scan(dest ...any) error }) (*dhcp.Pool, error)
 
 func scanLease(row scannable) (*dhcp.Lease, error) {
 	var l dhcp.Lease
-	var expiresAt string
-	var status string
-	if err := row.Scan(&l.ID, &l.PoolID, &l.MACAddress, &l.IPAddress, &l.Hostname, &l.ClientID, &expiresAt, &status, &l.CreatedAt); err != nil {
+	var expiresAt, status, created string
+	if err := row.Scan(&l.ID, &l.PoolID, &l.MACAddress, &l.IPAddress, &l.Hostname, &l.ClientID, &expiresAt, &status, &created); err != nil {
 		return nil, err
 	}
+	l.CreatedAt = parseDBTime(created)
 	l.ExpiresAt, _ = time.Parse(time.RFC3339, expiresAt)
 	l.Status = dhcp.LeaseStatus(status)
 	return &l, nil
@@ -239,16 +240,27 @@ func scanLeases(rows interface {
 	var out []dhcp.Lease
 	for rows.Next() {
 		var l dhcp.Lease
-		var expiresAt string
-		var status string
-		if err := rows.Scan(&l.ID, &l.PoolID, &l.MACAddress, &l.IPAddress, &l.Hostname, &l.ClientID, &expiresAt, &status, &l.CreatedAt); err != nil {
+		var expiresAt, status, created string
+		if err := rows.Scan(&l.ID, &l.PoolID, &l.MACAddress, &l.IPAddress, &l.Hostname, &l.ClientID, &expiresAt, &status, &created); err != nil {
 			return nil, err
 		}
+		l.CreatedAt = parseDBTime(created)
 		l.ExpiresAt, _ = time.Parse(time.RFC3339, expiresAt)
 		l.Status = dhcp.LeaseStatus(status)
 		out = append(out, l)
 	}
 	return out, rows.Err()
+}
+
+// parseDBTime reads a TEXT column written by CURRENT_TIMESTAMP ("2006-01-02 15:04:05", UTC)
+// or by RFC 3339. A value that fits neither yields the zero time.
+func parseDBTime(v string) time.Time {
+	for _, layout := range []string{time.RFC3339Nano, "2006-01-02 15:04:05"} {
+		if t, err := time.Parse(layout, v); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
 }
 
 func encodeDNServers(addrs []netip.Addr) string {
