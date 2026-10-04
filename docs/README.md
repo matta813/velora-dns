@@ -15,6 +15,7 @@
 - [Webhook notifications](webhooks.md)
 - [Command palette and keyboard shortcuts](command-palette.md)
 - [Clustering: primary and replicas](cluster.md)
+- [DHCP pools, reservations and leases (no DHCP server runs yet)](dhcp.md)
 - [Local DNS rewrites](rewrites.md)
 - [Conditional forwarding and query precedence](forwarding.md)
 - [Query history, retention and filters](query-logging.md)

@@ -32,6 +32,9 @@ configured upstream resolvers; it is not an iterative resolver.
   Prometheus metrics without domain or client labels.
 - Offers an authenticated management API and responsive UI with admin, operator,
   and viewer roles, scoped API tokens, and SQLite or PostgreSQL management storage.
+- Stores DHCP pools, reservations and leases with an API and web page. **No DHCP
+  server runs yet**: the listener is not started by the application, so it does
+  not answer DHCP requests. See [DHCP](docs/dhcp.md).
 
 See the [architecture](docs/architecture/0001-foundation.md),
 [DNS behavior](docs/architecture/0002-dns-semantics.md), and

@@ -64,8 +64,13 @@ and progress; substantial new work should get its own issue before implementatio
 
 ### Network services and extensibility
 
-- Assess whether DHCP and additional language packs belong in the core product
-  or should remain separate integrations.
+- Assess whether additional language packs belong in the core product or should
+  remain separate integrations.
+- DHCP: pool, reservation and lease management exists (API and web page), but the
+  application does not start a DHCP listener, so no DHCP is served and DNS
+  publishing is unused. Wiring a listener in, with the safety requirements of
+  [ADR 0005](architecture/0005-dhcp-service-boundaries.md) and a separate
+  deployment profile, is not committed. See [DHCP](dhcp.md).
 
 ## Completed work
 
