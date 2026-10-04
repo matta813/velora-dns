@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -19,6 +21,9 @@ func TestUpdateAPIForwardsToAgentSocket(t *testing.T) {
 		t.Fatal(err)
 	}
 	agentMux := http.NewServeMux()
+	agentMux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(update.Health{Ready: true})
+	})
 	agentMux.HandleFunc("GET /check", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(update.CheckResult{Installed: "1.0.0", Latest: "1.1.0", UpdateAvailable: true, Channel: "stable"})
 	})
@@ -41,6 +46,7 @@ func TestUpdateAPIForwardsToAgentSocket(t *testing.T) {
 		method, path, body, contains string
 		status                       int
 	}{
+		{http.MethodGet, "/api/v1/update/health", "", `"ready":true`, http.StatusOK},
 		{http.MethodGet, "/api/v1/update/check", "", `"latest_version":"1.1.0"`, http.StatusOK},
 		{http.MethodPost, "/api/v1/update/request", `{"action":"update"}`, `"version":"1.1.0"`, http.StatusAccepted},
 	} {
@@ -53,5 +59,47 @@ func TestUpdateAPIForwardsToAgentSocket(t *testing.T) {
 		if recorder.Code != tc.status || !strings.Contains(recorder.Body.String(), tc.contains) {
 			t.Fatalf("%s %s: status=%d body=%s", tc.method, tc.path, recorder.Code, recorder.Body.String())
 		}
+	}
+}
+
+func TestUpdaterFailureExplainsSocketProblems(t *testing.T) {
+	for _, tc := range []struct {
+		err     error
+		message string
+	}{
+		{os.ErrPermission, "socket access was denied"},
+		{os.ErrNotExist, "not running"},
+	} {
+		recorder := httptest.NewRecorder()
+		updaterFailure(recorder, tc.err)
+		if recorder.Code != http.StatusServiceUnavailable || !strings.Contains(recorder.Body.String(), tc.message) {
+			t.Fatalf("error %v: status=%d response=%s", tc.err, recorder.Code, recorder.Body.String())
+		}
+	}
+}
+
+type busyUpdater struct {
+	update.Client
+	requests int
+}
+
+func (b *busyUpdater) Status(context.Context) (update.Status, error) {
+	return update.Status{State: update.StateInstalling, Updating: true}, nil
+}
+func (b *busyUpdater) Request(context.Context) (update.RequestResponse, error) {
+	b.requests++
+	return update.RequestResponse{Status: "accepted"}, nil
+}
+
+func TestUpdateRequestRejectedWhileUpdating(t *testing.T) {
+	store := &busyUpdater{}
+	mux := http.NewServeMux()
+	registerUpdate(mux, store, Version{})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/update/request", strings.NewReader(`{"action":"update"}`))
+	request.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusConflict || !strings.Contains(recorder.Body.String(), "update_in_progress") || store.requests != 0 {
+		t.Fatalf("status=%d body=%s requests=%d", recorder.Code, recorder.Body.String(), store.requests)
 	}
 }

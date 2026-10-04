@@ -132,6 +132,22 @@ Or build both architectures:
 
 ## Transactional updates
 
+![Updates page after checking, with a newer beta release ready to install](assets/update-center.png)
+
+The **Updates** page (System → Updates) is intentionally minimal:
+
+1. It opens with a single **Check for updates** button next to the installed version.
+2. The check reports **up to date**, or shows the newer version, its channel, size and release
+   notes with an **Update** button. Viewers can check but cannot update.
+3. **Update** starts the update through the updater agent immediately; no shell commands are
+   needed. The page follows the agent's phases (downloading, verifying, installing, restart and
+   readiness), keeps waiting while the web server restarts, and then shows the new version with
+   a reload button. Failures and rollbacks are shown with the agent's error.
+4. Only one update can run at a time: the buttons disappear while one is running, the API
+   returns `409 update_in_progress` for a second request, and the agent enforces the same rule.
+
+Past attempts are listed under **Update history**.
+
 All update mechanisms (systemd agent, Compose agent) follow a shared transactional contract
 defined in `internal/update/update.go`. This ensures consistent behavior regardless of the
 deployment mode.
@@ -288,7 +304,16 @@ SupplementaryGroups=velora
 
 ### Status endpoint
 
+The management API exposes the updater health check at
+`GET /api/v1/update/health`. A healthy agent responds with `{"ready":true}`.
+For a native installation, the socket must be owned by `root:velora` with mode
+`0660`; the installer creates the `velora` group and the agent recreates those
+permissions each time it starts.
+
 ```bash
+# Verify that the agent is reachable through its socket
+curl --unix-socket /run/velora-updater.sock http://localhost/healthz
+
 # Check agent status
 curl --unix-socket /run/velora-updater.sock http://localhost/status
 

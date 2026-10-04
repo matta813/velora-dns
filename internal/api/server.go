@@ -4,6 +4,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -14,11 +15,14 @@ import (
 	"time"
 
 	"github.com/matta813/velora-dns/internal/cache"
+	"github.com/matta813/velora-dns/internal/cluster"
 	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/database"
 	"github.com/matta813/velora-dns/internal/dns"
+	"github.com/matta813/velora-dns/internal/filtering"
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/querylog"
+	wire "github.com/miekg/dns"
 )
 
 type Database interface{ Ping(context.Context) error }
@@ -36,31 +40,48 @@ type Version struct {
 	Built   string `json:"built"`
 }
 type Dependencies struct {
-	Database    Database
-	Zones       ZoneStore
-	Filtering   BlocklistStore
-	Queries     QueryStore
-	Auth        AuthStore
-	DNS         DNS
-	Cache       *cache.Cache
-	Metrics     *metrics.Metrics
-	Config      config.Config
-	ConfigPath  string
-	Version     Version
-	Started     time.Time
-	TSIG        TSIGStore
-	Update      UpdateStore
-	Onboarding  OnboardingStore
-	Backup      BackupStore
-	Settings    SettingsStore
-	RateLimit   *dns.RateLimitState
-	DHCP        DHCPStore
-	Cluster     ClusterStore
-	ApplyConfig func(config.Config) error
+	Database       Database
+	Zones          ZoneStore
+	Filtering      BlocklistStore
+	Queries        QueryStore
+	Auth           AuthStore
+	DNS            DNS
+	Cache          *cache.Cache
+	Resolver       *dns.Resolver // read-only answer explanation; nil disables it
+	Metrics        *metrics.Metrics
+	Config         config.Config
+	ConfigPath     string
+	Version        Version
+	Started        time.Time
+	TSIG           TSIGStore
+	Update         UpdateStore
+	Onboarding     OnboardingStore
+	Backup         BackupStore
+	Settings       SettingsStore
+	RateLimit      *dns.RateLimitState
+	UpstreamHealth *dns.UpstreamHealth
+	ResetStats     func(context.Context) error
+	Events         EventStore
+	NotifyEvent    func(database.SystemEventInput)
+	DHCP           DHCPStore
+	Cluster        ClusterStore
+	// ClusterNode runs primary/replica zone replication; nil disables it.
+	ClusterNode *cluster.Service
+	Forwarding  ForwardingStore
+	Rewrites    RewriteStore
+	Clients     ClientStore
+	Activity    ActivityStore
+	Policies    PolicyStore
+	Webhooks    WebhookStore
+	// RequestRestart stops the server so its supervisor starts it again.
+	RequestRestart func()
+	ApplyConfig    func(config.Config) error
 }
 type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+	// Fields points at the invalid configuration fields, when known.
+	Fields []config.FieldError `json:"fields,omitempty"`
 }
 
 func respond(w http.ResponseWriter, status int, data any) {
@@ -75,14 +96,62 @@ func failure(w http.ResponseWriter, status int, code, message string) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{"error": Error{Code: code, Message: message}})
 }
+
+// configFailure reports validation and restart-required problems with the
+// fields they concern, so clients can mark the matching inputs.
+func configFailure(w http.ResponseWriter, err error) bool {
+	var invalid *config.ValidationError
+	if errors.As(err, &invalid) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(400)
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": Error{Code: "invalid_config", Message: err.Error(), Fields: invalid.Fields}})
+		return true
+	}
+	var restart *config.RestartRequiredError
+	if errors.As(err, &restart) {
+		fields := make([]config.FieldError, 0, len(restart.Fields))
+		for _, field := range restart.Fields {
+			fields = append(fields, config.FieldError{Field: field, Message: "takes effect only after a restart; edit the configuration file and restart Velora DNS"})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(409)
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": Error{Code: "config_requires_restart", Message: err.Error(), Fields: fields}})
+		return true
+	}
+	return false
+}
+
+// configCheck is the result of a dry-run validation.
+type configCheck struct {
+	Valid           bool                `json:"valid"`
+	Errors          []config.FieldError `json:"errors"`
+	RestartRequired []string            `json:"restart_required"`
+}
+
 func New(d Dependencies) http.Handler {
 	var (
 		cfgMu         sync.RWMutex
+		cfgWriteMu    sync.Mutex
 		currentConfig = d.Config
 	)
 	mux := http.NewServeMux()
+	if d.UpstreamHealth != nil {
+		mux.HandleFunc("GET /api/v1/upstreams/health", func(w http.ResponseWriter, r *http.Request) {
+			respond(w, 200, d.UpstreamHealth.Snapshot())
+		})
+	}
+	registerDiagnostics(mux, d, func() config.Config {
+		cfgMu.RLock()
+		defer cfgMu.RUnlock()
+		return currentConfig
+	})
 	if d.Auth != nil {
 		registerAuth(mux, d.Auth)
+		if d.Events != nil {
+			registerEvents(mux, d.Events)
+		}
 	}
 	capabilities := []string{"forwarding", "cache", "metrics"}
 	if d.Zones != nil {
@@ -94,16 +163,40 @@ func New(d Dependencies) http.Handler {
 		registerTSIG(mux, d.TSIG)
 		capabilities = append(capabilities, "tsig")
 	}
+	if d.Rewrites != nil {
+		registerRewrites(mux, d.Rewrites)
+		capabilities = append(capabilities, "rewrites")
+	}
+	if d.Forwarding != nil {
+		registerForwarding(mux, d.Forwarding)
+		capabilities = append(capabilities, "conditional_forwarding")
+	}
 	if d.Filtering != nil {
 		registerBlocklists(mux, d.Filtering)
 		capabilities = append(capabilities, "blocklists")
 	}
+	queryLogging := func() bool {
+		cfgMu.RLock()
+		defer cfgMu.RUnlock()
+		return currentConfig.QueryLog.Enabled
+	}
+	var clientName func(string) string
+	if d.Clients != nil {
+		registerClients(mux, d.Clients, d.Activity, queryLogging)
+		clientName = d.Clients.Name
+		capabilities = append(capabilities, "clients")
+	}
+	registerSearch(mux, searchSources{zones: d.Zones, clients: d.Clients, rewrites: d.Rewrites, forwarding: d.Forwarding, blocklists: d.Filtering})
+	if d.Webhooks != nil {
+		registerWebhooks(mux, d.Webhooks)
+		capabilities = append(capabilities, "webhooks")
+	}
+	if d.Policies != nil {
+		registerPolicies(mux, d.Policies, d.Clients, d.Filtering)
+		capabilities = append(capabilities, "client_policies")
+	}
 	if d.Queries != nil {
-		registerQueries(mux, d.Queries, func() bool {
-			cfgMu.RLock()
-			defer cfgMu.RUnlock()
-			return currentConfig.QueryLog.Enabled
-		})
+		registerQueries(mux, d.Queries, queryLogging, clientName)
 		capabilities = append(capabilities, "query_logging")
 	}
 	if d.Update != nil {
@@ -114,7 +207,7 @@ func New(d Dependencies) http.Handler {
 		registerOnboarding(mux, d.Onboarding, d.Config)
 	}
 	if d.Backup != nil {
-		registerBackup(mux, d.Backup)
+		registerBackup(mux, d.Backup, d.NotifyEvent, d.RequestRestart)
 	}
 	if d.Settings != nil {
 		registerSettings(mux, d.Settings, d.RateLimit)
@@ -123,9 +216,12 @@ func New(d Dependencies) http.Handler {
 		registerDHCP(mux, d.DHCP)
 		capabilities = append(capabilities, "dhcp")
 	}
+	if d.ClusterNode != nil {
+		registerClusterManagement(mux, d.ClusterNode)
+		cluster.RegisterPeerRoutes(mux, d.ClusterNode)
+	}
 	if d.Cluster != nil {
 		registerCluster(mux, d.Cluster)
-		capabilities = append(capabilities, "cluster")
 	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
@@ -145,17 +241,34 @@ func New(d Dependencies) http.Handler {
 			"version":        d.Version,
 			"capabilities":   capabilities,
 		}
+		if d.ClusterNode != nil {
+			status["cluster_role"] = d.ClusterNode.Current().Role
+		}
 		if d.Cluster != nil {
 			nodes, err := d.Cluster.ListNodes(r.Context())
 			if err == nil {
 				status["cluster_nodes"] = len(nodes)
-				status["cluster_healthy"] = len(nodes) > 0
 			}
 		}
 		respond(w, 200, status)
 	})
 	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Version) })
 	mux.HandleFunc("GET /api/v1/stats", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Metrics.Snapshot()) })
+	mux.HandleFunc("POST /api/v1/stats/reset", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Content-Type") != "application/json" {
+			failure(w, 415, "unsupported_media_type", "Use application/json")
+			return
+		}
+		if d.ResetStats == nil {
+			failure(w, 503, "statistics_unavailable", "Statistics reset is unavailable")
+			return
+		}
+		if err := d.ResetStats(r.Context()); err != nil {
+			failure(w, 503, "statistics_reset_failed", "Statistics could not be reset")
+			return
+		}
+		respond(w, 200, d.Metrics.Snapshot())
+	})
 	mux.HandleFunc("GET /api/v1/cache", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, d.Cache.Stats()) })
 	mux.HandleFunc("GET /api/v1/cache/entries", func(w http.ResponseWriter, r *http.Request) {
 		limit, offset := 100, 0
@@ -175,7 +288,46 @@ func New(d Dependencies) http.Handler {
 			}
 			offset = value
 		}
-		respond(w, 200, d.Cache.ListEntries(limit, offset))
+		filter := cache.EntryFilter{Domain: strings.TrimSpace(r.URL.Query().Get("domain"))}
+		if len(filter.Domain) > 253 {
+			failure(w, 400, "invalid_domain", "Domain filter is too long")
+			return
+		}
+		if raw := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("type"))); raw != "" {
+			qtype, ok := wire.StringToType[raw]
+			if !ok {
+				failure(w, 400, "invalid_type", "Unknown record type")
+				return
+			}
+			filter.Type = qtype
+		}
+		respond(w, 200, d.Cache.FindEntries(filter, limit, offset))
+	})
+	mux.HandleFunc("POST /api/v1/cache/invalidate", func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			Name              string `json:"name"`
+			Type              string `json:"type"`
+			IncludeSubdomains bool   `json:"include_subdomains"`
+		}
+		if !readJSON(w, r, &input) {
+			return
+		}
+		name, err := filtering.NormalizeDomain(input.Name)
+		if err != nil || strings.HasPrefix(strings.TrimSpace(input.Name), "*") {
+			failure(w, 400, "invalid_domain", "Enter a valid domain name")
+			return
+		}
+		var qtype uint16
+		if raw := strings.ToUpper(strings.TrimSpace(input.Type)); raw != "" {
+			value, ok := wire.StringToType[raw]
+			if !ok {
+				failure(w, 400, "invalid_type", "Unknown record type")
+				return
+			}
+			qtype = value
+		}
+		removed := d.Cache.Invalidate(name, qtype, input.IncludeSubdomains)
+		respond(w, 200, map[string]any{"removed": removed, "stats": d.Cache.Stats()})
 	})
 	mux.HandleFunc("DELETE /api/v1/cache", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Content-Type") != "application/json" {
@@ -191,7 +343,41 @@ func New(d Dependencies) http.Handler {
 		cfgMu.RUnlock()
 		respond(w, 200, cfg)
 	})
+	mux.HandleFunc("POST /api/v1/config/validate", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Content-Type") != "application/json" {
+			failure(w, 415, "unsupported_media_type", "Use application/json")
+			return
+		}
+		cfgMu.RLock()
+		previous := currentConfig
+		candidate := currentConfig.Clone()
+		cfgMu.RUnlock()
+		if !readJSON(w, r, &candidate) {
+			return
+		}
+		result := configCheck{Errors: []config.FieldError{}, RestartRequired: config.RestartRequiredFields(previous, candidate)}
+		if result.RestartRequired == nil {
+			result.RestartRequired = []string{}
+		}
+		if err := candidate.Validate(); err != nil {
+			var invalid *config.ValidationError
+			if errors.As(err, &invalid) {
+				result.Errors = invalid.Fields
+			} else {
+				result.Errors = []config.FieldError{{Field: "", Message: err.Error()}}
+			}
+		}
+		result.Valid = len(result.Errors) == 0 && len(result.RestartRequired) == 0
+		respond(w, 200, result)
+	})
 	mux.HandleFunc("PUT /api/v1/config", func(w http.ResponseWriter, r *http.Request) {
+		notifyRollback := func(severity, message string) {
+			if d.NotifyEvent != nil {
+				d.NotifyEvent(database.SystemEventInput{Type: "config.rollback", Key: "configuration_rollback", Severity: severity, Title: "Configuration rollback", Message: message, Link: "/settings", Visibility: "admin"})
+			}
+		}
+		cfgWriteMu.Lock()
+		defer cfgWriteMu.Unlock()
 		if d.ConfigPath == "" {
 			failure(w, 500, "config_path_missing", "Config path not configured")
 			return
@@ -201,28 +387,60 @@ func New(d Dependencies) http.Handler {
 			return
 		}
 		cfgMu.RLock()
-		newConfig := currentConfig
+		newConfig := currentConfig.Clone()
 		cfgMu.RUnlock()
 		if !readJSON(w, r, &newConfig) {
 			return
 		}
 		if err := newConfig.Validate(); err != nil {
-			failure(w, 400, "invalid_config", err.Error())
+			configFailure(w, err)
+			return
+		}
+		if d.ApplyConfig != nil {
+			if err := d.ApplyConfig(newConfig); err != nil {
+				if configFailure(w, err) {
+					return
+				}
+				if rollbackErr := d.ApplyConfig(currentConfig); rollbackErr != nil {
+					notifyRollback("critical", "A configuration apply and its rollback both failed. Check service readiness.")
+					failure(w, 500, "config_rollback_failed", fmt.Sprintf("Apply failed: %v; rollback failed: %v", err, rollbackErr))
+					return
+				}
+				notifyRollback("warning", "A configuration apply failed and the previous settings were restored.")
+				failure(w, 500, "config_apply_failed", err.Error())
+				return
+			}
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
+		ready := d.DNS.Ready() && d.Database.Ping(ctx) == nil
+		cancel()
+		if !ready {
+			if d.ApplyConfig != nil {
+				if err := d.ApplyConfig(currentConfig); err != nil {
+					notifyRollback("critical", "Readiness failed and the previous configuration could not be restored.")
+					failure(w, 500, "config_rollback_failed", fmt.Sprintf("Readiness failed; rollback failed: %v", err))
+					return
+				}
+			}
+			notifyRollback("warning", "A configuration change failed readiness and the previous settings were restored.")
+			failure(w, 503, "config_not_ready", "Services are not ready after applying configuration")
 			return
 		}
 		if err := newConfig.Save(d.ConfigPath); err != nil {
+			if d.ApplyConfig != nil {
+				if rollbackErr := d.ApplyConfig(currentConfig); rollbackErr != nil {
+					notifyRollback("critical", "Configuration storage failed and the previous runtime settings could not be restored.")
+					failure(w, 500, "config_rollback_failed", fmt.Sprintf("Save failed: %v; rollback failed: %v", err, rollbackErr))
+					return
+				}
+				notifyRollback("warning", "Configuration storage failed and the previous runtime settings were restored.")
+			}
 			failure(w, 500, "config_save_failed", err.Error())
 			return
 		}
 		cfgMu.Lock()
 		currentConfig = newConfig
 		cfgMu.Unlock()
-		if d.ApplyConfig != nil {
-			if err := d.ApplyConfig(newConfig); err != nil {
-				failure(w, 500, "config_apply_failed", err.Error())
-				return
-			}
-		}
 		respond(w, 200, map[string]string{"status": "saved", "message": "Configuration saved and applied live where supported."})
 	})
 	mux.Handle("GET /metrics", d.Metrics.Handler())
@@ -264,11 +482,17 @@ func New(d Dependencies) http.Handler {
 				return
 			}
 		}
-		if r.ContentLength > 1<<20 {
-			failure(w, 413, "payload_too_large", "Request exceeds 1 MiB")
+		// Backup uploads are the only large request bodies; their handler
+		// enforces its own limit and deadlines.
+		bodyLimit := int64(1 << 20)
+		if r.URL.Path == "/api/v1/backup/inspect" {
+			bodyLimit = backupUploadLimit
+		}
+		if r.ContentLength > bodyLimit {
+			failure(w, 413, "payload_too_large", "Request body is too large")
 			return
 		}
-		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		r.Body = http.MaxBytesReader(w, r.Body, bodyLimit)
 		if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
 			failure(w, 403, "forbidden_origin", "Cross-site requests are not allowed")
 			return
@@ -280,7 +504,10 @@ func New(d Dependencies) http.Handler {
 				return
 			}
 		}
-		if d.Auth != nil && (strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/metrics") && r.URL.Path != "/api/v1/auth/login" {
+		// Node-to-node cluster endpoints authenticate with join tokens and node
+		// credentials instead of browser sessions.
+		peer := d.ClusterNode != nil && strings.HasPrefix(r.URL.Path, "/api/v1/cluster/peer/")
+		if d.Auth != nil && (strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/metrics") && r.URL.Path != "/api/v1/auth/login" && !peer {
 			authenticated, csrf, ok := authenticate(r, d.Auth)
 			if !ok {
 				failure(w, http.StatusUnauthorized, "authentication_required", "Sign in to access management")
@@ -291,11 +518,23 @@ func New(d Dependencies) http.Handler {
 			token, isToken := r.Context().Value(tokenContextKey{}).(database.APIToken)
 			tokenScopes := token.Scopes
 			unsafe := r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
-			if strings.HasPrefix(r.URL.Path, "/api/v1/users") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
+			if (strings.HasPrefix(r.URL.Path, "/api/v1/users") || strings.HasPrefix(r.URL.Path, "/api/v1/webhooks") || r.URL.Path == "/api/v1/audit" || r.URL.Path == "/api/v1/stats/reset" || r.URL.Path == "/api/v1/backup/create" || r.URL.Path == "/api/v1/backup/inspect" || r.URL.Path == "/api/v1/backup/restore") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
 				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
 				return
 			}
-			if unsafe && (user.Role == "viewer" || (isToken && !hasScope(tokenScopes, "write") && !hasScope(tokenScopes, "admin"))) {
+			if unsafe && strings.HasPrefix(r.URL.Path, "/api/v1/cluster/") && (user.Role != "admin" || (isToken && !hasScope(tokenScopes, "admin"))) {
+				failure(w, http.StatusForbidden, "insufficient_role", "Admin role required")
+				return
+			}
+			if unsafe && strings.HasPrefix(r.URL.Path, "/api/v1/zones") && d.ClusterNode != nil && d.ClusterNode.ZonesReadOnly() {
+				failure(w, http.StatusConflict, "zones_managed_by_primary", "This node is a cluster replica; change zones on the primary")
+				return
+			}
+			markRead := strings.HasPrefix(r.URL.Path, "/api/v1/events/") && strings.HasSuffix(r.URL.Path, "/read") && r.Method == http.MethodPost
+			// The explain dry run is a POST only because it carries a body; it
+			// changes nothing, so viewers and read-scoped tokens may use it.
+			explain := r.URL.Path == "/api/v1/diagnostics/explain" && r.Method == http.MethodPost
+			if unsafe && !explain && (!markRead && user.Role == "viewer" || (isToken && !hasScope(tokenScopes, "write") && !hasScope(tokenScopes, "admin"))) {
 				failure(w, http.StatusForbidden, "insufficient_role", "Viewer role is read-only")
 				return
 			}
@@ -303,15 +542,19 @@ func New(d Dependencies) http.Handler {
 				failure(w, http.StatusForbidden, "invalid_csrf", "Valid CSRF token required")
 				return
 			}
-			if unsafe {
-				detail := r.URL.Path
-				if isToken {
-					detail = fmt.Sprintf("token=%d path=%s", token.ID, r.URL.Path)
-				}
-				if err := d.Auth.Audit(r.Context(), &user.ID, r.Method, detail); err != nil {
+			if unsafe && !explain {
+				id, err := d.Auth.BeginAudit(r.Context(), user.ID, user.Role, r.Method, r.URL.Path)
+				if err != nil {
 					failure(w, http.StatusServiceUnavailable, "audit_unavailable", "Audit event could not be recorded")
 					return
 				}
+				tracked := &auditResponseWriter{ResponseWriter: w, status: http.StatusOK}
+				w = tracked
+				defer func() {
+					ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+					defer cancel()
+					_ = d.Auth.CompleteAudit(ctx, id, tracked.status)
+				}()
 			}
 		}
 		select {
@@ -324,6 +567,22 @@ func New(d Dependencies) http.Handler {
 		mux.ServeHTTP(w, r)
 	})
 }
+
+type auditResponseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *auditResponseWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *auditResponseWriter) Write(data []byte) (int, error) {
+	return w.ResponseWriter.Write(data)
+}
+
+func (w *auditResponseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func hasScope(scopes, wanted string) bool {
 	for _, scope := range strings.Split(scopes, ",") {

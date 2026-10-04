@@ -31,6 +31,10 @@ type RequestResponse struct {
 	Message string `json:"message,omitempty"`
 }
 
+type Health struct {
+	Ready bool `json:"ready"`
+}
+
 // Client talks to the privileged updater over its fixed Unix socket.
 type Client struct {
 	SocketPath string
@@ -40,6 +44,12 @@ type Client struct {
 func (c Client) Status(ctx context.Context) (Status, error) {
 	var result Status
 	err := c.do(ctx, http.MethodGet, "/status", nil, &result)
+	return result, err
+}
+
+func (c Client) Health(ctx context.Context) (Health, error) {
+	var result Health
+	err := c.do(ctx, http.MethodGet, "/healthz", nil, &result)
 	return result, err
 }
 

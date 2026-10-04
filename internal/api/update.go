@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
+	"sync"
 
 	"github.com/matta813/velora-dns/internal/update"
 )
 
 type UpdateStore interface {
+	Health(context.Context) (update.Health, error)
 	Status(context.Context) (update.Status, error)
 	History(context.Context) ([]update.Entry, error)
 	Check(context.Context) (update.CheckResult, error)
@@ -16,6 +19,15 @@ type UpdateStore interface {
 }
 
 func registerUpdate(mux *http.ServeMux, store UpdateStore, _ Version) {
+	var requesting sync.Mutex
+	mux.HandleFunc("GET /api/v1/update/health", func(w http.ResponseWriter, r *http.Request) {
+		health, err := store.Health(r.Context())
+		if err != nil {
+			updaterFailure(w, err)
+			return
+		}
+		respond(w, http.StatusOK, health)
+	})
 	mux.HandleFunc("GET /api/v1/update/status", func(w http.ResponseWriter, r *http.Request) {
 		status, err := store.Status(r.Context())
 		if err != nil {
@@ -52,6 +64,17 @@ func registerUpdate(mux *http.ServeMux, store UpdateStore, _ Version) {
 			failure(w, http.StatusBadRequest, "invalid_action", "Only 'update' action is supported")
 			return
 		}
+		// One request at a time from this server, and never while the agent
+		// reports an update in progress; the agent enforces the same rule.
+		if !requesting.TryLock() {
+			failure(w, http.StatusConflict, "update_in_progress", "An update request is already being processed")
+			return
+		}
+		defer requesting.Unlock()
+		if status, err := store.Status(r.Context()); err == nil && status.Updating {
+			failure(w, http.StatusConflict, "update_in_progress", "An update is already running")
+			return
+		}
 		result, err := store.Request(r.Context())
 		if err != nil {
 			updaterFailure(w, err)
@@ -71,5 +94,13 @@ func updaterFailure(w http.ResponseWriter, err error) {
 		failure(w, agentErr.StatusCode, code, agentErr.Message)
 		return
 	}
-	failure(w, http.StatusServiceUnavailable, "updater_unavailable", err.Error())
+	if errors.Is(err, os.ErrPermission) {
+		failure(w, http.StatusServiceUnavailable, "updater_unavailable", "Updater agent socket access was denied. Restart velora-updater or rerun the installer to repair its group permissions.")
+		return
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		failure(w, http.StatusServiceUnavailable, "updater_unavailable", "Updater agent is not running. Start or restart velora-updater.service.")
+		return
+	}
+	failure(w, http.StatusServiceUnavailable, "updater_unavailable", "Updater agent is unavailable. Check the velora-updater.service status.")
 }

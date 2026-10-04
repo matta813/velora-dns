@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"os/user"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -87,39 +89,14 @@ func envOrDefault(key, def string) string {
 	return def
 }
 
-func veloraGID() int {
-	f, err := os.Open("/etc/group")
+func veloraGID() (int, error) {
+	group, err := user.LookupGroup("velora")
 	if err != nil {
-		return -1
+		return 0, err
 	}
-	defer f.Close()
-	buf := make([]byte, 4096)
-	n, err := f.Read(buf)
-	if err != nil {
-		return -1
+	gid, err := strconv.Atoi(group.Gid)
+	if err != nil || gid < 0 {
+		return 0, fmt.Errorf("invalid velora group ID %q", group.Gid)
 	}
-	for _, line := range splitLines(string(buf[:n])) {
-		if len(line) > 0 && line[:1] == "velora" {
-			var name string
-			var gid int
-			_, _ = fmt.Sscanf(line, "%s:x:%d:", &name, &gid)
-			return gid
-		}
-	}
-	return -1
-}
-
-func splitLines(s string) []string {
-	var lines []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\n' {
-			lines = append(lines, s[start:i])
-			start = i + 1
-		}
-	}
-	if start < len(s) {
-		lines = append(lines, s[start:])
-	}
-	return lines
+	return gid, nil
 }

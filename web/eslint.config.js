@@ -5,7 +5,7 @@ import refresh from "eslint-plugin-react-refresh";
 import globals from "globals";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  { ignores: ["dist", "e2e-results", "e2e-report"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -21,7 +21,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["scripts/**/*.{js,mjs}"],
+    files: ["scripts/**/*.{js,mjs}", "e2e/**/*.{ts,mjs}", "playwright.config.ts"],
     languageOptions: { globals: globals.node },
   },
 );

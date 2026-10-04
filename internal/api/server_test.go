@@ -9,11 +9,16 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/matta813/velora-dns/internal/cache"
 	"github.com/matta813/velora-dns/internal/config"
+	"github.com/matta813/velora-dns/internal/database"
+	internaldns "github.com/matta813/velora-dns/internal/dns"
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/querylog"
 	"github.com/miekg/dns"
@@ -76,6 +81,17 @@ func TestAPIAndOriginProtection(t *testing.T) {
 		}
 	}
 }
+
+func TestUpstreamHealthEndpoint(t *testing.T) {
+	c := cache.New(10)
+	health := internaldns.NewUpstreamHealth([]string{"127.0.0.1:53"})
+	h := New(Dependencies{Database: fakeDB{}, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: config.Default(), Started: time.Now(), UpstreamHealth: health})
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/v1/upstreams/health", nil))
+	if w.Code != http.StatusOK || !bytes.Contains(w.Body.Bytes(), []byte(`"state":"unknown"`)) {
+		t.Fatalf("upstream health: %d %s", w.Code, w.Body.String())
+	}
+}
 func TestCacheEntriesEndpoint(t *testing.T) {
 	c := cache.New(10)
 	q := new(dns.Msg)
@@ -94,6 +110,50 @@ func TestCacheEntriesEndpoint(t *testing.T) {
 	h.ServeHTTP(w, httptest.NewRequest("GET", "http://127.0.0.1/api/v1/cache/entries?limit=201", nil))
 	if w.Code != 400 {
 		t.Fatalf("invalid limit: %d", w.Code)
+	}
+}
+
+func TestCacheEntriesFilterAndInvalidate(t *testing.T) {
+	c := cache.New(10)
+	for _, name := range []string{"example.test.", "www.example.test.", "other.test."} {
+		q := new(dns.Msg)
+		q.SetQuestion(name, dns.TypeA)
+		answer := new(dns.Msg)
+		answer.SetReply(q)
+		answer.Answer = []dns.RR{&dns.A{Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 60}, A: []byte{192, 0, 2, 1}}}
+		c.Put(q, answer)
+	}
+	h := New(Dependencies{Database: fakeDB{}, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: config.Default(), Started: time.Now()})
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "http://127.0.0.1/api/v1/cache/entries?domain=example&type=a", nil))
+	if w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(`"total":2`)) {
+		t.Fatalf("filtered entries: %d %s", w.Code, w.Body.String())
+	}
+	for _, query := range []string{"type=BOGUS", "domain=" + strings.Repeat("a", 254)} {
+		w = httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest("GET", "http://127.0.0.1/api/v1/cache/entries?"+query, nil))
+		if w.Code != 400 {
+			t.Fatalf("%s: expected 400, got %d", query, w.Code)
+		}
+	}
+	invalidate := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", "http://127.0.0.1/api/v1/cache/invalidate", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	if w = invalidate(`{"name":"bad name!","type":"A"}`); w.Code != 400 {
+		t.Fatalf("invalid name: %d", w.Code)
+	}
+	if w = invalidate(`{"name":"example.test","type":"TXT"}`); w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(`"removed":0`)) {
+		t.Fatalf("type mismatch: %d %s", w.Code, w.Body.String())
+	}
+	if w = invalidate(`{"name":"example.test","include_subdomains":true}`); w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(`"removed":2`)) {
+		t.Fatalf("domain invalidate: %d %s", w.Code, w.Body.String())
+	}
+	if c.Stats().Entries != 1 {
+		t.Fatalf("expected one surviving entry, got %d", c.Stats().Entries)
 	}
 }
 
@@ -179,6 +239,70 @@ func TestConfigSaveReenablesQueryLoggingWithoutRestart(t *testing.T) {
 	}
 }
 
+func TestConfigApplyFailureRestoresPreviousConfig(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	old := config.Default()
+	if err := old.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	cache := cache.New(10)
+	var applied []string
+	h := New(Dependencies{
+		Database: fakeDB{}, DNS: fakeDNS(true), Cache: cache, Metrics: metrics.New(cache),
+		Config: old, ConfigPath: path, Started: time.Now(),
+		ApplyConfig: func(candidate config.Config) error {
+			applied = append(applied, candidate.LogLevel)
+			if candidate.LogLevel == "debug" {
+				return errors.New("cannot apply debug")
+			}
+			return nil
+		},
+	})
+	request := httptest.NewRequest(http.MethodPut, "http://127.0.0.1/api/v1/config", bytes.NewBufferString(`{"log_level":"debug"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	if response.Code != http.StatusInternalServerError || !bytes.Contains(response.Body.Bytes(), []byte(`config_apply_failed`)) {
+		t.Fatalf("unexpected response: %d %s", response.Code, response.Body.String())
+	}
+	if len(applied) != 2 || applied[0] != "debug" || applied[1] != old.LogLevel {
+		t.Fatalf("runtime rollback was not applied: %v", applied)
+	}
+	persisted, err := os.ReadFile(path)
+	if err != nil || bytes.Contains(persisted, []byte("debug")) {
+		t.Fatalf("failed candidate reached disk: %s (%v)", persisted, err)
+	}
+	response = httptest.NewRecorder()
+	h.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/v1/config", nil))
+	if !bytes.Contains(response.Body.Bytes(), []byte(`"log_level":"info"`)) {
+		t.Fatalf("failed candidate reached API: %s", response.Body.String())
+	}
+}
+
+func TestConfigSaveFailureRollsBackRuntime(t *testing.T) {
+	cache := cache.New(10)
+	old := config.Default()
+	var applied []string
+	h := New(Dependencies{
+		Database: fakeDB{}, DNS: fakeDNS(true), Cache: cache, Metrics: metrics.New(cache),
+		Config: old, ConfigPath: filepath.Join(t.TempDir(), "missing", "config.yaml"), Started: time.Now(),
+		ApplyConfig: func(candidate config.Config) error {
+			applied = append(applied, candidate.LogLevel)
+			return nil
+		},
+	})
+	request := httptest.NewRequest(http.MethodPut, "http://127.0.0.1/api/v1/config", bytes.NewBufferString(`{"log_level":"debug"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	if response.Code != http.StatusInternalServerError || !bytes.Contains(response.Body.Bytes(), []byte(`config_save_failed`)) {
+		t.Fatalf("unexpected response: %d %s", response.Code, response.Body.String())
+	}
+	if len(applied) != 2 || applied[0] != "debug" || applied[1] != old.LogLevel {
+		t.Fatalf("runtime rollback was not applied: %v", applied)
+	}
+}
+
 func TestConfigSavePreservesDatabasePathAndUpdatesInMemory(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "config.yaml")
 	c := cache.New(10)
@@ -254,5 +378,144 @@ func TestConfigSavePreservesDatabasePathAndUpdatesInMemory(t *testing.T) {
 	}
 	if loaded.DatabasePath != "/var/lib/velora/velora.db" {
 		t.Fatalf("database_path was overwritten or lost: got %q", loaded.DatabasePath)
+	}
+}
+
+func configRequest(h http.Handler, method, path, body string) *httptest.ResponseRecorder {
+	request := httptest.NewRequest(method, "http://127.0.0.1"+path, bytes.NewBufferString(body))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	return response
+}
+
+func TestConfigErrorsNameFieldsAndDryRunChangesNothing(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	old := config.Default()
+	if err := old.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	c := cache.New(10)
+	applied := 0
+	h := New(Dependencies{
+		Database: fakeDB{}, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: old, ConfigPath: path, Started: time.Now(),
+		ApplyConfig: func(candidate config.Config) error {
+			applied++
+			if fields := config.RestartRequiredFields(old, candidate); len(fields) > 0 {
+				return &config.RestartRequiredError{Fields: fields}
+			}
+			return nil
+		},
+	})
+	bad := `{"dns":{"allowed_clients":["10.0.0.0/8","nope"],"retries":7}}`
+	response := configRequest(h, http.MethodPut, "/api/v1/config", bad)
+	var body struct {
+		Error struct {
+			Code   string
+			Fields []config.FieldError
+		}
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil || response.Code != 400 || body.Error.Code != "invalid_config" || len(body.Error.Fields) != 2 || body.Error.Fields[0].Field != "dns.allowed_clients[1]" {
+		t.Fatalf("invalid: %d %s", response.Code, response.Body.String())
+	}
+	if applied != 0 {
+		t.Fatal("invalid config must not be applied")
+	}
+	response = configRequest(h, http.MethodPut, "/api/v1/config", `{"dns":{"listen":["127.0.0.1:5300"]}}`)
+	if response.Code != 409 || !bytes.Contains(response.Body.Bytes(), []byte(`"field":"dns.listen"`)) {
+		t.Fatalf("restart required: %d %s", response.Code, response.Body.String())
+	}
+
+	var check struct{ Data configCheck }
+	response = configRequest(h, http.MethodPost, "/api/v1/config/validate", bad)
+	if err := json.Unmarshal(response.Body.Bytes(), &check); err != nil || response.Code != 200 || check.Data.Valid || len(check.Data.Errors) != 2 {
+		t.Fatalf("dry run invalid: %d %s", response.Code, response.Body.String())
+	}
+	response = configRequest(h, http.MethodPost, "/api/v1/config/validate", `{"dns":{"listen":["127.0.0.1:5300"]},"filtering":{"block_mode":"ZERO"}}`)
+	if err := json.Unmarshal(response.Body.Bytes(), &check); err != nil || check.Data.Valid || len(check.Data.RestartRequired) != 1 || check.Data.RestartRequired[0] != "dns.listen" {
+		t.Fatalf("dry run restart: %s", response.Body.String())
+	}
+	response = configRequest(h, http.MethodPost, "/api/v1/config/validate", `{"filtering":{"block_mode":"ZERO"}}`)
+	if err := json.Unmarshal(response.Body.Bytes(), &check); err != nil || !check.Data.Valid {
+		t.Fatalf("dry run valid: %s", response.Body.String())
+	}
+	if applied != 1 {
+		t.Fatalf("dry runs must not apply anything: %d", applied)
+	}
+	persisted, _ := os.ReadFile(path)
+	if bytes.Contains(persisted, []byte("ZERO")) || bytes.Contains(persisted, []byte("5300")) {
+		t.Fatalf("dry run reached disk: %s", persisted)
+	}
+}
+
+func TestConcurrentConfigChangesAreSerialized(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	old := config.Default()
+	c := cache.New(10)
+	var active, maxActive atomic.Int32
+	h := New(Dependencies{
+		Database: fakeDB{}, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: old, ConfigPath: path, Started: time.Now(),
+		ApplyConfig: func(config.Config) error {
+			now := active.Add(1)
+			for {
+				seen := maxActive.Load()
+				if now <= seen || maxActive.CompareAndSwap(seen, now) {
+					break
+				}
+			}
+			time.Sleep(5 * time.Millisecond)
+			active.Add(-1)
+			return nil
+		},
+	})
+	levels := []string{"debug", "warn", "error", "info"}
+	var wg sync.WaitGroup
+	for i := 0; i < 12; i++ {
+		level := levels[i%len(levels)]
+		wg.Go(func() {
+			if response := configRequest(h, http.MethodPut, "/api/v1/config", `{"log_level":"`+level+`"}`); response.Code != 200 {
+				t.Errorf("%s: %d %s", level, response.Code, response.Body.String())
+			}
+		})
+	}
+	wg.Wait()
+	if maxActive.Load() != 1 {
+		t.Fatalf("configuration applies overlapped: %d", maxActive.Load())
+	}
+	// Memory and disk agree on the last writer.
+	response := configRequest(h, http.MethodGet, "/api/v1/config", "")
+	saved, err := config.Load(path)
+	if err != nil || !bytes.Contains(response.Body.Bytes(), []byte(`"log_level":"`+saved.LogLevel+`"`)) {
+		t.Fatalf("memory %s vs disk %s (%v)", response.Body.String(), saved.LogLevel, err)
+	}
+}
+
+func TestConfigRollbackFailureAndReadinessRollbackAreReported(t *testing.T) {
+	c := cache.New(10)
+	old := config.Default()
+	var events []string
+	notify := func(event database.SystemEventInput) { events = append(events, event.Severity) }
+	// Apply and rollback both fail.
+	h := New(Dependencies{
+		Database: fakeDB{}, DNS: fakeDNS(true), Cache: c, Metrics: metrics.New(c), Config: old, ConfigPath: filepath.Join(t.TempDir(), "config.yaml"), Started: time.Now(), NotifyEvent: notify,
+		ApplyConfig: func(config.Config) error { return errors.New("listener refused") },
+	})
+	response := configRequest(h, http.MethodPut, "/api/v1/config", `{"filtering":{"block_mode":"ZERO"}}`)
+	if response.Code != 500 || !bytes.Contains(response.Body.Bytes(), []byte("config_rollback_failed")) || len(events) != 1 || events[0] != "critical" {
+		t.Fatalf("rollback failure: %d %s %v", response.Code, response.Body.String(), events)
+	}
+	// Services not ready after apply: the previous settings are restored.
+	events = nil
+	var applied []string
+	h = New(Dependencies{
+		Database: fakeDB{}, DNS: fakeDNS(false), Cache: c, Metrics: metrics.New(c), Config: old, ConfigPath: filepath.Join(t.TempDir(), "config.yaml"), Started: time.Now(), NotifyEvent: notify,
+		ApplyConfig: func(candidate config.Config) error {
+			applied = append(applied, candidate.Filtering.BlockMode)
+			return nil
+		},
+	})
+	response = configRequest(h, http.MethodPut, "/api/v1/config", `{"filtering":{"block_mode":"ZERO"}}`)
+	if response.Code != 503 || !bytes.Contains(response.Body.Bytes(), []byte("config_not_ready")) || len(applied) != 2 || applied[1] != old.Filtering.BlockMode || len(events) != 1 || events[0] != "warning" {
+		t.Fatalf("readiness rollback: %d %s %v %v", response.Code, response.Body.String(), applied, events)
 	}
 }

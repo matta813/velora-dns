@@ -16,19 +16,34 @@ import (
 	"github.com/matta813/velora-dns/internal/api"
 	"github.com/matta813/velora-dns/internal/backup"
 	"github.com/matta813/velora-dns/internal/cache"
+	"github.com/matta813/velora-dns/internal/clients"
+	"github.com/matta813/velora-dns/internal/cluster"
 	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/database"
 	"github.com/matta813/velora-dns/internal/dns"
 	"github.com/matta813/velora-dns/internal/filtering"
+	"github.com/matta813/velora-dns/internal/forwarding"
 	"github.com/matta813/velora-dns/internal/metrics"
 	"github.com/matta813/velora-dns/internal/node"
+	"github.com/matta813/velora-dns/internal/policies"
 	"github.com/matta813/velora-dns/internal/querylog"
 	"github.com/matta813/velora-dns/internal/replication"
+	"github.com/matta813/velora-dns/internal/rewrites"
 	"github.com/matta813/velora-dns/internal/update"
+	"github.com/matta813/velora-dns/internal/webhooks"
 	"github.com/matta813/velora-dns/internal/zones"
 )
 
 type transferClientAdapter struct{ client *dns.TransferClient }
+
+const maxCacheUpstreamTTL = 604800
+
+func cacheUpstreamTTL(seconds int) (uint32, error) {
+	if seconds < 0 || seconds > maxCacheUpstreamTTL {
+		return 0, fmt.Errorf("cache upstream TTL must be between 0 and %d seconds", maxCacheUpstreamTTL)
+	}
+	return uint32(seconds), nil
+}
 
 func (a transferClientAdapter) AXFR(ctx context.Context, zone, primaryAddr, tsigKeyName string) (*zones.TransferResult, error) {
 	result, err := a.client.AXFR(ctx, zone, dns.ParseTransferAddress(primaryAddr), tsigKeyName)
@@ -46,9 +61,20 @@ func (a transferClientAdapter) IXFR(ctx context.Context, zone, primaryAddr strin
 	return &zones.TransferResult{Records: result.Records, SOA: result.SOA, Errors: result.Errors}, err
 }
 
+// ErrRestartRequested is returned when the server stops so that its
+// supervisor (systemd, Docker) starts it again, for example to apply a restore.
+var ErrRestartRequested = errors.New("restart requested")
+
 func Run(ctx context.Context, c config.Config, configPath string, logger *slog.Logger, version api.Version) (result error) {
 	if err := c.Validate(); err != nil {
 		return err
+	}
+	if c.DatabaseDriver == "sqlite" {
+		instanceLock, err := backup.AcquireInstanceLock(c.DatabasePath)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = instanceLock.Close() }()
 	}
 	tsigStore := dns.NewTSIGStore()
 	for _, key := range c.TSIG.Keys {
@@ -85,7 +111,11 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	memory := cache.New(c.Cache.MaxEntries)
-	memory.SetUpstreamTTL(uint32(c.Cache.UpstreamTTL))
+	upstreamTTL, err := cacheUpstreamTTL(c.Cache.UpstreamTTL)
+	if err != nil {
+		return err
+	}
+	memory.SetUpstreamTTL(upstreamTTL)
 	local, err := zones.New(initCtx, db, memory.Flush)
 	if err != nil {
 		return fmt.Errorf("load local zones: %w", err)
@@ -126,6 +156,7 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 	updateClient := update.Client{SocketPath: updateSocket, Timeout: 8 * time.Second}
 
 	backupManager := backup.NewManager(db, c.DatabasePath)
+	backupManager.SetConfig(c, version.Version)
 
 	var membership *node.Membership
 	if c.Cluster.Enabled {
@@ -178,23 +209,191 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 			return fmt.Errorf("initialize DNSSEC: %w", err)
 		}
 	}
-	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer, Validator: validator}
-	resolver := dns.NewResolver(local, matcher, memory, forwarder, c.Filtering.BlockMode)
+	upstreamHealth := dns.NewUpstreamHealth(c.DNS.Upstreams)
+	hostname, _ := os.Hostname()
+	hooks, err := webhooks.NewService(initCtx, db, webhooks.Options{Instance: webhooks.Instance{Name: hostname, Version: version.Version}, Logger: logger})
+	if err != nil {
+		return fmt.Errorf("load webhooks: %w", err)
+	}
+	var hookWG sync.WaitGroup
+	hookWG.Go(func() { hooks.Run(runCtx) })
+	defer hookWG.Wait()
+	eventQueue := make(chan database.SystemEventInput, 64)
+	emitEvent := func(event database.SystemEventInput) {
+		select {
+		case <-runCtx.Done():
+		case eventQueue <- event:
+		default:
+			logger.Warn("system event queue full", "event_key", event.Key)
+		}
+	}
+	var eventWG sync.WaitGroup
+	eventWG.Go(func() {
+		publish := func(event database.SystemEventInput) {
+			writeCtx, done := context.WithTimeout(context.Background(), 2*time.Second)
+			defer done()
+			if err := db.PublishSystemEvent(writeCtx, event); err != nil {
+				logger.Warn("system event could not be saved", "event_key", event.Key, "error", err)
+			}
+			if event.Type != "" {
+				hooks.Publish(webhooks.Event{Type: event.Type, Severity: event.Severity, Title: event.Title, Message: event.Message, Link: event.Link})
+			}
+		}
+		for {
+			select {
+			case event := <-eventQueue:
+				publish(event)
+			case <-runCtx.Done():
+				deadline := time.Now().Add(2 * time.Second)
+				for {
+					if time.Now().After(deadline) {
+						return
+					}
+					select {
+					case event := <-eventQueue:
+						publish(event)
+					default:
+						return
+					}
+				}
+			}
+		}
+	})
+	defer func() { cancel(); eventWG.Wait() }()
+	upstreamHealth.SetOnTransition(func(address, _, state string) {
+		if state == "unavailable" {
+			emitEvent(database.SystemEventInput{Type: "upstream.unavailable", Key: "upstream:" + address, Severity: "warning", Title: "Upstream unavailable", Message: address + " is not responding; failover is active.", Link: "/", Visibility: "all"})
+		}
+		if state == "healthy" {
+			emitEvent(database.SystemEventInput{Type: "upstream.recovered", Key: "upstream-recovered:" + address, Severity: "info", Title: "Upstream recovered", Message: address + " is responding again.", Link: "/", Visibility: "all"})
+		}
+	})
+	matcher.SetRefreshObserver(func(source filtering.Source, previousFailures int, refreshErr error) {
+		key := fmt.Sprintf("blocklist:%d", source.ID)
+		switch {
+		case refreshErr != nil && previousFailures == 0:
+			emitEvent(database.SystemEventInput{Type: "blocklist.refresh_failed", Key: key, Severity: "warning", Title: "Blocklist refresh failed", Message: source.Name + " could not be updated; the previous list stays active.", Link: "/blocklists", Visibility: "all"})
+		case refreshErr == nil && previousFailures > 0:
+			emitEvent(database.SystemEventInput{Type: "blocklist.refresh_recovered", Key: key + ":recovered", Severity: "info", Title: "Blocklist refresh recovered", Message: source.Name + " updated successfully again.", Link: "/blocklists", Visibility: "all"})
+		}
+	})
+	wg.Go(func() { matcher.RunScheduler(runCtx, time.Minute) })
+	forwarder := &dns.Forwarder{Upstreams: c.DNS.Upstreams, Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Observer: observer, Validator: validator, Health: upstreamHealth}
+	forwardRules, err := forwarding.NewService(initCtx, db, forwarding.Options{
+		Timeout: c.DNS.Timeout, Retries: c.DNS.Retries, Listen: c.DNS.Listen,
+		OnChange: func(domain string) { memory.Invalidate(domain, 0, true) },
+	})
+	if err != nil {
+		return fmt.Errorf("load forwarding rules: %w", err)
+	}
+	rewriteRules, err := rewrites.NewService(initCtx, db, rewrites.Hints{
+		Blocked:  matcher.Blocked,
+		ZoneFor:  local.ZoneFor,
+		OnChange: func(name string) { memory.Invalidate(name, 0, true) },
+	})
+	if err != nil {
+		return fmt.Errorf("load DNS rewrites: %w", err)
+	}
+	clusterNode, err := cluster.NewService(initCtx, db, local, cluster.Options{Version: version.Version})
+	if err != nil {
+		return fmt.Errorf("load cluster state: %w", err)
+	}
+	clusterNode.SetSyncObserver(func(failed bool, message string) {
+		if failed {
+			if len(message) > 400 {
+				message = message[:400]
+			}
+			emitEvent(database.SystemEventInput{Type: "cluster.sync_failed", Key: "cluster_sync", Severity: "warning", Title: "Cluster sync failed", Message: message, Link: "/cluster", Visibility: "all"})
+			return
+		}
+		emitEvent(database.SystemEventInput{Type: "cluster.sync_recovered", Key: "cluster_sync:recovered", Severity: "info", Title: "Cluster sync recovered", Message: "This replica is receiving zone updates from the primary again.", Link: "/cluster", Visibility: "all"})
+	})
+	wg.Go(func() { clusterNode.RunReplica(runCtx) })
+	knownClients, err := clients.NewService(initCtx, db)
+	if err != nil {
+		return fmt.Errorf("load clients: %w", err)
+	}
+	clientPolicies, err := policies.NewService(initCtx, db, matcher, knownClients)
+	if err != nil {
+		return fmt.Errorf("load client policies: %w", err)
+	}
+	knownClients.SetDeleteObserver(clientPolicies.ForgetClient)
+	matcher.SetChangeObserver(clientPolicies.Recompile)
+	resolver := dns.NewResolver(&rewrites.Local{Rewrites: rewriteRules, Next: local}, clientPolicies, memory, &forwarding.Router{Rules: forwardRules, Default: forwarder}, c.Filtering.BlockMode)
 	cookieSecret := make([]byte, 32)
 	if _, err = rand.Read(cookieSecret); err != nil {
 		return fmt.Errorf("initialize DNS cookie secret: %w", err)
 	}
 	rateLimitState := dns.NewRateLimitState(c.DNS.RateLimitEnabled, c.DNS.GlobalQPS, c.DNS.ClientQPS, c.DNS.RateLimitBurst)
+	if saved, loadErr := db.LoadStatistics(initCtx); loadErr != nil {
+		logger.Warn("persisted statistics ignored", "error", loadErr)
+	} else {
+		observer.Restore(saved.Queries, saved.Blocked)
+		observer.RestoreUpstreamCounters(saved.UpstreamRequests, saved.UpstreamErrors)
+		memory.RestoreCounters(saved.CacheHits, saved.CacheMisses)
+		rateLimitState.RestoreRejections(saved.RateLimitRejections)
+	}
+	var statsMu sync.Mutex
+	saveStatistics := func(saveCtx context.Context) error {
+		statsMu.Lock()
+		defer statsMu.Unlock()
+		queryStats := observer.Snapshot()
+		upstreamRequests, upstreamErrors := observer.UpstreamCounters()
+		cacheStats := memory.Stats()
+		return db.SaveStatistics(saveCtx, database.Statistics{Queries: queryStats.Queries, Blocked: queryStats.Blocked, CacheHits: cacheStats.Hits, CacheMisses: cacheStats.Misses, RateLimitRejections: rateLimitState.Status().RejectedTotal, UpstreamRequests: upstreamRequests, UpstreamErrors: upstreamErrors})
+	}
+	resetStatistics := func(resetCtx context.Context) error {
+		statsMu.Lock()
+		defer statsMu.Unlock()
+		if err := db.SaveStatistics(resetCtx, database.Statistics{}); err != nil {
+			return err
+		}
+		observer.Reset()
+		memory.ResetCounters()
+		rateLimitState.ResetRejections()
+		return nil
+	}
+	var statsWG sync.WaitGroup
+	statsWG.Go(func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-runCtx.Done():
+				return
+			case <-ticker.C:
+				checkpointCtx, done := context.WithTimeout(runCtx, 2*time.Second)
+				if err := saveStatistics(checkpointCtx); err != nil {
+					logger.Warn("statistics checkpoint failed", "error", err)
+				}
+				done()
+			}
+		}
+	})
+	defer func() {
+		cancel()
+		statsWG.Wait()
+		checkpointCtx, done := context.WithTimeout(context.Background(), 2*time.Second)
+		defer done()
+		if err := saveStatistics(checkpointCtx); err != nil {
+			logger.Warn("final statistics checkpoint failed", "error", err)
+		}
+	}()
 	if persisted, err := db.GetRateLimitSettings(initCtx); err == nil {
 		if persisted.Enabled || persisted.GlobalQPS > 0 || persisted.ClientQPS > 0 || persisted.RateLimitBurst > 0 {
 			rateLimitState.Configure(persisted.Enabled, persisted.GlobalQPS, persisted.ClientQPS, persisted.RateLimitBurst)
 		}
 	}
 	dnsHandler := &dns.Handler{Context: runCtx, Resolver: resolver, Allowed: allowed, Slots: make(chan struct{}, c.DNS.MaxConcurrent), RateLimit: rateLimitState, Observer: observer, Audit: audit, CookieSecret: cookieSecret}
+	appliedConfig := c
 	applyConfig := func(updated config.Config) error {
-		memory.SetUpstreamTTL(uint32(updated.Cache.UpstreamTTL))
-		audit.SetEnabled(updated.QueryLog.Enabled)
-		rateLimitState.Configure(updated.DNS.RateLimitEnabled, updated.DNS.GlobalQPS, updated.DNS.ClientQPS, updated.DNS.RateLimitBurst)
+		if fields := config.RestartRequiredFields(appliedConfig, updated); len(fields) > 0 {
+			return &config.RestartRequiredError{Fields: fields}
+		}
+		upstreamTTL, err := cacheUpstreamTTL(updated.Cache.UpstreamTTL)
+		if err != nil {
+			return err
+		}
 		newAllowed := make([]netip.Prefix, 0, len(updated.DNS.AllowedClients))
 		for _, cidr := range updated.DNS.AllowedClients {
 			prefix, err := netip.ParsePrefix(cidr)
@@ -203,8 +402,13 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 			}
 			newAllowed = append(newAllowed, prefix)
 		}
+		memory.SetUpstreamTTL(upstreamTTL)
+		audit.SetEnabled(updated.QueryLog.Enabled)
+		rateLimitState.Configure(updated.DNS.RateLimitEnabled, updated.DNS.GlobalQPS, updated.DNS.ClientQPS, updated.DNS.RateLimitBurst)
 		dnsHandler.UpdateConfig(newAllowed, updated.DNS.MaxConcurrent)
 		resolver.SetBlockMode(updated.Filtering.BlockMode)
+		backupManager.SetConfig(updated, version.Version)
+		appliedConfig = updated
 		return nil
 	}
 	listener, err := dns.StartWithOptions(c.DNS.Listen, dnsHandler, dns.ServerOptions{MaxTCPConnections: c.DNS.MaxTCPConns, Observer: observer})
@@ -272,17 +476,32 @@ func Run(ctx context.Context, c config.Config, configPath string, logger *slog.L
 			result = errors.Join(result, doqServer.Shutdown(shutdown))
 		}()
 	}
+	restartRequests := make(chan struct{}, 1)
+	requestRestart := func() {
+		select {
+		case restartRequests <- struct{}{}:
+		default:
+		}
+	}
 	httpNetwork := "tcp"
 	socket, err := net.Listen(httpNetwork, c.HTTP.Listen)
 	if err != nil {
 		return fmt.Errorf("bind management HTTP: %w", err)
 	}
-	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, ApplyConfig: applyConfig}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: api.New(api.Dependencies{Database: db, Auth: db, Zones: local, Filtering: matcher, Queries: db, DNS: listener, Cache: memory, Resolver: resolver, Metrics: observer, Config: c, ConfigPath: configPath, Version: version, Started: started, TSIG: tsigStore, Settings: db, RateLimit: rateLimitState, UpstreamHealth: upstreamHealth, Update: updateClient, Backup: backupManager, Onboarding: db, DHCP: db, Cluster: db, Forwarding: forwardRules, Rewrites: rewriteRules, Clients: knownClients, Activity: db, Policies: clientPolicies, Webhooks: hooks, ClusterNode: clusterNode, Events: db, NotifyEvent: emitEvent, ApplyConfig: applyConfig, ResetStats: resetStatistics, RequestRestart: requestRestart}), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	httpErrors := make(chan error, 1)
 	go func() { httpErrors <- server.Serve(socket) }()
 	logger.Info("server started", "dns_listen", listener.Addresses(), "http_listen", socket.Addr().String(), "version", version.Version)
+	if c.DatabaseDriver == "sqlite" && listener.Ready() {
+		if err := backup.ConfirmStartup(c.DatabasePath); err != nil {
+			logger.Warn("restore state could not be confirmed", "error", err)
+		}
+	}
 	select {
 	case <-ctx.Done():
+	case <-restartRequests:
+		logger.Info("restart requested to apply a restore")
+		result = ErrRestartRequested
 	case err = <-listener.Errors():
 		result = fmt.Errorf("DNS listener: %w", err)
 	case err = <-dotErrors:

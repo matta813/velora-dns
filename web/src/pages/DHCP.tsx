@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Network, Plus, Trash2, RefreshCw, ServerCrash } from "lucide-react";
+import { Network, Plus, Trash2, RefreshCw } from "lucide-react";
 import {
   type DHCPPool,
   type DHCPLease,
@@ -14,6 +14,7 @@ import {
   deleteLease,
 } from "../api-dhcp";
 import { useI18n } from "../i18n-context";
+import { EmptyState, Loading } from "../components/EmptyState";
 
 export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
   const { t } = useI18n();
@@ -38,13 +39,13 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
     hostname: "",
   });
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (poolId: number | null = selectedPool) => {
     try {
       const [p, l] = await Promise.all([loadPools(), loadLeases()]);
       setPools(p);
       setLeases(l);
-      if (selectedPool) {
-        setReservations(await loadReservations(selectedPool));
+      if (poolId) {
+        setReservations(await loadReservations(poolId));
       }
       setError("");
     } catch (e) {
@@ -77,10 +78,26 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
     };
   }, [t]);
 
+  useEffect(() => {
+    if (!selectedPool) return;
+    let active = true;
+    loadReservations(selectedPool)
+      .then((r) => {
+        if (active) setReservations(r);
+      })
+      .catch((e) => {
+        if (active) setError(e instanceof Error ? e.message : t("dhcp.load_failed"));
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedPool, t]);
+
   async function handleCreatePool() {
     try {
       await createPool({
         ...newPool,
+        dns_servers: newPool.dns_servers.filter(Boolean),
         enabled: true,
       });
       setShowCreatePool(false);
@@ -103,7 +120,7 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
     try {
       await deletePool(id);
       if (selectedPool === id) setSelectedPool(null);
-      await refresh();
+      await refresh(selectedPool === id ? null : selectedPool);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("dhcp.delete_pool_failed"));
     }
@@ -145,40 +162,44 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
     if (diff <= 0) return t("dhcp.expired");
     const hours = Math.floor(diff / 3600000);
     const mins = Math.floor((diff % 3600000) / 60000);
-    if (hours > 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+    if (hours >= 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
     return `${hours}h ${mins}m`;
   }
 
   if (loading) {
     return (
-      <section className="panel padded">
-        <p>{t("dhcp.loading")}</p>
+      <section className="panel">
+        <Loading>{t("dhcp.loading")}</Loading>
       </section>
     );
   }
 
+  // Derived, so nothing selected (or a stale pool's rows) shows no reservations.
+  const poolReservations = reservations.filter((r) => r.pool_id === selectedPool);
+  const activeLeases = leases.filter((l) => l.status === "active");
+  const pool = pools.find((p) => p.id === selectedPool);
+
   return (
-    <>
+    <div className="stack">
       {error && (
         <div className="notice error" role="alert">
           {error}
         </div>
       )}
 
-      <section className="panel padded">
-        <div className="panel-header">
-          <h2>
-            <Network size={18} /> {t("dhcp.pools")}
-          </h2>
-          <div className="panel-actions">
-            <button className="button secondary" onClick={() => void refresh()}>
-              <RefreshCw size={15} />
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>
+              {t("dhcp.pools")}
+            </h2>
+          </div>
+          <div className="button-group">
+            <button className="icon-button" onClick={() => void refresh()} aria-label={t("app.refresh")} title={t("app.refresh")}>
+              <RefreshCw size={16} />
             </button>
             {!readOnly && (
-              <button
-                className="button"
-                onClick={() => setShowCreatePool(!showCreatePool)}
-              >
+              <button className="button primary" onClick={() => setShowCreatePool(!showCreatePool)}>
                 <Plus size={15} />
                 {t("dhcp.add_pool")}
               </button>
@@ -187,254 +208,265 @@ export function DHCP({ readOnly = false }: { readOnly?: boolean }) {
         </div>
 
         {showCreatePool && (
-          <div className="form-grid">
-            <label>
-              {t("dhcp.pool_name")}
-              <input
-                value={newPool.name}
-                onChange={(e) => setNewPool({ ...newPool, name: e.target.value })}
-                placeholder="lan"
-              />
-            </label>
-            <label>
-              {t("dhcp.interface")}
-              <input
-                value={newPool.interface}
-                onChange={(e) =>
-                  setNewPool({ ...newPool, interface: e.target.value })
-                }
-              />
-            </label>
-            <label>
-              {t("dhcp.subnet_cidr")}
-              <input
-                value={newPool.subnet}
-                onChange={(e) => setNewPool({ ...newPool, subnet: e.target.value })}
-                placeholder="192.168.1.0/24"
-              />
-            </label>
-            <label>
-              {t("dhcp.gateway")}
-              <input
-                value={newPool.gateway}
-                onChange={(e) =>
-                  setNewPool({ ...newPool, gateway: e.target.value })
-                }
-                placeholder="192.168.1.1"
-              />
-            </label>
-            <label>
-              {t("dhcp.dns_servers")}
-              <input
-                value={newPool.dns_servers.join(", ")}
-                onChange={(e) =>
-                  setNewPool({
-                    ...newPool,
-                    dns_servers: e.target.value.split(",").map((s) => s.trim()),
-                  })
-                }
-                placeholder="1.1.1.1, 8.8.8.8"
-              />
-            </label>
-            <label>
-              {t("dhcp.lease_seconds")}
-              <input
-                type="number"
-                value={newPool.lease_seconds}
-                onChange={(e) =>
-                  setNewPool({
-                    ...newPool,
-                    lease_seconds: Number(e.target.value),
-                  })
-                }
-              />
-            </label>
-            <button className="button" onClick={() => void handleCreatePool()}>
-              {t("dhcp.create")}
-            </button>
-          </div>
+          <form
+            className="zone-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleCreatePool();
+            }}
+          >
+            <div className="form-grid">
+              <label>
+                {t("dhcp.pool_name")}
+                <input value={newPool.name} onChange={(e) => setNewPool({ ...newPool, name: e.target.value })} placeholder="lan" />
+              </label>
+              <label>
+                {t("dhcp.interface")}
+                <input value={newPool.interface} onChange={(e) => setNewPool({ ...newPool, interface: e.target.value })} />
+              </label>
+              <label>
+                {t("dhcp.subnet_cidr")}
+                <input value={newPool.subnet} onChange={(e) => setNewPool({ ...newPool, subnet: e.target.value })} placeholder="192.168.1.0/24" />
+              </label>
+              <label>
+                {t("dhcp.gateway")}
+                <input value={newPool.gateway} onChange={(e) => setNewPool({ ...newPool, gateway: e.target.value })} placeholder="192.168.1.1" />
+              </label>
+              <label>
+                {t("dhcp.dns_servers")}
+                <input
+                  value={newPool.dns_servers.join(", ")}
+                  onChange={(e) => setNewPool({ ...newPool, dns_servers: e.target.value.split(",").map((s) => s.trim()) })}
+                  placeholder="1.1.1.1, 8.8.8.8"
+                />
+              </label>
+              <label>
+                {t("dhcp.lease_seconds")}
+                <input
+                  type="number"
+                  value={newPool.lease_seconds}
+                  onChange={(e) => setNewPool({ ...newPool, lease_seconds: Number(e.target.value) })}
+                />
+              </label>
+            </div>
+            <div className="form-actions">
+              <button className="button primary" type="submit">
+                {t("dhcp.create")}
+              </button>
+              <button className="button" type="button" onClick={() => setShowCreatePool(false)}>
+                {t("zones.cancel")}
+              </button>
+            </div>
+          </form>
         )}
 
         {pools.length === 0 ? (
-          <p className="muted">{t("dhcp.no_pools")}</p>
+          <EmptyState compact icon={<Network size={22} />} title={t("dhcp.no_pools")} />
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t("dhcp.name")}</th>
-                <th>{t("dhcp.subnet")}</th>
-                <th>{t("dhcp.gateway")}</th>
-                <th>{t("dhcp.leases_label")}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {pools.map((pool) => {
-                const poolLeases = leases.filter((l) => l.pool_id === pool.id && l.status === "active");
-                return (
-                  <tr
-                    key={pool.id}
-                    className={selectedPool === pool.id ? "selected" : ""}
-                    onClick={() => setSelectedPool(pool.id)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <td>
-                      <strong>{pool.name}</strong>
-                      <small>{pool.interface}</small>
-                    </td>
-                    <td>{pool.subnet}</td>
-                    <td>{pool.gateway}</td>
-                    <td>{poolLeases.length}</td>
-                    <td>
-                      {!readOnly && (
-                        <button
-                          className="button small danger"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleDeletePool(pool.id);
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t("dhcp.name")}</th>
+                  <th>{t("dhcp.subnet")}</th>
+                  <th>{t("dhcp.gateway")}</th>
+                  <th className="num">{t("dhcp.leases_label")}</th>
+                  <th>
+                    <span className="sr-only">{t("zones.col_actions")}</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {pools.map((pool) => {
+                  const poolLeases = activeLeases.filter((l) => l.pool_id === pool.id);
+                  return (
+                    <tr
+                      key={pool.id}
+                      className={`clickable${selectedPool === pool.id ? " selected" : ""}`}
+                      onClick={() => setSelectedPool(pool.id)}
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                          e.preventDefault();
+                          setSelectedPool(pool.id);
+                        }
+                      }}
+                    >
+                      <td>
+                        <strong>{pool.name}</strong>
+                        <small>{pool.interface}</small>
+                      </td>
+                      <td><code>{pool.subnet}</code></td>
+                      <td><code>{pool.gateway}</code></td>
+                      <td className="num mono">{poolLeases.length}</td>
+                      <td>
+                        <div className="table-actions">
+                          {!readOnly && (
+                            <button
+                              className="icon-button danger-icon"
+                              aria-label={`${t("zones.delete_aria")} ${pool.name}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleDeletePool(pool.id);
+                              }}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
       {selectedPool && (
-        <section className="panel padded">
-          <h3>{t("dhcp.reservations")}</h3>
-          <div className="form-grid compact">
-            <label>
-              {t("dhcp.mac_address")}
-              <input
-                value={newReservation.mac_address}
-                onChange={(e) =>
-                  setNewReservation({
-                    ...newReservation,
-                    mac_address: e.target.value,
-                  })
-                }
-                placeholder="aa:bb:cc:dd:ee:ff"
-              />
-            </label>
-            <label>
-              {t("dhcp.ip_address")}
-              <input
-                value={newReservation.ip_address}
-                onChange={(e) =>
-                  setNewReservation({
-                    ...newReservation,
-                    ip_address: e.target.value,
-                  })
-                }
-                placeholder="192.168.1.100"
-              />
-            </label>
-            <label>
-              {t("dhcp.hostname")}
-              <input
-                value={newReservation.hostname}
-                onChange={(e) =>
-                  setNewReservation({
-                    ...newReservation,
-                    hostname: e.target.value,
-                  })
-                }
-                placeholder="printer"
-              />
-            </label>
-            {!readOnly && (
-              <button
-                className="button"
-                onClick={() => void handleCreateReservation()}
-              >
-                <Plus size={15} />
-                {t("dhcp.add")}
-              </button>
-            )}
+        <section className="panel">
+          <div className="panel-heading">
+            <div>
+              <h2>{t("dhcp.reservations")}</h2>
+              {pool && <p>{pool.name} · {pool.subnet}</p>}
+            </div>
           </div>
-          {reservations.length > 0 && (
-            <table className="table">
+          {!readOnly && (
+            <form
+              className="zone-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleCreateReservation();
+              }}
+            >
+              <div className="form-grid">
+                <label>
+                  {t("dhcp.mac_address")}
+                  <input
+                    value={newReservation.mac_address}
+                    onChange={(e) => setNewReservation({ ...newReservation, mac_address: e.target.value })}
+                    placeholder="aa:bb:cc:dd:ee:ff"
+                  />
+                </label>
+                <label>
+                  {t("dhcp.ip_address")}
+                  <input
+                    value={newReservation.ip_address}
+                    onChange={(e) => setNewReservation({ ...newReservation, ip_address: e.target.value })}
+                    placeholder="192.168.1.100"
+                  />
+                </label>
+                <label>
+                  {t("dhcp.hostname")}
+                  <input
+                    value={newReservation.hostname}
+                    onChange={(e) => setNewReservation({ ...newReservation, hostname: e.target.value })}
+                    placeholder="printer"
+                  />
+                </label>
+              </div>
+              <div className="form-actions">
+                <button className="button primary" type="submit">
+                  <Plus size={15} />
+                  {t("dhcp.add")}
+                </button>
+              </div>
+            </form>
+          )}
+          {poolReservations.length > 0 && (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>{t("dhcp.mac_address")}</th>
+                    <th>{t("dhcp.ip_address")}</th>
+                    <th>{t("dhcp.hostname")}</th>
+                    <th>
+                      <span className="sr-only">{t("zones.col_actions")}</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {poolReservations.map((r) => (
+                    <tr key={r.id}>
+                      <td><code>{r.mac_address}</code></td>
+                      <td><code>{r.ip_address}</code></td>
+                      <td>{r.hostname || <span className="cell-muted">—</span>}</td>
+                      <td>
+                        <div className="table-actions">
+                          {!readOnly && (
+                            <button
+                              className="icon-button danger-icon"
+                              aria-label={`${t("zones.delete_aria")} ${r.mac_address}`}
+                              onClick={() => void handleDeleteReservation(r.id)}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>
+              {t("dhcp.active_leases")}
+            </h2>
+          </div>
+          <span className="subtle-badge">{activeLeases.length}</span>
+        </div>
+        {activeLeases.length === 0 ? (
+          <EmptyState compact title={t("dhcp.no_leases")} />
+        ) : (
+          <div className="table-wrap">
+            <table>
               <thead>
                 <tr>
                   <th>{t("dhcp.mac_address")}</th>
                   <th>{t("dhcp.ip_address")}</th>
                   <th>{t("dhcp.hostname")}</th>
-                  <th></th>
+                  <th>{t("dhcp.expires")}</th>
+                  <th>
+                    <span className="sr-only">{t("zones.col_actions")}</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {reservations.map((r) => (
-                  <tr key={r.id}>
-                    <td><code>{r.mac_address}</code></td>
-                    <td>{r.ip_address}</td>
-                    <td>{r.hostname || "-"}</td>
+                {activeLeases.map((lease) => (
+                  <tr key={lease.id}>
+                    <td><code>{lease.mac_address}</code></td>
+                    <td><code>{lease.ip_address}</code></td>
+                    <td>{lease.hostname || <span className="cell-muted">—</span>}</td>
+                    <td className="cell-muted">{formatExpiry(lease.expires_at)}</td>
                     <td>
-                      {!readOnly && (
-                        <button
-                          className="button small danger"
-                          onClick={() => void handleDeleteReservation(r.id)}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
+                      <div className="table-actions">
+                        {!readOnly && (
+                          <button
+                            className="icon-button danger-icon"
+                            aria-label={`${t("zones.delete_aria")} ${lease.ip_address}`}
+                            onClick={() => void handleDeleteLease(lease.id)}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          )}
-        </section>
-      )}
-
-      <section className="panel padded">
-        <h3>
-          <ServerCrash size={18} /> {t("dhcp.active_leases")}
-        </h3>
-        {leases.filter((l) => l.status === "active").length === 0 ? (
-          <p className="muted">{t("dhcp.no_leases")}</p>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t("dhcp.mac_address")}</th>
-                <th>{t("dhcp.ip_address")}</th>
-                <th>{t("dhcp.hostname")}</th>
-                <th>{t("dhcp.expires")}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {leases
-                .filter((l) => l.status === "active")
-                .map((lease) => (
-                  <tr key={lease.id}>
-                    <td><code>{lease.mac_address}</code></td>
-                    <td>{lease.ip_address}</td>
-                    <td>{lease.hostname || "-"}</td>
-                    <td>{formatExpiry(lease.expires_at)}</td>
-                    <td>
-                      {!readOnly && (
-                        <button
-                          className="button small danger"
-                          onClick={() => void handleDeleteLease(lease.id)}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+          </div>
         )}
       </section>
-    </>
+    </div>
   );
 }

@@ -9,15 +9,29 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/matta813/velora-dns/internal/api"
+	"github.com/matta813/velora-dns/internal/config"
 	"github.com/matta813/velora-dns/internal/database"
 )
 
 type Manager struct {
-	db           *database.Store
-	databasePath string
+	db             *database.Store
+	databasePath   string
+	mu             sync.RWMutex
+	config         config.Config
+	version        string
+	lastBackupTime time.Time
+	lastBackupSize int64
+}
+
+func (m *Manager) SetConfig(c config.Config, version string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.config = c.Clone()
+	m.version = version
 }
 
 func NewManager(db *database.Store, databasePath string) *Manager {
@@ -25,30 +39,17 @@ func NewManager(db *database.Store, databasePath string) *Manager {
 }
 
 func (m *Manager) BackupStatus() (*api.BackupStatus, error) {
-	dbFile := m.databasePath
-
-	stat, err := os.Stat(dbFile)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return &api.BackupStatus{
-				DatabasePath:      dbFile,
-				VerificationState: "unknown",
-			}, nil
-		}
-		return nil, fmt.Errorf("stat database: %w", err)
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	status := &api.BackupStatus{DatabasePath: m.databasePath, VerificationState: "unknown", Supported: m.db != nil && m.db.Driver() == "sqlite"}
+	if !m.lastBackupTime.IsZero() {
+		last := m.lastBackupTime
+		status.LastBackupTime = &last
+		status.LastBackupSize = m.lastBackupSize
+		status.BackupAge = time.Since(m.lastBackupTime).Round(time.Second).String()
+		status.VerificationState = "unverified"
 	}
-
-	lastBackupTime := stat.ModTime()
-	lastBackupSize := stat.Size()
-	backupAge := time.Since(lastBackupTime).Round(time.Second).String()
-
-	return &api.BackupStatus{
-		LastBackupTime:    lastBackupTime,
-		LastBackupSize:    lastBackupSize,
-		BackupAge:         backupAge,
-		VerificationState: "unverified",
-		DatabasePath:      dbFile,
-	}, nil
+	return status, nil
 }
 
 func (m *Manager) resolveBackupPath(inputPath string) (string, error) {
@@ -56,18 +57,20 @@ func (m *Manager) resolveBackupPath(inputPath string) (string, error) {
 	if trimmed == "" {
 		return "", errors.New("backup path is required")
 	}
+	if filepath.IsAbs(trimmed) || strings.Contains(trimmed, "/") || strings.Contains(trimmed, "\\") || strings.Contains(trimmed, "..") {
+		return "", errors.New("backup path must be a file name without directory components")
+	}
 
 	baseDir, err := filepath.Abs(filepath.Dir(m.databasePath))
 	if err != nil {
 		return "", fmt.Errorf("resolve backup base directory: %w", err)
 	}
 
-	name := filepath.Base(filepath.Clean(trimmed))
-	if name == "." || name == ".." || name == string(filepath.Separator) {
+	if trimmed == "." || trimmed == string(filepath.Separator) {
 		return "", errors.New("invalid backup path")
 	}
 
-	return filepath.Join(baseDir, name), nil
+	return filepath.Join(baseDir, trimmed), nil
 }
 
 func (m *Manager) VerifyBackup(path string) (*api.BackupVerification, error) {
@@ -79,10 +82,17 @@ func (m *Manager) VerifyBackup(path string) (*api.BackupVerification, error) {
 		}, nil
 	}
 
-	if _, err := os.Stat(validatedPath); err != nil {
+	stat, err := os.Lstat(validatedPath)
+	if err != nil {
 		return &api.BackupVerification{
 			Valid: false,
 			Error: fmt.Sprintf("backup file not found: %v", err),
+		}, nil
+	}
+	if stat.Mode()&os.ModeSymlink != 0 || !stat.Mode().IsRegular() {
+		return &api.BackupVerification{
+			Valid: false,
+			Error: "backup path must refer to a regular file",
 		}, nil
 	}
 

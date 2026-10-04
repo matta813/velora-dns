@@ -80,6 +80,12 @@ func key(r Rule) string {
 	}
 	return "=" + r.Domain
 }
+
+// NormalizeDomain lowercases and validates a hostname (LDH labels plus
+// underscore), returning it without a trailing dot. A leading "*." is
+// stripped, so callers that reject wildcards must check for it first.
+func NormalizeDomain(v string) (string, error) { return name(v) }
+
 func name(v string) (string, error) {
 	v = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(v)), ".")
 	v = strings.TrimPrefix(v, "*.")

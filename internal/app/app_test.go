@@ -16,3 +16,14 @@ func TestRunRejectsInvalidConfigurationBeforeStartingResources(t *testing.T) {
 		t.Fatal("invalid configuration was accepted")
 	}
 }
+
+func TestCacheUpstreamTTLBounds(t *testing.T) {
+	for _, seconds := range []int{-1, 604801} {
+		if _, err := cacheUpstreamTTL(seconds); err == nil {
+			t.Fatalf("accepted invalid cache upstream TTL %d", seconds)
+		}
+	}
+	if got, err := cacheUpstreamTTL(604800); err != nil || got != 604800 {
+		t.Fatalf("cache upstream TTL = %d, %v", got, err)
+	}
+}

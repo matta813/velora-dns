@@ -65,6 +65,7 @@ func NewMembership(store NodeStore, localNode Node, logger Logger) *Membership {
 
 // Start begins membership management.
 func (m *Membership) Start(ctx context.Context) {
+	m.localNode.LastSeenAt = time.Now()
 	if err := m.store.SaveNode(ctx, m.localNode); err != nil {
 		m.logger.Error("failed to register local node", "error", err)
 		return

@@ -9,10 +9,15 @@ and progress; substantial new work should get its own issue before implementatio
 
 ## Now — tracked priorities
 
-### Web UI and internationalisation
+There are no open issues in the
+[tracker](https://github.com/matta813/velora-dns/issues) as of 2026-10-04, so
+nothing is tracked as near-term work. The items under **Next** are the candidates;
+each needs an issue before implementation starts.
 
-- Split translations into per-language files, retain a fallback, and test key
-  completeness. See [#154](https://github.com/matta813/velora-dns/issues/154).
+Recently completed: the per-language web UI translations
+([#154](https://github.com/matta813/velora-dns/issues/154)). Each of the ten
+languages has its own file under `web/src/i18n/`, missing keys fall back to
+English, and `web/src/i18n.test.ts` checks key completeness and empty values.
 
 ## Next — likely follow-on work
 
@@ -20,11 +25,6 @@ and progress; substantial new work should get its own issue before implementatio
 
 - Improve upstream health visibility and failover diagnostics; test behavior under
   slow, malformed, and unreachable upstreams.
-- Add clearer cache inspection and controls, including visibility into effective
-  TTLs and safe invalidation; review conditional forwarding and local rewrites as
-  separate proposals.
-- Improve per-client filtering policy and blocklist update diagnostics without
-  exposing query data unnecessarily.
 
 ### Observability and security
 
@@ -35,17 +35,16 @@ and progress; substantial new work should get its own issue before implementatio
 
 ### Usability and developer experience
 
-- Improve mobile layout, keyboard accessibility, onboarding, and form validation
-  across the management UI.
-- Strengthen API documentation, local test fixtures, and CI coverage for deployment
-  and upgrade paths.
+- Improve first-run onboarding and keep the browser and accessibility suites in
+  step with new pages.
+- Strengthen API documentation and CI coverage for deployment and upgrade paths.
 
 ## Later — planned direction
 
 ### Deployment and resilience
 
-- Improve backup/restore tooling and rehearse upgrade compatibility for SQLite and
-  PostgreSQL deployments before expanding production guidance.
+- Rehearse upgrade compatibility for SQLite and PostgreSQL deployments, and
+  document a PostgreSQL backup path alongside the online SQLite restore.
 - Continue systemd and Compose installer hardening, architecture support, and
   release artifact verification.
 
@@ -60,18 +59,19 @@ and progress; substantial new work should get its own issue before implementatio
 
 ### High availability
 
-- Evaluate multi-node membership, configuration and zone replication, central
-  management, and PostgreSQL cluster behavior. Foundation packages exist, but
-  these capabilities are **not connected to the production runtime**; single-node
-  deployment remains the supported model. See the
-  [production assessment](production-assessment.md).
+- A single-writer primary/replica cluster keeps local zones in sync
+  ([cluster setup](cluster.md)). Replicating settings, filtering and clients, and
+  PostgreSQL cluster behavior, are not covered yet.
 - Define failure, consistency, and recovery semantics before considering any
   quorum-based write or automatic failover design.
 
 ### Network services and extensibility
 
-- Assess whether DHCP, webhooks, and additional language packs belong in the core
-  product or should remain separate integrations.
+- DHCP: pool, reservation and lease management exists (API and web page), but the
+  application does not start a DHCP listener, so no DHCP is served and DNS
+  publishing is unused. Wiring a listener in, with the safety requirements of
+  [ADR 0005](architecture/0005-dhcp-service-boundaries.md) and a separate
+  deployment profile, is not committed. See [DHCP](dhcp.md).
 
 ## Completed work
 

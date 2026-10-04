@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
+  <img src="docs/assets/logo.svg" alt="Velora DNS" width="300" height="64">
+</picture>
+
 # Velora DNS
 
 **Your DNS. Under your control.** Velora DNS is a self-hosted, forwarding DNS server
@@ -15,7 +20,7 @@ configured upstream resolvers; it is not an iterative resolver.
 > Review the [production assessment](docs/production-assessment.md) before relying
 > on it for critical DNS service.
 
-![Velora DNS dashboard](docs/assets/overview.png)
+![Velora DNS dashboard showing resolver health, query statistics, and retained-query summaries](docs/assets/overview.png)
 
 ## What it does
 
@@ -27,10 +32,15 @@ configured upstream resolvers; it is not an iterative resolver.
   Prometheus metrics without domain or client labels.
 - Offers an authenticated management API and responsive UI with admin, operator,
   and viewer roles, scoped API tokens, and SQLite or PostgreSQL management storage.
+- Stores DHCP pools, reservations and leases with an API and web page. **No DHCP
+  server runs yet**: the listener is not started by the application, so it does
+  not answer DHCP requests. See [DHCP](docs/dhcp.md).
 
 See the [architecture](docs/architecture/0001-foundation.md),
 [DNS behavior](docs/architecture/0002-dns-semantics.md), and
-[API reference](docs/api.md) for details and limits.
+[API reference](docs/api.md) for details and limits. The machine-readable
+[OpenAPI 3.1 contract](docs/openapi.json) covers the management endpoints.
+See [encrypted backup and offline restore](docs/backup.md) for recovery steps.
 
 ## Translations
 

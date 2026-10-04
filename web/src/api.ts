@@ -4,6 +4,8 @@ export interface Status {
   dns_listen: string[];
   version: { version: string; commit: string; built: string };
   capabilities: string[];
+  /** Cluster role; replicas cannot edit zones. */
+  cluster_role?: "standalone" | "primary" | "replica";
 }
 export interface Stats {
   queries_total: number;
@@ -23,6 +25,20 @@ export interface CacheEntry {
   rcode: string;
   answers: string[];
   remaining_ttl: number;
+}
+export interface SystemEvent {
+  id: number;
+  severity: "info" | "warning" | "critical";
+  title: string;
+  message: string;
+  link: string;
+  occurred_at: string;
+  repeat_count: number;
+  read: boolean;
+}
+export interface SystemEventPage {
+  events: SystemEvent[];
+  unread_count: number;
 }
 export interface CacheEntryPage {
   entries: CacheEntry[];
@@ -65,10 +81,12 @@ export interface QueryLogEntry {
   rcode: string;
   duration: number;
   source: string;
+  client_name?: string;
 }
 export interface QueryRanking {
   value: string;
   count: number;
+  name?: string;
 }
 export interface QuerySummary {
   window_start: string;
@@ -87,11 +105,22 @@ export interface BlocklistSource {
   last_error: string;
   domains?: string[];
   domain_count?: number;
+  update_interval?: number;
+  last_attempt_at?: string;
+  consecutive_failures?: number;
+  next_update_at?: string | null;
+}
+export interface FieldError {
+  field: string;
+  message: string;
 }
 export class APIError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** Field-level problems, e.g. for invalid configuration. */
+    public fields: FieldError[] = [],
+    public code = "",
   ) {
     super(message);
     this.name = "APIError";
@@ -114,6 +143,14 @@ export interface RateLimitSettings {
   client_qps: number;
   rate_limit_burst: number;
 }
+export interface RateLimitStatus {
+  enabled: boolean;
+  rejected_total: number;
+  last_rejected_at?: string;
+}
+export async function loadRateLimitStatus(signal?: AbortSignal): Promise<RateLimitStatus> {
+  return request<RateLimitStatus>("/api/v1/settings/rate-limit/status", signal);
+}
 export async function loadRateLimitSettings(signal?: AbortSignal): Promise<RateLimitSettings> {
   return request<RateLimitSettings>("/api/v1/settings/rate-limit", signal);
 }
@@ -132,6 +169,70 @@ export async function savePreferences(preferences: Preferences): Promise<Prefere
 }
 let csrfToken = "";
 export function setCSRFToken(token: string) { csrfToken = token; }
+export async function downloadEncryptedBackup(passphrase: string): Promise<Blob> {
+  const response = await fetch("/api/v1/backup/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+    body: JSON.stringify({ passphrase }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: { message?: string } };
+    throw new APIError(response.status, body.error?.message ?? `Backup failed (${response.status})`);
+  }
+  return response.blob();
+}
+export interface BackupMetadata {
+  format_version: number;
+  velora_version: string;
+  created_at: string;
+  schema_version: number;
+  components: string[];
+}
+export interface BackupInspection {
+  token: string;
+  expires_at: string;
+  metadata: BackupMetadata;
+  summary: {
+    zones: number;
+    records: number;
+    blocklists: number;
+    clients: number;
+    rewrites: number;
+    forward_rules: number;
+    users: number;
+    dns_listen: string[];
+    upstreams: string[];
+    http_listen: string;
+    current_version: string;
+    current_schema: number;
+    warnings: string[];
+  };
+}
+export interface RestoreState {
+  state: "pending" | "applied" | "completed" | "rolled_back" | "failed";
+  metadata: BackupMetadata;
+  safety_copy?: string;
+  error?: string;
+  updated_at: string;
+}
+/** Uploads an encrypted bundle for validation; nothing is restored yet. */
+export async function inspectBackup(file: Blob, passphrase: string): Promise<BackupInspection> {
+  const form = new FormData();
+  form.append("passphrase", passphrase); // must precede the file
+  form.append("bundle", file, "backup.vdns");
+  const response = await fetch("/api/v1/backup/inspect", { method: "POST", headers: { "X-CSRF-Token": csrfToken }, body: form });
+  const body = await response.json().catch(() => ({})) as { data?: BackupInspection; error?: { message?: string } };
+  if (!response.ok || !body.data) {
+    throw new APIError(response.status, body.error?.message ?? `Backup inspection failed (${response.status})`);
+  }
+  return body.data;
+}
+export async function scheduleRestore(token: string): Promise<{ state: string; metadata: BackupMetadata }> {
+  return request("/api/v1/backup/restore", undefined, "POST", { body: { token, confirm: true } });
+}
+export async function loadRestoreState(signal?: AbortSignal): Promise<RestoreState | null> {
+  return request<RestoreState | null>("/api/v1/backup/restore", signal);
+}
 export async function authenticate(username: string, password: string): Promise<AuthUser> {
   const user = await request<AuthUser>("/api/v1/auth/login", undefined, "POST", { body: { username, password } });
   setCSRFToken(user.csrf_token);
@@ -168,13 +269,17 @@ export async function request<T>(
   });
   if (!response.ok) {
     let message = `Management API returned HTTP ${response.status}`;
+    let fields: FieldError[] = [];
+    let code = "";
     try {
-      const body: { error?: { message?: string } } = await response.json();
+      const body: { error?: { message?: string; code?: string; fields?: FieldError[] } } = await response.json();
       if (typeof body.error?.message === "string") message = body.error.message;
+      if (Array.isArray(body.error?.fields)) fields = body.error.fields;
+      if (typeof body.error?.code === "string") code = body.error.code;
     } catch {
       /* Proxies may return non-JSON error pages. */
     }
-    throw new APIError(response.status, message);
+    throw new APIError(response.status, message, fields, code);
   }
   const body: { data: T } = await response.json();
   return body.data;
@@ -246,6 +351,14 @@ export async function requestUpdate(signal?: AbortSignal): Promise<{ status: str
   });
 }
 
+export interface ConfigCheck {
+  valid: boolean;
+  errors: FieldError[];
+  restart_required: string[];
+}
+export async function validateConfig(config: Config): Promise<ConfigCheck> {
+  return request<ConfigCheck>("/api/v1/config/validate", undefined, "POST", { body: config });
+}
 export async function saveConfig(config: Config, signal?: AbortSignal): Promise<{ status: string; message: string }> {
   return request<{ status: string; message: string }>("/api/v1/config", signal, "PUT", { body: config });
 }

@@ -24,6 +24,7 @@ type Forwarder struct {
 	Timeout   time.Duration
 	Retries   int
 	Observer  UpstreamObserver
+	Health    *UpstreamHealth
 	TLSConfig *tls.Config
 	Validator *DNSSECValidator
 	dohOnce   sync.Once
@@ -37,6 +38,13 @@ func (f *Forwarder) Resolve(ctx context.Context, q *wire.Msg) (*wire.Msg, string
 			if err := ctx.Err(); err != nil {
 				return nil, "", err
 			}
+			if f.Health != nil && !f.Health.Begin(upstream, time.Now()) {
+				if last == nil {
+					last = fmt.Errorf("unhealthy upstreams are cooling down")
+				}
+				continue
+			}
+			started := time.Now()
 			attempt, cancel := context.WithTimeout(ctx, f.Timeout)
 			request := q.Copy()
 			request.Id = wire.Id()
@@ -60,6 +68,9 @@ func (f *Forwarder) Resolve(ctx context.Context, q *wire.Msg) (*wire.Msg, string
 					host, _, splitErr := net.SplitHostPort(address)
 					if splitErr != nil {
 						cancel()
+						if f.Health != nil {
+							f.Health.Finish(upstream, time.Now(), time.Since(started), splitErr)
+						}
 						return nil, "", splitErr
 					}
 					client.Net = "tcp-tls"
@@ -103,6 +114,9 @@ func (f *Forwarder) Resolve(ctx context.Context, q *wire.Msg) (*wire.Msg, string
 			}
 			if f.Observer != nil {
 				f.Observer.Upstream(upstream, err != nil)
+			}
+			if f.Health != nil {
+				f.Health.Finish(upstream, time.Now(), time.Since(started), err)
 			}
 			if err != nil {
 				last = err

@@ -35,7 +35,8 @@ type Metrics struct {
 	mu               sync.Mutex
 	total            uint64
 	blocked          uint64
-	blockedCounter   prometheus.Counter
+	upstreamRequests map[string]uint64
+	upstreamErrors   map[string]uint64
 	buckets          [60]uint64
 	seconds          [60]int64
 	cache            *cache.Cache
@@ -43,29 +44,27 @@ type Metrics struct {
 
 func New(c *cache.Cache) *Metrics {
 	r := prometheus.NewRegistry()
-	m := &Metrics{registry: r, cache: c}
+	m := &Metrics{registry: r, cache: c, upstreamRequests: make(map[string]uint64), upstreamErrors: make(map[string]uint64)}
 	m.queries = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "dns_queries_total", Help: "DNS requests by bounded type, source and response code."}, []string{"type", "source", "rcode"})
 	m.duration = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "dns_query_duration_seconds", Help: "DNS request duration.", Buckets: prometheus.DefBuckets})
 	m.requests = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "dns_upstream_requests_total", Help: "Upstream attempts including failures."}, []string{"upstream"})
 	m.errors = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "dns_upstream_errors_total", Help: "Failed upstream attempts."}, []string{"upstream"})
 	m.overload = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "dns_overload_rejections_total", Help: "DNS requests or TCP connections rejected due to bounded resources."}, []string{"reason"})
-	m.blockedCounter = prometheus.NewCounter(prometheus.CounterOpts{Name: "dns_queries_blocked_total", Help: "Queries blocked by DNS policy."})
-	r.MustRegister(m.queries, m.duration, m.requests, m.errors, m.overload, prometheus.NewGaugeFunc(prometheus.GaugeOpts{Name: "dns_cache_entries", Help: "Live cache entries."}, func() float64 { return float64(c.Stats().Entries) }), prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_cache_hits_total", Help: "Cache hits."}, func() float64 { return float64(c.Stats().Hits) }), prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_cache_misses_total", Help: "Cache misses."}, func() float64 { return float64(c.Stats().Misses) }), m.blockedCounter)
+	r.MustRegister(m.queries, m.duration, m.requests, m.errors, m.overload, prometheus.NewGaugeFunc(prometheus.GaugeOpts{Name: "dns_cache_entries", Help: "Live cache entries."}, func() float64 { return float64(c.Stats().Entries) }), prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_cache_hits_total", Help: "Cache hits."}, func() float64 { return float64(c.Stats().Hits) }), prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_cache_misses_total", Help: "Cache misses."}, func() float64 { return float64(c.Stats().Misses) }), prometheus.NewCounterFunc(prometheus.CounterOpts{Name: "dns_queries_blocked_total", Help: "Queries blocked by DNS policy."}, func() float64 { m.mu.Lock(); defer m.mu.Unlock(); return float64(m.blocked) }))
 	return m
 }
 func (m *Metrics) Query(kind, source string, rcode int, elapsed time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	code, ok := wire.RcodeToString[rcode]
 	if !ok {
 		code = "other"
 	}
 	m.queries.WithLabelValues(kind, source, code).Inc()
 	m.duration.Observe(elapsed.Seconds())
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.total++
 	if source == "blocked" {
 		m.blocked++
-		m.blockedCounter.Inc()
 	}
 	now := time.Now().Unix()
 	i := now % 60
@@ -76,13 +75,67 @@ func (m *Metrics) Query(kind, source string, rcode int, elapsed time.Duration) {
 	m.buckets[i]++
 }
 func (m *Metrics) Upstream(server string, failed bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.requests.WithLabelValues(server).Inc()
+	m.upstreamRequests[server]++
 	m.errors.WithLabelValues(server).Add(0)
 	if failed {
 		m.errors.WithLabelValues(server).Inc()
+		m.upstreamErrors[server]++
 	}
 }
-func (m *Metrics) Overload(reason string) { m.overload.WithLabelValues(reason).Inc() }
+func (m *Metrics) Overload(reason string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.overload.WithLabelValues(reason).Inc()
+}
+
+func (m *Metrics) Restore(queries, blocked uint64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.total, m.blocked = queries, blocked
+}
+
+func (m *Metrics) UpstreamCounters() (map[string]uint64, map[string]uint64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	requests, errors := make(map[string]uint64, len(m.upstreamRequests)), make(map[string]uint64, len(m.upstreamErrors))
+	for server, count := range m.upstreamRequests {
+		requests[server] = count
+	}
+	for server, count := range m.upstreamErrors {
+		errors[server] = count
+	}
+	return requests, errors
+}
+
+func (m *Metrics) RestoreUpstreamCounters(requests, errors map[string]uint64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for server, count := range requests {
+		m.upstreamRequests[server] = count
+		m.requests.WithLabelValues(server).Add(float64(count))
+	}
+	for server, count := range errors {
+		m.upstreamErrors[server] = count
+		m.errors.WithLabelValues(server).Add(float64(count))
+	}
+}
+
+func (m *Metrics) Reset() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.total, m.blocked = 0, 0
+	clear(m.upstreamRequests)
+	clear(m.upstreamErrors)
+	m.buckets = [60]uint64{}
+	m.seconds = [60]int64{}
+	m.queries.Reset()
+	m.requests.Reset()
+	m.errors.Reset()
+	m.overload.Reset()
+}
 func (m *Metrics) Snapshot() Snapshot {
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -141,6 +141,15 @@ func (s *Service) Delete(ctx context.Context, id int64, revision uint32) error {
 }
 
 // Lookup answers from one consistent snapshot; local misses never leak upstream.
+// ZoneFor reports the local zone that is authoritative for name, if any.
+func (s *Service) ZoneFor(name string) (string, bool) {
+	owner := s.state.Load().find(strings.ToLower(wire.Fqdn(name)))
+	if owner == nil {
+		return "", false
+	}
+	return owner.zone.Name, true
+}
+
 func (s *Service) Lookup(q *wire.Msg) (*wire.Msg, bool) {
 	if len(q.Question) != 1 || q.Question[0].Qclass != wire.ClassINET {
 		return nil, false

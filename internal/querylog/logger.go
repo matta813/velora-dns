@@ -19,6 +19,9 @@ type Entry struct {
 	Upstream   string        `json:"upstream"`
 	Duration   time.Duration `json:"duration"`
 	CacheHit   bool          `json:"cache_hit"`
+	// ClientName is resolved from client definitions when served; it is
+	// never stored with the entry.
+	ClientName string `json:"client_name,omitempty"`
 }
 type Filter struct {
 	Domain, Client, Type, Source string
@@ -28,6 +31,15 @@ type Filter struct {
 type Ranking struct {
 	Value string `json:"value"`
 	Count uint64 `json:"count"`
+	// Name is the friendly client name for client rankings, when known.
+	Name string `json:"name,omitempty"`
+}
+
+// ClientActivity summarizes retained queries from one client address.
+type ClientActivity struct {
+	ClientIP string    `json:"client_ip"`
+	Queries  uint64    `json:"queries"`
+	LastSeen time.Time `json:"last_seen"`
 }
 type Summary struct {
 	WindowStart time.Time `json:"window_start"`
@@ -130,4 +142,38 @@ func (l *Logger) write(parent context.Context, entries []Entry) {
 		return
 	}
 	l.written.Add(uint64(len(entries)))
+}
+
+// Analytics is a bounded, bucketed view of retained query history.
+type Analytics struct {
+	Range         string            `json:"range"`
+	WindowStart   time.Time         `json:"window_start"`
+	WindowEnd     time.Time         `json:"window_end"`
+	BucketSeconds int64             `json:"bucket_seconds"`
+	HistoryStart  *time.Time        `json:"history_start"`
+	Totals        AnalyticsBucket   `json:"totals"`
+	Series        []AnalyticsBucket `json:"series"`
+	QueryTypes    []Ranking         `json:"query_types"`
+	ResponseCodes []Ranking         `json:"response_codes"`
+	Sources       []Ranking         `json:"sources"`
+	Upstreams     []UpstreamUsage   `json:"upstreams"`
+	TopBlocked    []Ranking         `json:"top_blocked"`
+}
+
+// AnalyticsBucket counts queries in one time bucket (or the whole window).
+type AnalyticsBucket struct {
+	Start   time.Time `json:"start"`
+	Total   uint64    `json:"total"`
+	Blocked uint64    `json:"blocked"`
+	Cached  uint64    `json:"cached"`
+	Failed  uint64    `json:"failed"`
+	// AverageMilliseconds covers answered queries that went upstream.
+	AverageMilliseconds float64 `json:"average_ms"`
+}
+
+type UpstreamUsage struct {
+	Address             string  `json:"address"`
+	Queries             uint64  `json:"queries"`
+	Failed              uint64  `json:"failed"`
+	AverageMilliseconds float64 `json:"average_ms"`
 }

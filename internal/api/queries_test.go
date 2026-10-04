@@ -25,7 +25,7 @@ func TestQueriesRealStorageJSONAndValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	mux := http.NewServeMux()
-	registerQueries(mux, db, func() bool { return true })
+	registerQueries(mux, db, func() bool { return true }, nil)
 	w := zoneRequest(mux, "GET", "/api/v1/queries?domain=EXAMPLE&type=A&client=127.0.0.1&source=upstream", "", "")
 	if w.Code != 200 {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
@@ -59,6 +59,13 @@ func TestQueriesRealStorageJSONAndValidation(t *testing.T) {
 			t.Fatalf("summary %s: %d", query, got.Code)
 		}
 	}
+	w = zoneRequest(mux, "GET", "/api/v1/analytics?range=1h", "", "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"bucket_seconds":60`) || !strings.Contains(w.Body.String(), `"upstreams":[{"address":"192.0.2.1:53","queries":1`) {
+		t.Fatalf("analytics: %d %s", w.Code, w.Body.String())
+	}
+	if got := zoneRequest(mux, "GET", "/api/v1/analytics?range=1y", "", ""); got.Code != 400 {
+		t.Fatalf("analytics range: %d", got.Code)
+	}
 	if got := zoneRequest(mux, "POST", "/api/v1/query-stats", "", ""); got.Code != 405 {
 		t.Fatalf("summary method: %d", got.Code)
 	}
@@ -66,8 +73,8 @@ func TestQueriesRealStorageJSONAndValidation(t *testing.T) {
 
 func TestQueriesUnavailableWhenDisabled(t *testing.T) {
 	mux := http.NewServeMux()
-	registerQueries(mux, nil, func() bool { return false })
-	for _, path := range []string{"/api/v1/queries", "/api/v1/query-stats"} {
+	registerQueries(mux, nil, func() bool { return false }, nil)
+	for _, path := range []string{"/api/v1/queries", "/api/v1/query-stats", "/api/v1/analytics"} {
 		if got := zoneRequest(mux, "GET", path, "", ""); got.Code != 503 || !strings.Contains(got.Body.String(), "query_logging_disabled") {
 			t.Fatalf("%s: %d %s", path, got.Code, got.Body.String())
 		}

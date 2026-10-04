@@ -69,3 +69,12 @@ func TestComposeCheckAndConcurrentRequest(t *testing.T) {
 		t.Fatalf("concurrent: %d %s", recorder.Code, recorder.Body.String())
 	}
 }
+
+func TestComposeHealthHandlerReportsReady(t *testing.T) {
+	agent := &Agent{manager: update.NewManager(update.DefaultConfig())}
+	recorder := httptest.NewRecorder()
+	agent.handleHealth(recorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"ready":true`) {
+		t.Fatalf("status=%d response=%s", recorder.Code, recorder.Body.String())
+	}
+}

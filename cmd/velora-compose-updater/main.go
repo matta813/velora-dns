@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -87,14 +88,14 @@ func envOrDefault(key, def string) string {
 	return def
 }
 
-func veloraGID() int {
+func veloraGID() (int, error) {
 	group, err := user.LookupGroup("velora")
 	if err != nil {
-		return -1
+		return 0, err
 	}
 	gid, err := strconv.Atoi(group.Gid)
-	if err != nil {
-		return -1
+	if err != nil || gid < 0 {
+		return 0, fmt.Errorf("invalid velora group ID %q", group.Gid)
 	}
-	return gid
+	return gid, nil
 }

@@ -47,3 +47,20 @@ func TestRateLimiterPrunesInactiveClientsAtCapacity(t *testing.T) {
 		t.Fatal("inactive client bucket was not pruned")
 	}
 }
+
+func TestRateLimitStateReportsRejectionsWithoutClientAddresses(t *testing.T) {
+	state := NewRateLimitState(true, 100, 1, 1)
+	now := time.Now()
+	client := netip.MustParseAddr("192.0.2.1")
+	if !state.Allow(client, now) || state.Allow(client, now) {
+		t.Fatal("expected one allowed query and one rejection")
+	}
+	status := state.Status()
+	if !status.Enabled || status.RejectedTotal != 1 || status.LastRejectedAt == nil || !status.LastRejectedAt.Equal(now) {
+		t.Fatalf("unexpected status: %+v", status)
+	}
+	state.Configure(false, 100, 1, 1)
+	if !state.Allow(client, now) || state.Status().RejectedTotal != 1 {
+		t.Fatal("disabled limiter must not count rejections")
+	}
+}

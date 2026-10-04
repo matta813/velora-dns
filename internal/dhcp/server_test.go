@@ -1,6 +1,8 @@
 package dhcp
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -129,7 +131,7 @@ func TestServerHandleRelease(t *testing.T) {
 	}
 	pa := NewPoolAllocator(pool, nil, nil)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	srv := &Server{pool: pool, allocator: pa, logger: logger}
+	srv := &Server{pool: pool, allocator: pa, logger: logger, store: noLeases{}}
 
 	mac := net.HardwareAddr{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
 	ip, ok := pa.AllocateForDiscover(mac.String(), netip.Addr{})
@@ -149,7 +151,7 @@ func TestServerHandleRelease(t *testing.T) {
 		},
 	}
 
-	srv.handleRelease(release)
+	srv.handleRelease(t.Context(), release)
 
 	// After release, the IP should be available again.
 	ip2, ok2 := pa.AllocateForDiscover(mac.String(), netip.Addr{})
@@ -206,4 +208,11 @@ func TestOptionUint32RoundTrip(t *testing.T) {
 			t.Errorf("OptionUint32(%d) round-trip = %d", v, got)
 		}
 	}
+}
+
+// noLeases is a Store that holds no leases, so a RELEASE finds nothing persisted.
+type noLeases struct{ Store }
+
+func (noLeases) GetLease(context.Context, int64, string) (*Lease, error) {
+	return nil, errors.New("not found")
 }

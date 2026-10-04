@@ -2,9 +2,12 @@
 
 ## Status
 
-Accepted design; not implemented in the production runtime. Experimental packages exist
-for membership, replication and cluster routing, but app startup, management APIs,
-health/readiness and deployment configuration do not use them.
+Accepted design. A single-writer primary/replica mode for authoritative zones is
+implemented (see [Clustering](../cluster.md)); the quorum-based control plane and
+automatic leader election below are not implemented yet. Experimental packages exist
+for membership, replication and cluster routing. Startup and management APIs expose
+local node records when configured, but they do not implement distributed membership,
+quorum or replication. Health and readiness do not reflect control-plane state.
 
 ## Context
 
@@ -26,6 +29,16 @@ writes, originate transfers, or claim healthy control-plane membership without a
 leader quorum. Recursive forwarding remains node-local and its cache is explicitly
 outside replicated state.
 
+### Primary/replica zone replication
+
+The implemented cluster mode follows the single-writer rule without quorum: one
+administrator-designated primary accepts zone writes; replicas pull a signed,
+content-addressed snapshot, apply it zone by zone, reject local zone writes and
+keep serving their last applied snapshot when the primary is unreachable. There
+is no election and no automatic failover, so partitions cannot produce two
+writers; promoting a replica is a manual operator action. Other configuration is
+not replicated.
+
 ### Current scaffolding
 
 The repository contains preliminary packages for:
@@ -36,9 +49,10 @@ The repository contains preliminary packages for:
 - **Central management**: in-process managed-node models.
 - **PostgreSQL cluster**: connection-pool and routing prototypes.
 
-None of these packages currently provides a network replication protocol, is constructed
-by `app.Run`, exposes management routes, or contributes to readiness. They must not be
-treated as an available feature.
+None of these packages currently provides a network replication protocol. `app.Run`
+constructs local bookkeeping for membership and replication when configured, and
+management routes expose stored nodes and config versions. They do not contribute to
+readiness or provide a usable cluster. They must not be treated as an available feature.
 
 ### Future work
 

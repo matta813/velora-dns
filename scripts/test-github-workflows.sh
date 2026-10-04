@@ -13,8 +13,15 @@ assert 'paths: [RELEASE]' in release
 assert 'ref: ${{ needs.validate.outputs.source_sha }}' in release
 assert 'provenance: mode=max' in release
 assert 'contents: read' in release
+for name in ('release.yml', 'release-beta.yml'):
+    workflow = Path('.github/workflows', name).read_text()
+    assert 'cache-mode: none' in workflow, name
+    assert 'cache: npm' not in workflow, name
+    assert 'cache: false' in workflow, name
 ci=Path('.github/workflows/ci.yml').read_text()
 assert 'push: true' not in ci
+codeql=Path('.github/workflows/codeql.yml').read_text()
+assert 'cancel-in-progress: false' in codeql
 for ecosystem in ('gomod','npm','docker','github-actions'):
     assert f'package-ecosystem: {ecosystem}' in Path('.github/dependabot.yml').read_text()
 print('Workflow invariants passed')

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Globe2, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { useZones } from "../zones/useZones";
 import { ZoneForm } from "../zones/ZoneForm";
@@ -6,11 +7,14 @@ import { RecordForm } from "../zones/RecordForm";
 import { RecordTable } from "../zones/RecordTable";
 import type { Zone, ZoneRecord } from "../zones/types";
 import { useI18n } from "../i18n-context";
+import { Loading } from "../components/EmptyState";
 import "../zones/zones.css";
 export function Zones({ readOnly = false }: { readOnly?: boolean }) {
   const { t } = useI18n();
   const state = useZones();
-  const [selectedID, setSelectedID] = useState<number | null>(null);
+  const [params] = useSearchParams();
+  // ?zone=<id> preselects a zone (links from search and the command palette).
+  const [selectedID, setSelectedID] = useState<number | null>(() => Number(params.get("zone")) || null);
   const [creating, setCreating] = useState(false);
   const [editor, setEditor] = useState<{
     zone: Zone;
@@ -122,8 +126,8 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
         </section>
       )}
       {state.zones === null && !state.error && (
-        <section className="panel padded" role="status">
-          {t("zones.loading")}
+        <section className="panel">
+          <Loading>{t("zones.loading")}</Loading>
         </section>
       )}
       {state.zones?.length === 0 && !creating && (
@@ -210,7 +214,7 @@ export function Zones({ readOnly = false }: { readOnly?: boolean }) {
                       setActionError("");
                     }}
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={17} />
                   </button>
                 </div>
               </div>

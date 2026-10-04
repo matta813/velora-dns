@@ -38,6 +38,10 @@ func NewAgent(config AgentConfig) (*Agent, error) {
 }
 
 func (a *Agent) Run(ctx context.Context) error {
+	groupID, err := veloraGID()
+	if err != nil {
+		return fmt.Errorf("resolve velora socket group: %w", err)
+	}
 	socketPath := a.config.SocketPath
 	if socketPath == "" {
 		socketPath = defaultSocketPath
@@ -53,15 +57,18 @@ func (a *Agent) Run(ctx context.Context) error {
 		listener.Close()
 		os.Remove(socketPath)
 	}()
-	if err := os.Chown(socketPath, 0, veloraGID()); err != nil {
-		a.config.Logger.Warn("failed to chown socket", "error", err)
+	if err := os.Chown(socketPath, 0, groupID); err != nil {
+		return fmt.Errorf("set socket ownership: %w", err)
 	}
-	_ = os.Chmod(socketPath, 0660)
+	if err := os.Chmod(socketPath, 0660); err != nil {
+		return fmt.Errorf("set socket permissions: %w", err)
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /update", a.handleUpdate)
 	mux.HandleFunc("GET /status", a.handleStatus)
 	mux.HandleFunc("GET /history", a.handleHistory)
 	mux.HandleFunc("GET /check", a.handleCheck)
+	mux.HandleFunc("GET /healthz", a.handleHealth)
 	server := &http.Server{
 		Handler:           mux,
 		ReadHeaderTimeout: 3 * time.Second,
@@ -80,6 +87,10 @@ func (a *Agent) Run(ctx context.Context) error {
 	case err := <-errCh:
 		return fmt.Errorf("server: %w", err)
 	}
+}
+
+func (a *Agent) handleHealth(w http.ResponseWriter, _ *http.Request) {
+	a.writeJSON(w, http.StatusOK, map[string]bool{"ready": true})
 }
 
 type updateRequest struct {

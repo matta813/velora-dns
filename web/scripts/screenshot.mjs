@@ -15,38 +15,186 @@ import { parseArgs } from "node:util";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
-
+import { demoResponse } from "./fixtures.mjs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = resolve(__dirname, "../../docs/assets");
 
 const PAGES = {
-  dashboard: {
+  "dashboard": {
     path: "/",
     file: "overview.png",
     label: "Dashboard overview",
-    width: 1280,
-    height: 800,
+    width: 1440,
+    height: 1000,
   },
-  zones: {
-    path: "/zones",
-    file: "zones.png",
-    label: "Local zone management",
-    width: 1280,
-    height: 800,
+  "dashboard-dark": {
+    path: "/",
+    file: "overview-dark.png",
+    label: "Dashboard overview (dark theme)",
+    width: 1440,
+    height: 1000,
+    theme: "dark",
   },
   "dashboard-mobile": {
     path: "/",
-    file: "mobile.png",
-    label: "Dashboard (mobile)",
+    file: "overview-mobile.png",
+    label: "Dashboard overview (mobile)",
     width: 390,
     height: 844,
   },
-  "zones-mobile": {
-    path: "/zones",
-    file: "zones-mobile.png",
-    label: "Zone management (mobile)",
+  "navigation-mobile": {
+    path: "/",
+    file: "navigation-mobile.png",
+    label: "Navigation drawer (mobile)",
     width: 390,
     height: 844,
+    openNav: true,
+  },
+  "queries": {
+    path: "/queries",
+    file: "query-log.png",
+    label: "Query log",
+    width: 1440,
+    height: 1000,
+  },
+  "events": {
+    path: "/events",
+    file: "events.png",
+    label: "Event center",
+    width: 1440,
+    height: 1000,
+  },
+  "zones": {
+    path: "/zones",
+    file: "zones.png",
+    label: "Local zone management",
+    width: 1440,
+    height: 1000,
+  },
+  "rewrites": {
+    path: "/rewrites",
+    file: "rewrites.png",
+    label: "DNS rewrites",
+    width: 1440,
+    height: 1000,
+  },
+  "forwarding": {
+    path: "/forwarding",
+    file: "forwarding.png",
+    label: "Conditional forwarding",
+    width: 1440,
+    height: 1000,
+  },
+  "blocklists": {
+    path: "/blocklists",
+    file: "blocklists.png",
+    label: "Blocklists",
+    width: 1440,
+    height: 1000,
+  },
+  "cache": {
+    path: "/cache",
+    file: "cache.png",
+    label: "DNS cache",
+    width: 1440,
+    height: 1000,
+  },
+  "clients": {
+    path: "/clients",
+    file: "clients.png",
+    label: "Clients and devices",
+    width: 1440,
+    height: 1000,
+  },
+  "policies": {
+    path: "/policies",
+    file: "policies.png",
+    label: "Client filtering policies",
+    width: 1440,
+    height: 1000,
+  },
+  "webhooks": {
+    path: "/webhooks",
+    file: "webhooks.png",
+    label: "Webhook notifications",
+    width: 1440,
+    height: 1000,
+  },
+  "analytics": {
+    path: "/analytics",
+    file: "analytics.png",
+    label: "Analytics",
+    width: 1440,
+    height: 1500,
+    fullPage: true,
+  },
+  "palette": {
+    path: "/",
+    file: "command-palette.png",
+    label: "Command palette",
+    width: 1440,
+    height: 900,
+    clickButton: "Search",
+    type: "home",
+  },
+  "dhcp": {
+    path: "/dhcp",
+    file: "dhcp.png",
+    label: "DHCP server",
+    width: 1440,
+    height: 1000,
+  },
+  "cluster": {
+    path: "/cluster",
+    file: "cluster.png",
+    label: "Cluster overview",
+    width: 1440,
+    height: 1000,
+  },
+  "settings": {
+    path: "/settings",
+    file: "settings.png",
+    label: "Settings",
+    width: 1440,
+    height: 1000,
+    fullPage: true,
+  },
+  "updates": {
+    path: "/updates",
+    file: "update-center.png",
+    label: "Update Center",
+    clickButton: "Check for updates",
+    width: 1440,
+    height: 1000,
+  },
+  "backup": {
+    path: "/backup",
+    file: "backup.png",
+    label: "Backup and restore",
+    width: 1440,
+    height: 1000,
+  },
+  "diagnostics": {
+    path: "/diagnostics",
+    file: "diagnostics.png",
+    label: "Diagnostics",
+    width: 1440,
+    height: 1000,
+  },
+  "audit": {
+    path: "/audit",
+    file: "audit-log.png",
+    label: "Audit log",
+    width: 1440,
+    height: 1000,
+  },
+  "login": {
+    path: "/",
+    file: "sign-in.png",
+    label: "Sign-in screen",
+    width: 1440,
+    height: 1000,
+    signedOut: true,
   },
 };
 
@@ -120,18 +268,54 @@ async function capturePage(browser, pageName) {
   const context = await browser.newContext({
     viewport: { width: config.width, height: config.height },
     deviceScaleFactor: 2,
+    locale: "en-US",
+    timezoneId: "UTC",
+    reducedMotion: "reduce",
   });
   const page = await context.newPage();
+
+  await page.route("**/api/v1/**", async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (config.signedOut && pathname === "/api/v1/auth/me") {
+      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: { message: "Sign in required" } }) });
+      return;
+    }
+    const data = pathname === "/api/v1/preferences"
+      ? { language: "en", theme: config.theme ?? "light" }
+      : demoResponse(pathname);
+    if (data === null) {
+      await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: { message: `No screenshot fixture for ${pathname}` } }) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data }) });
+  });
+  await page.addInitScript((theme) => {
+    localStorage.setItem("velora_language", "en");
+    localStorage.setItem("velora_theme", theme);
+  }, config.theme ?? "light");
 
   try {
     await page.goto(`${baseUrl}${config.path}`, {
       waitUntil: "networkidle",
       timeout,
     });
-    await page.waitForTimeout(2000);
+    await page.locator("main").waitFor();
+    await page.waitForTimeout(500);
+    if (config.openNav) {
+      await page.click(".menu-button");
+      await page.waitForTimeout(400);
+    }
+    if (config.clickButton) {
+      await page.getByRole("button", { name: config.clickButton, exact: true }).click();
+      await page.waitForTimeout(500);
+    }
+    if (config.type) {
+      await page.keyboard.type(config.type);
+      await page.waitForTimeout(700);
+    }
 
     const outputPath = resolve(ASSETS_DIR, config.file);
-    await page.screenshot({ path: outputPath, fullPage: false });
+    await page.screenshot({ path: outputPath, fullPage: Boolean(config.fullPage) });
     console.log(`  ${config.label} -> ${config.file}`);
     return true;
   } catch (err) {
