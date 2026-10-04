@@ -24,6 +24,7 @@ metrics require an authenticated session or scoped API token.
 | DELETE | /api/v1/tokens/{id} | Revoke a token owned by the current user |
 | GET | /api/v1/status | Listener readiness, uptime, version and implemented capabilities |
 | GET | /api/v1/diagnostics | Sanitized system health and support report |
+| POST | /api/v1/diagnostics/explain | Side-effect-free "why this answer": `{name, type?, client?}` returns the winning stage and every stage considered, with rule IDs and cache TTL ([details](#answer-explanation)); viewers and read tokens allowed |
 | POST | /api/v1/backup/create | Admin-only encrypted SQLite configuration and state bundle download |
 | POST | /api/v1/backup/inspect | Admin-only multipart upload (`passphrase` first, then `bundle`) that validates a backup without changing anything and returns metadata, a content summary, warnings and a 30-minute `token` |
 | POST | /api/v1/backup/restore | Admin-only: `{token, confirm: true}` schedules the inspected backup and restarts Velora to apply it (`202`, state `restarting`) |
@@ -250,3 +251,32 @@ count. It excludes passwords, tokens, configuration values, query logs, client
 addresses and domain names. A missing updater is shown as degraded; a failed DNS
 listener or management database is shown as failed. All authenticated roles may
 read the sanitized report.
+
+## Answer explanation
+
+`POST /api/v1/diagnostics/explain` runs a dry run of the resolver
+([ADR 0006](architecture/0006-answer-explanation.md)):
+
+```json
+{"name": "nas.home", "type": "A", "client": "192.168.1.40"}
+```
+
+`name` (required) is at most 253 characters of letters, digits, hyphens,
+underscores and dots; `type` defaults to `A` and must be `A`, `AAAA`, `CNAME`,
+`TXT`, `MX`, `NS`, `PTR` or `SOA`; `client` must be an IPv4 or IPv6 address and
+selects that client's filtering policy. Invalid input returns `400`
+(`invalid_name`, `invalid_type`, `invalid_client`, `invalid_json`), a wrong content
+type `415`.
+
+The response lists `source` (what a real query would report: `local`, `cache`,
+`blocked`, `upstream`), the `winner` step, the `rcode` and `answers` for local and
+cached results, and every `step` in resolver order: `filter`, `rewrite`, `zone`,
+`cache`, then `forwarding` or `upstream`. Steps carry rule identifiers (rewrite ID,
+zone, blocklist source, policy, forwarding rule) and, for cache hits, the
+`remaining_ttl`. A step with `depth` above 0 belongs to a CNAME target.
+
+The request never contacts an upstream: a name that would be forwarded is reported
+as `would_forward` without an answer. It writes no query log entry and changes no
+cache entry, statistic or metric, and it is not audited. Viewers and read-scoped
+tokens may call it even though it is a POST; browser sessions still send the CSRF
+header.

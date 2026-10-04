@@ -95,6 +95,11 @@ SCHEMAS = {
     "CacheEntry": obj({"name": STRING, "type": STRING, "rcode": STRING, "answers": STRINGS, "remaining_ttl": INT}),
     "CacheEntryPage": obj({"entries": arr(ref("CacheEntry")), "total": INT}),
     "OperationResult": obj({"status": STRING, "message": STRING, "deleted": INT, "revoked": INT}),
+    "RuleRef": obj({"id": {"type": "integer", "format": "int64", "description": "Rule ID when the rule has one (rewrite, forwarding rule, blocklist source, policy)"}, "name": STRING, "detail": STRING}, ("name",)),
+    "FilterInfo": obj({"scope": {"type": "string", "enum": ["global", "client_policy"]}, "client": STRING, "mode": {"type": "string", "enum": ["disabled", "custom"]}, "matches": arr(ref("RuleRef")), "allowed_by": arr(ref("RuleRef"))}, ("scope",)),
+    "ExplainStep": obj({"stage": {"type": "string", "enum": ["filter", "rewrite", "zone", "cache", "forwarding", "upstream", "refused"]}, "result": {"type": "string", "enum": ["passed", "allowed", "blocked", "no_match", "answered", "miss", "hit", "refused", "would_forward", "error"]}, "rules": arr(ref("RuleRef")), "filter": ref("FilterInfo"), "remaining_ttl": {"type": "integer", "description": "Seconds left on a cache hit"}, "depth": {"type": "integer", "description": "Greater than 0 for steps taken for a CNAME target"}, "detail": STRING}, ("stage", "result", "depth")),
+    "ExplainRequest": obj({"name": {"type": "string", "maxLength": 253, "description": "DNS name; letters, digits, hyphen, underscore and dots"}, "type": {"type": "string", "enum": ["A", "AAAA", "CNAME", "TXT", "MX", "NS", "PTR", "SOA"], "description": "Defaults to A"}, "client": {"type": "string", "description": "Optional client IPv4 or IPv6 address, used for per-client policies"}}, ("name",)),
+    "AnswerExplanation": obj({"name": STRING, "type": STRING, "client": STRING, "source": {"type": "string", "enum": ["local", "cache", "blocked", "upstream", "refused"], "description": "What a real query would report"}, "winner": ref("ExplainStep"), "rcode": STRING, "answers": {"type": "array", "items": STRING, "description": "Answer records for local and cached results; empty when the answer would come from an upstream, which is never contacted"}, "steps": arr(ref("ExplainStep"))}, ("name", "type", "source", "winner", "answers", "steps")),
     "OperationalReport": obj({"generated_at": TIME, "version": ref("Version"), "os": STRING, "architecture": STRING, "uptime_seconds": INT, "state": STRING, "components": arr(obj({"name": STRING, "state": STRING, "detail": STRING})), "upstream_count": INT, "query_log_enabled": BOOL}),
     "UpdateState": obj({"state": STRING, "installed": STRING, "from_version": STRING, "to_version": STRING, "channel": STRING, "started_at": TIME, "last_completed": TIME, "updating": BOOL, "error": STRING, "rollback_used": BOOL, "readiness_ok": BOOL}),
     "UpdateHealth": obj({"ready": BOOL}, ("ready",)),
@@ -149,7 +154,7 @@ RESPONSE_MODELS = {
     "/api/v1/backup/status": "BackupStatus", "/api/v1/backup/verify": "BackupVerification", "/api/v1/users": ["User"],
     "/api/v1/auth/login": "Session", "/api/v1/auth/me": "Session", "/api/v1/auth/logout": "LogoutResult", "/api/v1/preferences": "Preferences",
     "/api/v1/tokens": "TokenCreated", "/api/v1/tsig-keys": ["TSIGKey"], "/api/v1/onboarding/status": "OnboardingStatus",
-    "/api/v1/diagnostics": "OperationalReport", "/api/v1/dhcp/pools": ["DHCPPool"], "/api/v1/dhcp/leases": ["DHCPLease"],
+    "/api/v1/diagnostics": "OperationalReport", "/api/v1/diagnostics/explain": "AnswerExplanation", "/api/v1/dhcp/pools": ["DHCPPool"], "/api/v1/dhcp/leases": ["DHCPLease"],
     "/api/v1/dhcp/pools/{id}/reservations": ["DHCPReservation"],
     "/api/v1/dhcp/reservations/{id}": "DHCPReservation", "/api/v1/cluster/nodes": ["Node"],
     "/api/v1/cluster/config-versions": ["ConfigVersion"],
@@ -157,6 +162,7 @@ RESPONSE_MODELS = {
     "/api/v1/users/{id}/password": "OperationResult", "/api/v1/users/{id}/role": "OperationResult", "/api/v1/tokens/{id}": "OperationResult",
 }
 REQUEST_MODELS = {
+    ("POST", "/api/v1/diagnostics/explain"): ref("ExplainRequest"),
     ("POST", "/api/v1/auth/login"): obj({"username": STRING, "password": {"type": "string", "format": "password", "writeOnly": True}}, ("username", "password")),
     ("PUT", "/api/v1/config"): ref("Config"),
     ("POST", "/api/v1/config/validate"): ref("Config"),
@@ -263,8 +269,10 @@ def operation(method, path):
         op["x-required-role"] = "operator-or-admin"
     else:
         op["x-required-role"] = "viewer-or-higher"
-    if path.startswith("/api/v1/events"):
+    if path.startswith("/api/v1/events") or path == "/api/v1/diagnostics/explain":
         op["x-required-role"] = "viewer-or-higher"
+    if path == "/api/v1/diagnostics/explain":
+        op["description"] = "Side-effect-free dry run of the resolver: no upstream query, query log entry, cache change or metric. POST only because it carries a body; viewers and read-scoped tokens may call it (session requests still need the CSRF header)."
     if path.endswith("/read") and path.startswith("/api/v1/events/"):
         op["description"] = "A viewer may acknowledge an event using a session and CSRF token. Bearer tokens require write or admin scope."
     if "{" in path:
