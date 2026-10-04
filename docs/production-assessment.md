@@ -14,6 +14,7 @@ the stated drills are performed in the target environment.
 | DNS correctness | Conditional | Local integration tests cover supported record types, TCP fallback, EDNS, cookies, cache semantics, DNSSEC validation and TSIG-signed transfers. Production anchor lifecycle exercises remain an operator responsibility. |
 | Abuse resistance | Conditional | Global/client query limits, concurrent-work and TCP-connection caps are configured. Size them with the procedure below and monitor rejection metrics. |
 | Data durability | Conditional | SQLite and PostgreSQL persistence, migrations and WAL checkpointing are tested. Operators must complete a backup/restore drill before use. |
+| DHCP | Not implemented | Pools, reservations and leases can be stored and managed, but the application never starts a DHCP listener, so no DHCP is served and `dhcp.publish_dns` has no effect. The library has lease-before-ACK, fail-closed saves, relay rejection and packet-level tests, but the interface allowlist, DECLINE quarantine, subnet selection, expired-lease cleanup and clock-backward protection are not implemented ([DHCP](dhcp.md)). Keep DHCP on your router or a dedicated server. |
 | Availability | Not implemented | Multi-node membership, replication, central management and PostgreSQL primary/replica routing are not connected to the production runtime. Deploy a single node only. |
 
 ## Security review checklist
@@ -35,6 +36,13 @@ Before deployment, record the reviewer, date and result for each control:
   release publication while `RELEASE_ENABLED` remains disabled.
 - For PostgreSQL deployments, restrict network access to the database and use TLS
   connections. Validate cluster health checks and replica routing.
+- Do not rely on Velora for DHCP: no listener is started by the application. Leave
+  `dhcp.enabled` and `dhcp.publish_dns` unset, and treat the DHCP page as data
+  management only.
+- Before any future DHCP listener is accepted, require the ADR 0005 items still
+  missing: interface allowlist and subnet selection, DECLINE quarantine, expired-lease
+  cleanup, clock-backward protection and packet-level tests
+  on a real network namespace, with a separate non-default container profile.
 - Do not deploy Velora in a multi-node topology until membership, authenticated
   replication, health reporting and consistency semantics are implemented and tested.
 
