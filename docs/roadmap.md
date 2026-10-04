@@ -9,10 +9,15 @@ and progress; substantial new work should get its own issue before implementatio
 
 ## Now — tracked priorities
 
-### Web UI and internationalisation
+There are no open issues in the
+[tracker](https://github.com/matta813/velora-dns/issues) as of 2026-10-04, so
+nothing is tracked as near-term work. The items under **Next** are the candidates;
+each needs an issue before implementation starts.
 
-- Split translations into per-language files, retain a fallback, and test key
-  completeness. See [#154](https://github.com/matta813/velora-dns/issues/154).
+Recently completed: the per-language web UI translations
+([#154](https://github.com/matta813/velora-dns/issues/154)). Each of the ten
+languages has its own file under `web/src/i18n/`, missing keys fall back to
+English, and `web/src/i18n.test.ts` checks key completeness and empty values.
 
 ## Next — likely follow-on work
 
@@ -64,8 +69,6 @@ and progress; substantial new work should get its own issue before implementatio
 
 ### Network services and extensibility
 
-- Assess whether additional language packs belong in the core product or should
-  remain separate integrations.
 - DHCP: pool, reservation and lease management exists (API and web page), but the
   application does not start a DHCP listener, so no DHCP is served and DNS
   publishing is unused. Wiring a listener in, with the safety requirements of
