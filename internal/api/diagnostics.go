@@ -101,7 +101,7 @@ func registerExplain(mux *http.ServeMux, resolver *dns.Resolver) {
 		}
 		name := strings.TrimSuffix(strings.TrimSpace(in.Name), ".")
 		if _, ok := wire.IsDomainName(wire.Fqdn(name)); !ok || name == "" || len(name) > 253 || strings.IndexFunc(name, func(c rune) bool {
-			return !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_' || c == '.')
+			return (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' && c != '_' && c != '.'
 		}) >= 0 {
 			failure(w, 400, "invalid_name", "Enter a DNS name of at most 253 characters using letters, digits, hyphens and underscores (punycode for international names)")
 			return
