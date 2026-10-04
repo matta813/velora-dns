@@ -126,6 +126,29 @@ func (c *Cache) Get(q *dns.Msg) (*dns.Msg, bool) {
 	}
 	c.hits++
 	c.lru.MoveToFront(el)
+	return aged(e, q, now), true
+}
+
+// Peek is Get without side effects: no hit or miss counter, no LRU move and
+// no removal of expired entries. It also returns the seconds until expiry.
+func (c *Cache) Peek(q *dns.Msg) (*dns.Msg, uint32, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	key, ok := Key(q)
+	el := c.items[key]
+	if !ok || el == nil {
+		return nil, 0, false
+	}
+	e := el.Value.(*entry)
+	now := c.now()
+	if !now.Before(e.expires) {
+		return nil, 0, false
+	}
+	return aged(e, q, now), uint32(e.expires.Sub(now) / time.Second), true
+}
+
+// aged copies the cached message for q with TTLs reduced by the entry's age.
+func aged(e *entry, q *dns.Msg, now time.Time) *dns.Msg {
 	m := e.message.Copy()
 	m.Id = q.Id
 	m.Question = append([]dns.Question(nil), q.Question...)
@@ -137,7 +160,7 @@ func (c *Cache) Get(q *dns.Msg) (*dns.Msg, bool) {
 			}
 		}
 	}
-	return m, true
+	return m
 }
 func (c *Cache) Put(q, m *dns.Msg) {
 	key, ok := Key(q)
