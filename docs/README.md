@@ -24,6 +24,7 @@
 - [DNS behavior and cache semantics](architecture/0002-dns-semantics.md)
 - [Local zones architecture](architecture/0003-local-zones.md)
 - [DHCP service boundaries](architecture/0005-dhcp-service-boundaries.md)
+- [Answer explanation](architecture/0006-answer-explanation.md)
 - [Repository administration](administration.md)
 - [Release preparation and recovery](releases.md)
 - [Roadmap](roadmap.md)
