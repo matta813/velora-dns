@@ -3,6 +3,13 @@
 Validated locally on 2026-09-07 with Go 1.27.1 and Docker Engine 29.8.0.
 The project is a tested development foundation, not a production certification.
 
+Partly re-checked on 2026-10-04 (Go 1.27.1, Docker 29.8.1): `go test ./internal/dns ./tests`
+passed, `python3 scripts/check-markdown-links.py` passed, and the Makefile, CI
+workflows and test names were compared against this page. The results table below
+is **not** a fresh run of every check: its rows keep their 2026-09-07 evidence.
+Not re-run: gofmt, go vet, golangci-lint, race tests, fuzzing, the frontend suite
+(`node_modules` was absent), the browser suite, Compose and live DNS checks.
+
 | Area | Evidence |
 |---|---|
 | Backend | gofmt, go vet, golangci-lint v2.13.2 and race tests pass |
@@ -15,6 +22,7 @@ The project is a tested development foundation, not a production certification.
 | Local zones | Matching, SOA/NXDOMAIN/NODATA, CNAME chains/loops, nested zones, atomic snapshots, migration/reopen and optimistic revision tests |
 | Zone API | CRUD, ETag/If-Match, stale writers, record ownership, strict JSON and chunked payload limits |
 | Frontend | TypeScript, ESLint, Vitest/Testing Library and Vite production build pass |
+| Go workflows | `make test-e2e`: management/DNS, statistics restart, backup/restore, updater, rate limit and two-process cluster replication against real listeners (see [development](development.md#end-to-end-tests)) |
 | Browser | Real desktop/mobile navigation, cache flush, settings/zone route reload, zone/record CRUD, conflict handling and no horizontal mobile overflow |
 | Container | Compose build/start, healthy readiness, UID/GID 10001, read-only root, persistent private SQLite files after restart |
 | Live DNS | google.com A over UDP, AAAA over TCP, repeated A query served from cache |
@@ -25,8 +33,8 @@ Requests using ordinary `dig` cookies intentionally bypass shared cache. Use `+n
 when demonstrating cache reuse. Public upstream smoke tests require network egress;
 automated DNS tests use local upstreams only.
 
-The CI workflow repeats backend/frontend checks and builds the container without pushing
-it. CodeQL, dependency review and Go vulnerability scanning are separate required checks.
+The CI workflow repeats backend/frontend checks, runs the Playwright and accessibility suites
+against a real server, and builds the container without pushing it. CodeQL, dependency review and Go vulnerability scanning are separate required checks.
 Repository branch protection and release-disable state were checked through the GitHub API.
 
 Query history now has real SQLite round-trip, row/age retention, JSON contract,

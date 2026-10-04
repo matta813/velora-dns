@@ -1,6 +1,9 @@
 # Production assessment
 
-Assessed on 2026-09-16 against the current development baseline. This is an
+Assessed on 2026-09-16 against the current development baseline. Re-checked on
+2026-10-04 against the code, Makefile, CI workflows and docs: only the Availability
+row, the first checklist item and the multi-node checklist item were corrected; the
+other rows were not re-assessed. This is an
 operational readiness assessment, not a production approval: Velora DNS must not
 be advertised as production-ready until every blocking item below is resolved and
 the stated drills are performed in the target environment.
@@ -15,14 +18,16 @@ the stated drills are performed in the target environment.
 | Abuse resistance | Conditional | Global/client query limits, concurrent-work and TCP-connection caps are configured. Size them with the procedure below and monitor rejection metrics. |
 | Data durability | Conditional | SQLite and PostgreSQL persistence, migrations and WAL checkpointing are tested. Operators must complete a backup/restore drill before use. |
 | DHCP | Not implemented | Pools, reservations and leases can be stored and managed, but the application never starts a DHCP listener, so no DHCP is served and `dhcp.publish_dns` has no effect. The library has lease-before-ACK, fail-closed saves, relay rejection and packet-level tests, but the interface allowlist, DECLINE quarantine, subnet selection, expired-lease cleanup and clock-backward protection are not implemented ([DHCP](dhcp.md)). Keep DHCP on your router or a dedicated server. |
-| Availability | Not implemented | Multi-node membership, replication, central management and PostgreSQL primary/replica routing are not connected to the production runtime. Deploy a single node only. |
+| Availability | Not implemented | A single-writer primary/replica cluster replicates local zones only ([cluster setup](cluster.md)). There is no automatic failover, and settings, filtering, clients and PostgreSQL cluster behavior are not replicated or covered. Treat a cluster as zone redundancy, not high availability; the primary is a single point of failure for changes. |
 
 ## Security review checklist
 
 Before deployment, record the reviewer, date and result for each control:
 
-- Run `go test ./...`, `go vet ./...`, frontend tests/lint/typecheck and the Compose
-  configuration test from `docs/validation.md` on the release candidate.
+- Run `make check` (format, vet, golangci-lint, race tests, frontend lint/types/tests,
+  builds, release-automation tests and the Compose configuration check) on the
+  release candidate, plus `make test-e2e` and the browser suite described in
+  [development](development.md).
 - Ensure management HTTP binds only to loopback; permit remote access only through
   an authenticated tunnel or a separately authenticated reverse proxy.
 - Restrict `dns.allowed_clients` to actual internal CIDRs. Do not operate this
@@ -43,8 +48,9 @@ Before deployment, record the reviewer, date and result for each control:
   missing: interface allowlist and subnet selection, DECLINE quarantine, expired-lease
   cleanup, clock-backward protection and packet-level tests
   on a real network namespace, with a separate non-default container profile.
-- Do not deploy Velora in a multi-node topology until membership, authenticated
-  replication, health reporting and consistency semantics are implemented and tested.
+- Do not rely on a multi-node topology for availability: only zone replication from
+  one primary exists, with no failover or consistency guarantees beyond that
+  ([cluster setup](cluster.md)).
 
 ## DNS compliance regression suite
 
@@ -112,5 +118,6 @@ Before declaring availability readiness, exercise and document these scenarios:
 - restart during sustained DNS/HTTP traffic; confirm clean shutdown and recovery;
 - rate-limit exhaustion and TCP connection exhaustion; confirm only bounded metrics
   and error responses, with no high-cardinality labels;
-- once multi-node support exists, network partition and node loss; confirm replication
-  handles degraded state and recovers after healing before enabling that mode.
+- network partition and primary or replica loss in a cluster (a replica keeps serving
+  its last applied zones; confirm sync recovers after healing). Failover is not
+  implemented, so there is no automatic recovery to test.
