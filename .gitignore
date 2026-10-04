@@ -13,3 +13,4 @@ __pycache__/
 release-notes*.json
 release-notes.md
 *.tsbuildinfo
+/brag-output/
