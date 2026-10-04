@@ -47,6 +47,7 @@ type Dependencies struct {
 	Auth           AuthStore
 	DNS            DNS
 	Cache          *cache.Cache
+	Resolver       *dns.Resolver // read-only answer explanation; nil disables it
 	Metrics        *metrics.Metrics
 	Config         config.Config
 	ConfigPath     string
@@ -530,7 +531,10 @@ func New(d Dependencies) http.Handler {
 				return
 			}
 			markRead := strings.HasPrefix(r.URL.Path, "/api/v1/events/") && strings.HasSuffix(r.URL.Path, "/read") && r.Method == http.MethodPost
-			if unsafe && (!markRead && user.Role == "viewer" || (isToken && !hasScope(tokenScopes, "write") && !hasScope(tokenScopes, "admin"))) {
+			// The explain dry run is a POST only because it carries a body; it
+			// changes nothing, so viewers and read-scoped tokens may use it.
+			explain := r.URL.Path == "/api/v1/diagnostics/explain" && r.Method == http.MethodPost
+			if unsafe && !explain && (!markRead && user.Role == "viewer" || (isToken && !hasScope(tokenScopes, "write") && !hasScope(tokenScopes, "admin"))) {
 				failure(w, http.StatusForbidden, "insufficient_role", "Viewer role is read-only")
 				return
 			}
@@ -538,7 +542,7 @@ func New(d Dependencies) http.Handler {
 				failure(w, http.StatusForbidden, "invalid_csrf", "Valid CSRF token required")
 				return
 			}
-			if unsafe {
+			if unsafe && !explain {
 				id, err := d.Auth.BeginAudit(r.Context(), user.ID, user.Role, r.Method, r.URL.Path)
 				if err != nil {
 					failure(w, http.StatusServiceUnavailable, "audit_unavailable", "Audit event could not be recorded")

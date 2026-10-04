@@ -4,10 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/matta813/velora-dns/internal/config"
+	"github.com/matta813/velora-dns/internal/dns"
+	wire "github.com/miekg/dns"
 )
 
 type DiagnosticComponent struct {
@@ -82,7 +86,50 @@ func diagnosticReport(ctx context.Context, d Dependencies, cfg config.Config) Di
 	return report
 }
 
+type explainInput struct {
+	Name   string `json:"name"`
+	Type   string `json:"type"`
+	Client string `json:"client"`
+}
+
+// registerExplain serves the side-effect-free "why this answer" dry run.
+func registerExplain(mux *http.ServeMux, resolver *dns.Resolver) {
+	mux.HandleFunc("POST /api/v1/diagnostics/explain", func(w http.ResponseWriter, r *http.Request) {
+		var in explainInput
+		if !readJSON(w, r, &in) {
+			return
+		}
+		name := strings.TrimSuffix(strings.TrimSpace(in.Name), ".")
+		if _, ok := wire.IsDomainName(wire.Fqdn(name)); !ok || name == "" || len(name) > 253 || strings.IndexFunc(name, func(c rune) bool {
+			return !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_' || c == '.')
+		}) >= 0 {
+			failure(w, 400, "invalid_name", "Enter a DNS name of at most 253 characters using letters, digits, hyphens and underscores (punycode for international names)")
+			return
+		}
+		qtype := wire.TypeA
+		if in.Type != "" {
+			var ok bool
+			if qtype, ok = dns.ParseType(in.Type); !ok {
+				failure(w, 400, "invalid_type", "Type must be one of A, AAAA, CNAME, TXT, MX, NS, PTR, SOA")
+				return
+			}
+		}
+		var client netip.Addr
+		if in.Client != "" {
+			var err error
+			if client, err = netip.ParseAddr(strings.TrimSpace(in.Client)); err != nil || client.Zone() != "" {
+				failure(w, 400, "invalid_client", "Client must be an IPv4 or IPv6 address")
+				return
+			}
+		}
+		respond(w, http.StatusOK, resolver.Explain(r.Context(), name, qtype, client))
+	})
+}
+
 func registerDiagnostics(mux *http.ServeMux, d Dependencies, currentConfig func() config.Config) {
+	if d.Resolver != nil {
+		registerExplain(mux, d.Resolver)
+	}
 	mux.HandleFunc("GET /api/v1/diagnostics", func(w http.ResponseWriter, r *http.Request) {
 		respond(w, http.StatusOK, diagnosticReport(r.Context(), d, currentConfig()))
 	})
