@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/matta813/velora-dns/internal/dns"
 	"github.com/matta813/velora-dns/internal/filtering"
 	wire "github.com/miekg/dns"
 )
@@ -124,13 +125,19 @@ func (t *table) match(name string) []Rule {
 // Names with only address rewrites return NODATA for other record types,
 // so a partial override never leaks to upstream resolvers.
 func (s *Service) Rewrite(q *wire.Msg) (*wire.Msg, bool) {
+	m, _, ok := s.rewrite(q)
+	return m, ok
+}
+
+// rewrite is Rewrite plus the enabled rules that covered the name.
+func (s *Service) rewrite(q *wire.Msg) (*wire.Msg, []Rule, bool) {
 	if len(q.Question) != 1 || q.Question[0].Qclass != wire.ClassINET {
-		return nil, false
+		return nil, nil, false
 	}
 	question := q.Question[0]
 	rules := s.current.Load().match(strings.TrimSuffix(strings.ToLower(question.Name), "."))
 	if len(rules) == 0 {
-		return nil, false
+		return nil, nil, false
 	}
 	m := new(wire.Msg)
 	m.SetReply(q)
@@ -142,7 +149,7 @@ func (s *Service) Rewrite(q *wire.Msg) (*wire.Msg, bool) {
 		switch rule.Type {
 		case "CNAME":
 			m.Answer = []wire.RR{&wire.CNAME{Hdr: header(wire.TypeCNAME), Target: wire.Fqdn(rule.Value)}}
-			return m, true
+			return m, rules, true
 		case "A":
 			if question.Qtype == wire.TypeA {
 				m.Answer = append(m.Answer, &wire.A{Hdr: header(wire.TypeA), A: netip.MustParseAddr(rule.Value).AsSlice()})
@@ -153,7 +160,7 @@ func (s *Service) Rewrite(q *wire.Msg) (*wire.Msg, bool) {
 			}
 		}
 	}
-	return m, true
+	return m, rules, true
 }
 
 func (s *Service) List(context.Context) ([]RuleStatus, error) {
@@ -328,13 +335,35 @@ type Local struct {
 }
 
 func (l *Local) Lookup(q *wire.Msg) (*wire.Msg, bool) {
+	match, ok := l.lookup(q)
+	return match.Msg, ok
+}
+
+// ExplainLocal is Lookup that also reports which layer and rules answered.
+func (l *Local) ExplainLocal(q *wire.Msg) (dns.LocalMatch, bool) { return l.lookup(q) }
+
+func (l *Local) lookup(q *wire.Msg) (dns.LocalMatch, bool) {
 	if l.Rewrites != nil {
-		if m, ok := l.Rewrites.Rewrite(q); ok {
-			return m, true
+		if m, rules, ok := l.Rewrites.rewrite(q); ok {
+			match := dns.LocalMatch{Msg: m, Stage: "rewrite"}
+			for _, rule := range rules {
+				match.Rules = append(match.Rules, dns.RuleRef{ID: rule.ID, Name: rule.Name, Detail: rule.Type + " " + rule.Value})
+			}
+			return match, true
 		}
 	}
 	if l.Next == nil {
-		return nil, false
+		return dns.LocalMatch{}, false
 	}
-	return l.Next.Lookup(q)
+	m, ok := l.Next.Lookup(q)
+	if !ok {
+		return dns.LocalMatch{}, false
+	}
+	match := dns.LocalMatch{Msg: m, Stage: "zone"}
+	if z, yes := l.Next.(interface{ ZoneFor(string) (string, bool) }); yes && len(q.Question) == 1 {
+		if name, found := z.ZoneFor(q.Question[0].Name); found {
+			match.Rules = []dns.RuleRef{{Name: strings.TrimSuffix(name, ".")}}
+		}
+	}
+	return match, true
 }

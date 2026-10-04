@@ -24,16 +24,22 @@ func (r *Resolver) blocked(q *wire.Msg) Result {
 	return Result{Message: m, Source: "blocked"}
 }
 func (r *Resolver) blockedAnswer(ctx context.Context, m *wire.Msg) bool {
+	_, blocked := r.blockedAnswerName(ctx, m)
+	return blocked
+}
+
+// blockedAnswerName returns the first answer owner or CNAME target the filter blocks.
+func (r *Resolver) blockedAnswerName(ctx context.Context, m *wire.Msg) (string, bool) {
 	if r.Filter == nil {
-		return false
+		return "", false
 	}
 	for _, rr := range m.Answer {
 		if r.blockedName(ctx, rr.Header().Name) {
-			return true
+			return rr.Header().Name, true
 		}
 		if alias, ok := rr.(*wire.CNAME); ok && r.blockedName(ctx, alias.Target) {
-			return true
+			return alias.Target, true
 		}
 	}
-	return false
+	return "", false
 }

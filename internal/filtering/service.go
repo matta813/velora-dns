@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -103,6 +104,60 @@ func (s *Service) compile(sources []Source) (*Matcher, error) {
 	return New(rules)
 }
 func (s *Service) Blocked(domain string) bool { return s.current.Load().Blocked(domain) }
+
+// SourceRef names a blocklist source.
+type SourceRef struct {
+	ID   int64
+	Name string
+}
+
+// Attribution labels the parts of the filter that cover a name; it never
+// decides anything, the matchers do. Static is the configuration allow/block
+// rule action (when StaticMatched) and Sources the lists containing the name.
+type Attribution struct {
+	StaticMatched bool
+	Static        Action
+	Sources       []SourceRef
+}
+
+// Attribute reports which configuration rules and blocklist sources cover
+// name. sourceIDs selects sources the way Subset does; nil means every
+// enabled source. It only reads the published snapshot.
+func (s *Service) Attribute(name string, sourceIDs []int64) Attribution {
+	var out Attribution
+	n, err := NormalizeDomain(name)
+	if err != nil {
+		return out
+	}
+	if static, err := New(s.static); err == nil {
+		out.Static, out.StaticMatched = static.Match(n)
+	}
+	covers := map[string]bool{}
+	for current := n; ; {
+		covers[current] = true
+		i := strings.IndexByte(current, '.')
+		if i < 0 {
+			break
+		}
+		current = current[i+1:]
+	}
+	published := s.published.Load()
+	if published == nil {
+		return out
+	}
+	for _, source := range *published {
+		if sourceIDs == nil && !source.Enabled || sourceIDs != nil && !slices.Contains(sourceIDs, source.ID) {
+			continue
+		}
+		for _, domain := range source.Domains {
+			if covers[strings.TrimPrefix(domain, "*.")] {
+				out.Sources = append(out.Sources, SourceRef{ID: source.ID, Name: source.Name})
+				break
+			}
+		}
+	}
+	return out
+}
 func (s *Service) List(context.Context) ([]Source, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
