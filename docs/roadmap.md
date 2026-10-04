@@ -25,8 +25,6 @@ English, and `web/src/i18n.test.ts` checks key completeness and empty values.
 
 - Improve upstream health visibility and failover diagnostics; test behavior under
   slow, malformed, and unreachable upstreams.
-- Show effective TTLs next to the cached entries list; answer explanation is done
-  ([ADR 0006](architecture/0006-answer-explanation.md)).
 
 ### Observability and security
 
